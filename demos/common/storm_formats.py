@@ -1,14 +1,17 @@
 """Writers for the engine's native asset formats, shared by the demo generators.
 
 - .tx  textures: A8R8G8B8 with the full mip chain
-- .gm  geometry: static (RDF_VERTEX0) or skinned (RDF_AVERTEX0) meshes, one vertex buffer, no BSP
+- .gm  geometry: static (RDF_VERTEX0) or skinned (RDF_AVERTEX0) meshes, one vertex buffer and
+       optionally the BSP tree that traces and clips run against (shadows, cameras, shots)
 - .an  skeletal animation: bone hierarchy, root positions and per-bone quaternions per frame
+- .ptc character patch: the walkable surface of a location, its neighbours, lookup grid and paths
 
 Meshes and skeletons are authored in model space as they should appear on screen; the writers take
 care of the engine's conventions (see the notes at write_gm and write_an).
 """
 import math
 import struct
+from collections import deque
 from pathlib import Path
 
 from PIL import Image
@@ -17,6 +20,7 @@ TXF_A8R8G8B8 = 21
 
 # geometry/src/rdf.h
 RDF_VERSION = (ord("1") << 24) | (ord(".") << 16) | (ord("0") << 8) | ord("5")
+FLAGS_BSP_PRESENT = 2
 OBJECT_VISIBLE = 1
 TEXTURE_BASE = 1
 VB_SKINNED = 4  # RDF_VERTEXBUFF.type bit: RDF_AVERTEX0 vertices, transformed on the CPU by the bones
@@ -82,8 +86,9 @@ def mirror_x(v):
     return (-v[0], v[1], v[2])
 
 
-def write_gm(meshes, path, skinned=False):
-    """Writes a .gm: one material and texture per mesh, one vertex buffer, no BSP.
+def write_gm(meshes, path, skinned=False, bsp=False):
+    """Writes a .gm: one material and texture per mesh, one vertex buffer and, with bsp, the tree
+    GEOM::Trace and GEOM::Clip search (without it every trace misses the model).
 
     Skinned meshes get RDF_AVERTEX0 vertices bound to one bone each. The engine's skinning
     (model.cpp, VBTransform) negates x of every transformed vertex, so they are stored mirrored
@@ -152,7 +157,18 @@ def write_gm(meshes, path, skinned=False):
     assert svertex < 65536, "16-bit indices"
 
     names = list(offsets.values())
-    head = struct.pack("<11i3f3ff", RDF_VERSION, 0, len(strings), len(names), len(textures), len(meshes), 0, 0,
+    flags = 0
+    if bsp:
+        assert not skinned, "the BSP is in model space, bones would move the triangles away from it"
+        flags |= FLAGS_BSP_PRESENT
+        # one list of positions and triangles in object order: a hit is mapped back to its object
+        # by counting triangles (GEOM::GetCollisionDetails)
+        bsp_vertices, bsp_triangles = [], []
+        for mesh in meshes:
+            base = len(bsp_vertices)
+            bsp_vertices += [v[0] for v in mesh.vertices]
+            bsp_triangles += [tuple(base + i for i in tri) for tri in mesh.triangles]
+    head = struct.pack("<11i3f3ff", RDF_VERSION, flags, len(strings), len(names), len(textures), len(meshes), 0, 0,
                        len(meshes), striangle, 1, *bbox_size, *bbox_center, radius)
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -166,6 +182,129 @@ def write_gm(meshes, path, skinned=False):
         out.write(triangles)
         out.write(struct.pack("<2i", VB_SKINNED if skinned else 0, len(vertices)))  # RDF_VERTEXBUFF
         out.write(vertices)
+        if bsp:
+            out.write(bsp_tree(bsp_vertices, bsp_triangles))
+
+
+# BSP_NODE (rdf.h): plane, then a bit field with the children and the face count, then 3-byte
+# triangle indices that start in the last field and run on into the following array slots
+BSP_NODE_SIZE = 24
+BSP_MAX_FACES = 15
+BSP_MAX_DEPTH = 250  # GEOM::Trace and GEOM::Clip keep 256-entry stacks
+BSP_EPSILON = 1e-4
+
+
+class _BspNode:
+    def __init__(self, normal, distance, faces):
+        self.normal, self.distance, self.faces = normal, distance, faces
+        self.left = self.right = None
+
+    def slots(self):
+        return 1 + max(0, -(-(3 * len(self.faces) - 4) // BSP_NODE_SIZE))
+
+
+def bsp_tree(positions, triangles):
+    """Builds the BSP block of a .gm: RDF_BSPHEAD, nodes, vertices, triangles.
+
+    Every node splits by the plane of some triangles and keeps up to 15 of those coplanar faces;
+    the rest go to the negative ("left") or positive ("right") child, triangles crossing the
+    plane to both. Trace walks the near side, tests the node faces where the segment crosses the
+    plane, then the far side, so the first hit is the nearest one.
+    """
+    def dot(a, b):
+        return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+
+    planes = []
+    for tri in triangles:
+        a, b, c = (positions[i] for i in tri)
+        u = [b[k] - a[k] for k in range(3)]
+        v = [c[k] - a[k] for k in range(3)]
+        n = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]]
+        length = math.sqrt(dot(n, n))
+        assert length > 0, f"degenerate triangle {tri}"
+        n = [x / length for x in n]
+        # faces either way round share a plane: the face test is two-sided
+        if next(x for x in n if abs(x) > 1e-6) < 0:
+            n = [-x for x in n]
+        planes.append((tuple(n), dot(n, a)))
+
+    def classify(t, normal, distance):
+        side = [dot(normal, positions[i]) - distance for i in triangles[t]]
+        return min(side) < -BSP_EPSILON, max(side) > BSP_EPSILON
+
+    def build(tris, depth):
+        if not tris:
+            return None
+        assert depth < BSP_MAX_DEPTH, "BSP too deep"
+        groups = {}
+        for t in tris:
+            n, d = planes[t]
+            groups.setdefault(tuple(round(x, 4) for x in n) + (round(d, 4),), []).append(t)
+        # a few candidate planes, the one splitting fewest triangles and halving the rest wins
+        keys = sorted(groups)
+        step = max(1, len(keys) // 12)
+        best = None
+        for key in keys[::step]:
+            normal, distance = planes[groups[key][0]]
+            left = right = both = 0
+            for t in tris:
+                neg, pos = classify(t, normal, distance)
+                left += neg and not pos
+                right += pos and not neg
+                both += neg and pos
+            score = 8 * both + abs(left - right)
+            if best is None or score < best[0]:
+                best = score, key
+        faces = groups[best[1]][:BSP_MAX_FACES]
+        node = _BspNode(*planes[faces[0]], faces)
+        left, right = [], []
+        taken = set(faces)
+        for t in tris:
+            if t in taken:
+                continue
+            neg, pos = classify(t, node.normal, node.distance)
+            if neg:
+                left.append(t)
+            # coplanar faces beyond the 15 go on in the positive child, which meets them at the
+            # same crossing distance
+            if pos or not neg:
+                right.append(t)
+        node.left, node.right = build(left, depth + 1), build(right, depth + 1)
+        return node
+
+    root = build(list(range(len(triangles))), 0)
+
+    # the root is slot 0; the children of a node lie side by side, left first, so the right one
+    # is found as an offset of 1..3 slots (BSP_NODE.right is 2 bits)
+    position = {id(root): 0}
+    size = root.slots()
+    order = [root]
+    for node in order:
+        for child in (node.left, node.right):
+            if child:
+                position[id(child)] = size
+                size += child.slots()
+                order.append(child)
+    assert size < 1 << 22
+    nodes = bytearray(size * BSP_NODE_SIZE)
+    for node in order:
+        if node.left:
+            first, has_left = position[id(node.left)], 1
+            right = position[id(node.right)] - first if node.right else 0
+        else:
+            has_left, right = 0, 1 if node.right else 0
+            first = position[id(node.right)] - 1 if node.right else 0
+        assert right <= 3
+        bits = first | has_left << 23 | len(node.faces) << 24 | right << 28
+        faces = b"".join(t.to_bytes(3, "little") for t in node.faces)
+        record = struct.pack("<3ffI", *node.normal, node.distance, bits) + faces
+        offset = position[id(node)] * BSP_NODE_SIZE
+        nodes[offset:offset + len(record)] = record
+
+    out = struct.pack("<3i", size, len(positions), len(triangles)) + bytes(nodes)
+    out += b"".join(struct.pack("<3f", *p) for p in positions)
+    out += b"".join(i.to_bytes(3, "little") for tri in triangles for i in tri)
+    return out
 
 
 # ---------------------------------------------------------------- animation
@@ -221,3 +360,139 @@ def write_an(path, fps, parents, joints, root_positions, rotations):
         for bone in rotations:
             for x, y, z, w in bone:
                 out.write(struct.pack("<4f", x, -y, -z, w))
+
+
+# ---------------------------------------------------------------- character patch
+
+def fourcc(text):
+    """A multi-character constant as MSVC builds it: 'abcd' is (a << 24) | (b << 16) | (c << 8) | d."""
+    value = 0
+    for ch in text:
+        value = value << 8 | ord(ch)
+    return value
+
+
+PTC_ID = fourcc(" CTP")
+PTC_VERSION = fourcc("10.1")
+PTC_SPACE = fourcc("    ")
+PTC_NOSEA = fourcc(" HTE")
+PTC_UNREACHABLE = 3
+
+
+def write_ptc(triangles, path, materials=("ground",), cell=1.0):
+    """Writes a .ptc character patch (location/include/ptc.h, PtcData::Load).
+
+    triangles: ((p0, p1, p2), material index) in world space. Characters walk on these
+    triangles only: an edge two triangles share by both vertices is a passage, any other edge
+    is a wall the character slides along. So a step down without shared vertices is a wall too.
+
+    - vertices are merged by position, which is what makes the shared edges
+    - PtcData::FindNode treats a point as inside when it is on the left of every edge seen from
+      above, so triangles are wound with cross(b - a, c - a).y > 0; their normals point up
+    - nb[j] is the neighbour across the edge i[j] -> i[j + 1], -1 for a wall
+    - the lookup grid splits the bounds into cells of about `cell` metres, each listing the
+      triangles whose bounds overlap it
+    - the path table has a row per triangle with 2 bits per destination triangle: the edge to
+      leave through to get there by the fewest triangles (breadth-first), 3 if unreachable
+    """
+    vertex_index = {}
+    vertices = []
+    tris = []
+    for points, material in triangles:
+        ids = []
+        for p in points:
+            key = tuple(round(c, 4) for c in p)
+            if key not in vertex_index:
+                vertex_index[key] = len(vertices)
+                vertices.append(key)
+            ids.append(vertex_index[key])
+        a, b, c = (vertices[i] for i in ids)
+        cross_y = (b[2] - a[2]) * (c[0] - a[0]) - (b[0] - a[0]) * (c[2] - a[2])
+        assert abs(cross_y) > 1e-9, "a vertical or degenerate triangle cannot be walked on"
+        if cross_y < 0:
+            ids[1], ids[2] = ids[2], ids[1]
+        tris.append((ids, material))
+    count = len(tris)
+    assert count < 32768 and len(vertices) < 65536
+
+    normals = []
+    for ids, _ in tris:
+        a, b, c = (vertices[i] for i in ids)
+        e1 = [b[k] - a[k] for k in range(3)]
+        e2 = [c[k] - a[k] for k in range(3)]
+        n = (e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0])
+        length = math.sqrt(sum(x * x for x in n))
+        normals.append(tuple(x / length for x in n))
+
+    edges = {}
+    for t, (ids, _) in enumerate(tris):
+        for j in range(3):
+            edges.setdefault(frozenset((ids[j], ids[(j + 1) % 3])), []).append(t)
+    neighbours = []
+    for t, (ids, _) in enumerate(tris):
+        nb = []
+        for j in range(3):
+            others = [o for o in edges[frozenset((ids[j], ids[(j + 1) % 3]))] if o != t]
+            assert len(others) <= 1, "an edge shared by more than two triangles"
+            nb.append(others[0] if others else -1)
+        neighbours.append(nb)
+
+    lo = [min(v[k] for v in vertices) for k in range(3)]
+    hi = [max(v[k] for v in vertices) for k in range(3)]
+    map_w = max(1, math.ceil((hi[0] - lo[0]) / cell))
+    map_l = max(1, math.ceil((hi[2] - lo[2]) / cell))
+    ws = (hi[0] - lo[0]) / map_w
+    ls = (hi[2] - lo[2]) / map_l
+    grid = [[] for _ in range(map_w * map_l)]
+    for t, (ids, _) in enumerate(tris):
+        xs = [vertices[i][0] for i in ids]
+        zs = [vertices[i][2] for i in ids]
+        x0 = max(0, int((min(xs) - lo[0]) / ws))
+        x1 = min(map_w - 1, int((max(xs) - lo[0]) / ws))
+        z0 = max(0, int((min(zs) - lo[2]) / ls))
+        z1 = min(map_l - 1, int((max(zs) - lo[2]) / ls))
+        for mz in range(z0, z1 + 1):
+            for mx in range(x0, x1 + 1):
+                grid[mz * map_w + mx].append(t)
+    indices = [t for cell_list in grid for t in cell_list]
+
+    # one breadth-first search per destination fills its column of the table
+    line_size = (count + 3) // 4
+    table = bytearray(b"\xff" * (line_size * count))
+    for to in range(count):
+        seen = {to}
+        queue = deque([to])
+        while queue:
+            u = queue.popleft()
+            for n in neighbours[u]:
+                if n < 0 or n in seen:
+                    continue
+                seen.add(n)
+                queue.append(n)
+                edge = neighbours[n].index(u)
+                byte = n * line_size + (to >> 2)
+                shift = (to & 3) * 2
+                table[byte] = (table[byte] & ~(3 << shift)) | (edge << shift)
+
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "wb") as out:
+        out.write(struct.pack("<13i6f", PTC_ID, PTC_SPACE, PTC_VERSION, PTC_SPACE, PTC_NOSEA, PTC_SPACE,
+                              count, len(vertices), len(normals), map_l, map_w, len(indices), line_size, *lo, *hi))
+        for t, (ids, material) in enumerate(tris):
+            out.write(struct.pack("<4H3hbb", *ids, t, *neighbours[t], material, 0))
+        for v in vertices:
+            out.write(struct.pack("<3f", *v))
+        for n in normals:
+            out.write(struct.pack("<3f", *n))
+        start = 0
+        for cell_list in grid:
+            out.write(struct.pack("<2i", start, len(cell_list)))
+            start += len(cell_list)
+        out.write(struct.pack(f"<{len(indices)}H", *indices))
+        out.write(bytes(table))
+        assert len(materials) <= 16
+        out.write(struct.pack("<i", len(materials)))
+        for name in list(materials) + [""] * (16 - len(materials)):
+            out.write(name.encode("ascii")[:15].ljust(16, b"\0"))
+    return count

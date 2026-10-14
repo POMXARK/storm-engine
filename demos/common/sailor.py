@@ -1,7 +1,7 @@
 """A generated sailor shared by the demos: skinned mesh, textures, skeleton and looped animation cycles.
 
 The sailor is a low-poly mannequin: every part is rigidly bound to one of 11 bones. Frame 0 of the
-.an file is the bind pose the mesh is modelled in; the cycles ("idle", "walk", "run") follow it.
+.an file is the bind pose the mesh is modelled in; the cycles ("idle", "walk", "run", "turn") follow it.
 """
 import math
 
@@ -225,6 +225,11 @@ def run_pose(t):
     return gait_pose(t, hip=0.7, knee=1.3, arm=0.6, elbow=1.2, lean=0.2, bounce=0.06)
 
 
+def turn_pose(t):
+    """Stepping in place while turning on the spot."""
+    return gait_pose(t, hip=0.12, knee=0.5, arm=0.06, elbow=0.3, lean=0.02, bounce=0.01)
+
+
 class Cycle:
     """A looped action: frames of one cycle and the distance it covers (0 for standing ones)."""
 
@@ -241,6 +246,7 @@ class Cycle:
 IDLE = Cycle("idle", idle_pose, 120)  # 4 s
 WALK = Cycle("walk", walk_pose, 32, stride=1.4)  # two steps of 0.7 m
 RUN = Cycle("run", run_pose, 20, stride=2.4)  # two strides of 1.2 m
+TURN = Cycle("turn", turn_pose, 24)
 
 
 def frame_list(cycles):
