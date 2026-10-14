@@ -1,4 +1,4 @@
-#include "storm\blade\blade.hpp"
+#include "storm/blade/blade.hpp"
 
 #include "animation.h"
 #include "core.h"

@@ -23,10 +23,11 @@
 #define _tsystem std::system
 #endif
 
+#include "storm/engine_settings.hpp"
+
 #ifdef _WIN32
 #include "logging.hpp"
 #include "seh_extractor.hpp"
-#include "storm/engine_settings.hpp"
 #endif
 
 namespace

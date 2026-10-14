@@ -13,7 +13,7 @@
 #include "character.h"
 #include "characters_groups.h"
 #include "lights.h"
-#include "storm\blade\blade.hpp"
+#include "storm/blade/blade.hpp"
 
 #include "debug-trap.h"
 #include "geometry.h"

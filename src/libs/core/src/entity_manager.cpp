@@ -494,8 +494,7 @@ void EntityManager::ShowEditor(bool &active)
 {
     if (ImGui::Begin("Entities", &active, 0))
     {
-        auto text = std::format("There are currently {} entities", entities_.size() - freeIndices_.size());
-        ImGui::Text(text.c_str());
+        ImGui::TextFmt("There are currently {} entities", entities_.size() - freeIndices_.size());
 
         static entid_t selected_entity = invalid_entity;
 
