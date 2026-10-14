@@ -121,9 +121,9 @@ void *VBTransform(void *vb, int32_t startVrt, int32_t nVerts, int32_t totVerts)
         XMStoreFloat3(reinterpret_cast<DirectX::XMFLOAT3 *>(&dstVrt.pos),
             XMVector3Transform(XMLoadFloat3(reinterpret_cast<DirectX::XMFLOAT3 *>(&vrt.pos)), xmmtx));
 
-        // Normal
+        // Normal: a direction, the bone's translation does not apply
         XMStoreFloat3(reinterpret_cast<DirectX::XMFLOAT3 *>(&dstVrt.nrm),
-            XMVector3Transform(XMLoadFloat3(reinterpret_cast<DirectX::XMFLOAT3 *>(&vrt.nrm)), xmmtx));
+            XMVector3TransformNormal(XMLoadFloat3(reinterpret_cast<DirectX::XMFLOAT3 *>(&vrt.nrm)), xmmtx));
 #else
         mtx.matrix[0] = -(m1.matrix[0] * vrt.weight + m2.matrix[0] * wNeg);
         mtx.matrix[1] = m1.matrix[1] * vrt.weight + m2.matrix[1] * wNeg;
@@ -141,8 +141,12 @@ void *VBTransform(void *vb, int32_t startVrt, int32_t nVerts, int32_t totVerts)
         // Position
         ((CVECTOR &)dstVrt.pos) = mtx * (CVECTOR &)vrt.pos;
 
-        // Normal
-        ((CVECTOR &)dstVrt.nrm) = mtx * (CVECTOR &)vrt.nrm;
+        // Normal: a direction, the bone's translation does not apply
+        const auto &nrm = (CVECTOR &)vrt.nrm;
+        ((CVECTOR &)dstVrt.nrm) =
+            CVECTOR(mtx.matrix[0] * nrm.x + mtx.matrix[4] * nrm.y + mtx.matrix[8] * nrm.z,
+                    mtx.matrix[1] * nrm.x + mtx.matrix[5] * nrm.y + mtx.matrix[9] * nrm.z,
+                    mtx.matrix[2] * nrm.x + mtx.matrix[6] * nrm.y + mtx.matrix[10] * nrm.z);
 #endif // _WIN32 DirectXMath
 
         // Rest
