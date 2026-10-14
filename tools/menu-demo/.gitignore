@@ -1,0 +1,9 @@
+assets/
+resource/textures/
+resource/techniques
+resource/ini/fonts.ini
+resource/sounds/
+resource/ini/aliases/
+engine.out
+*.log
+*.dxvk-cache
