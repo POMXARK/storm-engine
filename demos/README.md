@@ -21,7 +21,7 @@ Each demo is started with `run.sh <path to built engine executable>` from its fo
 | Skeletal animation: skinned `.gm`, `.an` skeleton, `.ani` actions played and switched by script | [`character`](character) | done |
 | Locations: model with BSP (traces, shadows), walkable `.ptc` patch, player character controller, following camera | [`location`](location) | done |
 | Sea (animated waves, cube-map sky reflection, foam), skybox, weather presets switched by script | [`sea`](sea) | done |
-| Ship sailing and ship controls | — | planned |
+| Ship: hull, masts and sails from `.gm` labels, sails in the wind, helm and sail controls, ship camera | [`ship`](ship) | done |
 | Particles and effects | — | planned |
 | Dialogs | — | planned |
 | Save / load | — | planned |

@@ -29,6 +29,7 @@
 | `TextureSequence.ini` | `resource/ini/` | renderer/xinterface | анимированные текстуры | **[не разбирался]** |
 | `star.dat`, `hic.dat`, `hic.txt` | `resource/` | weather/stars | звёздное небо | — |
 | `sea%.4d.tga` | `resource/sea/` | sea (sea.cpp) | 64 кадра карты высот волн 128×128 | `demos/sea/make_sea.py` (4.9) |
+| `models/ships/<Имя>/*.gm` | `resource/` | ship, mast, rigging (sail.cpp) | корабль: корпус, мачты, реи, паруса как метки | `demos/ship/make_ship.py` (4.10) |
 | `resource/foam/locations/` | — | island/foam | пена у берегов | — |
 | `rigging.ini`, `mast.ini`, `dialog.ini`, `animals.ini`, `loclighter.ini`, `helpchooser.ini`, `interfaces/battle_interface.ini` | `resource/ini/` | одноимённые libs | параметры подсистем | по образцу TEHO |
 | видео | `resource/videos/` | xinterface/aviplayer | ролики | на Linux `aviplayer` закрыт `#ifdef _WIN32` (FIX_LINUX) — **видео не работает** |
@@ -66,6 +67,7 @@ TX_FILE_HEADER (packed, 24 байта):
 - Цвет вершины — альбедо, на которое умножается свет, текстура накладывается с MODULATE2X: серый `0x80` оставляет текстуру как есть.
 - D3D отсекает грани против часовой стрелки: треугольник ориентируется так, чтобы `cross(b−a, c−a)` смотрел вдоль нормалей.
 - Скиннинговые вершины (`RDF_AVERTEX0`, бит 4 в `RDF_VERTEXBUFF.type`) движок при трансформации отражает по x (`model.cpp`, VBTransform), поэтому их хранят зеркально.
+- Метки (`RDF_LABEL`, `<3i16f4i4f>`: группа, имя, flags, матрица 4×4 строками Vx, Vy, Vz, Pos, bones, weights) — `write_gm(..., labels=[(group, name, pos)])`. Группы движок сравнивает по адресу строки (`unbelievable_workaround`), поэтому одинаковые имена в таблице строк должны быть одной записью.
 - Без BSP-блока (`FLAGS_BSP_PRESENT`) `GEOM::Trace`/`Clip` не попадают в модель: нет теней на ней, камера проходит сквозь стены. Глубина дерева ≤ 250 (стеки на 256).
 
 ## 4.3 Анимация
@@ -196,3 +198,13 @@ name = interface\click2.wav, 1   ; несколько name — случайны�
 ## 4.9 Кадры волн моря `sea%.4d.tga` (sea/src/sea.cpp)
 
 `resource\sea\sea0000.tga … sea0063.tga` — 64 кадра 128×128, несжатый TGA 32 бита, высота в первом (синем) байте пикселя. Кадры проигрываются по кругу и тайлятся по морю, поэтому волны должны быть периодичны и в пространстве, и во времени (в `make_sea.py`: целые волновые числа и целое число периодов за цикл). Цвет, амплитуды, масштабы и пена задаются атрибутами `Sea.Sea2.*` (см. рецепт 6.9).
+
+## 4.10 Модель корабля (ship/src/ship.cpp, geometry/src/node.cpp, rigging/src/sail.cpp)
+
+`resource\models\ships\<Имя>\<Имя>.gm`, имя — `BaseShip.Name`. Метка в группе `geometry` подгружает дочернюю модель `<Имя>_<метка>.gm` (node.cpp:226) и вешает её в точку метки: так собирается дерево корпус → `mastN` → `rey_*`.
+- Узел `mastN` задаёт номер мачты, узел `rey*` с родителем `mastN` — рею на ней; `rey_` — рея поворачивается по ветру; 5-й символ `a` — быстрый парус (FAST).
+- Паруса — метки в группах `sail<тип><N>` (`AddSailLabel`). Тип: `s`, `g`, `d` — прямоугольный; `t`, `v` — треугольный; `f`, `n` — трапеция; `x` — особый. Имена меток — углы: `sail1`→hp0, `sail2`→hp1, `sail3`→hp3 (у треугольного hp2), `sail4`→hp2, `sail0` — limit point.
+- Прямоугольный: hp0, hp1 — верхние углы, hp2, hp3 — нижние (ширина = |h0+h2−h1−h3|/2). Треугольный: ширина h2−h0, высота h1−h2.
+- Текстуры: ткань — что вернёт `GetSailTextureData` (`normalTex`), плюс `ships\parus_hole.tga` (дыры; альфа умножается, поэтому непрозрачная) и `ships\emptygerald.tga` (герб; прозрачный).
+- `resource\ini\rigging.ini` [SAILS] обязателен. Значения разбирает `parseValue`; цвета — целое 0xRRGGBBAA, записанное десятичным числом (`ColorToD3D`: r — старший байт), например `Diffuse = 2576980479`.
+

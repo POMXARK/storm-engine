@@ -9,6 +9,7 @@
 | Скелетная анимация | `demos/character` | `program/character.c` |
 | Локация, персонаж игрока, камера от третьего лица | `demos/location` | `program/location.c` |
 | Море, небо, погода | `demos/sea` | `program/sea.c` |
+| Корабль: паруса, ход, руль, морская камера | `demos/ship` | `program/ship.c` |
 
 ## 6.1 Минимальная игра
 ```c
@@ -117,4 +118,32 @@ Sea.Sea2.WaterColor = ...; Sea.Sea2.SkyColor = ...; Sea.Sea2.Amp1 = 6.0; ... Sea
 - Атрибуты `Sea2.*` читаются в `Sea::AttributeChanged` (`sea.cpp`): два слоя волн (`Amp/AnimSpeed/Scale/MoveSpeed 1` — крупная зыбь, `…2` — рябь), `Reflection`, `Transparency`, `Frenel`, `Attenuation`, пена `Foam*` (текстура `weather\sea\pena\pena.tga`), `SimpleSea`, `LodScale`, `GridStep`; `Sea.Fog.*`, `Sea.MaxSeaHeight`.
 - Если море зелёное (дефолт `v4SeaColor` 0,255,0), значит `Sea2.*` не применились: см. 3.4.
 - Камеру в шторм держать выше гребней (`Amp1` 12 → камера на y = 20).
+
+## 6.10 Корабль: паруса, ход, руль (`demos/ship`)
+Модель и паруса генерирует `make_ship.py` (4.10), море и небо — как в 6.9.
+```c
+int iShipPriorityExecute = 2; int iShipPriorityRealize = 31;   // глобальные: движок читает их по имени
+CreateEntity(&Sail, "sail");                        // читает resource\ini\rigging.ini [SAILS], без него — throw
+LayerAddObject(EXECUTE, &Sail, iShipPriorityExecute + 1); LayerAddObject(REALIZE, &Sail, iShipPriorityRealize + 1);
+LayerAddObject(SAILS_TRACE, &Sail, 10); LayerAddObject(SEA_REFLECTION2, &Sail, 3);
+BaseShip.Name = "Brig";                             // models\ships\Brig\Brig.gm
+BaseShip.SpeedRate = 12.0; BaseShip.TurnRate = 40.0; BaseShip.Inertia{Acceleration,Braking}{X,Y,Z} = ...;
+Player.index = 0; Player.MainCharacter = 1;         // корабль сам читает контролы Ship_TurnLeft/Right, Ship_SailUp/Down
+Player.Ship.Speed.z = 1.0;                          // > 0 — старт с поднятыми парусами
+SetEventHandler("SeaGetLayers", "Demo_ShipLayers", 0);          // aref ship → SendMessage(ship, "lll", 51015, EXECUTE, REALIZE)
+SetEventHandler("Shp_UpdParams", "Demo_ShipParameters", 0);     // "lf": index, доля парусов 0..1, ~раз в секунду
+SetEventHandler("GetSailTextureData", "Demo_SailTextures", 0);  // "l" → вернуть ref на объект с normalTex
+CreateEntity(&Player, "ship");
+SendMessage(&Player, "laa", 50300, &Player, &BaseShip);         // MSG_SHIP_CREATE
+SendMessage(&Player, "ls", 20510, "DLightModel");                // иначе корпус не освещается солнцем
+// камера
+CreateEntity(&SeaCameras, "SEA_CAMERAS"); CreateEntity(&ShipCamera, "SHIP_CAMERA");
+ShipCamera.Distance = 0.05; ShipCamera.MinDistance = 25.0; ShipCamera.MaxDistance = 1500.0; ...
+SendMessage(&SeaCameras, "lia", 55001, &ShipCamera, &Player);    // AI_CAMERAS_SET_CAMERA
+SendMessage(&Scene, "si", "SetActiveCamera", &ShipCamera);
+```
+- Скорость задаёт скрипт в `Shp_UpdParams`: `Player.Ship.MaxSpeedZ` (узлы, корабль умножает на долю парусов и ветер), `Player.Ship.MaxSpeedY` (поворот, умножается на −1..1 от руля). Движок пишет фактические `Player.ship.speed.x/y/z`.
+- Ветер — `Weather.Wind.Angle` (рад) и `Weather.Wind.Speed` (м/с); паруса полностью надуты при 12 м/с.
+- Контролы камеры: `ShipCamera_Turn_H/V` (мышь), `ShipCamera_Forward/Backward` (зум). Управление в демо: A/D — руль, W/S — паруса, мышь и Q/E — камера, ←/→ — ветер.
+- Некритичные предупреждения в `error.log`: нет `BLOT.TGA`, «no active ShipsLights», «doesn't have fire places» — у демо нет фонарей и мест пожаров.
 

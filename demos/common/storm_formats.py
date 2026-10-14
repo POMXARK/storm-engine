@@ -126,9 +126,13 @@ def mirror_x(v):
     return (-v[0], v[1], v[2])
 
 
-def write_gm(meshes, path, skinned=False, bsp=False):
+def write_gm(meshes, path, skinned=False, bsp=False, labels=()):
     """Writes a .gm: one material and texture per mesh, one vertex buffer and, with bsp, the tree
     GEOM::Trace and GEOM::Clip search (without it every trace misses the model).
+
+    Labels are (group, name, position) locators, unrotated. Group "geometry" makes the model load
+    <file>_<name>.gm as a child node there (model/src/node.cpp); other groups are read by the
+    entities that use the model, such as the sail corners of a ship (rigging/src/sail.cpp).
 
     Skinned meshes get RDF_AVERTEX0 vertices bound to one bone each. The engine's skinning
     (model.cpp, VBTransform) negates x of every transformed vertex, so they are stored mirrored
@@ -196,6 +200,13 @@ def write_gm(meshes, path, skinned=False, bsp=False):
         svertex += len(mesh.vertices)
     assert svertex < 65536, "16-bit indices"
 
+    # RDF_LABEL; group names are matched by the address of the string, so equal names share one
+    label_data = b""
+    for group_name, label_name, pos in labels:
+        matrix = (1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, *pos, 1.0)
+        label_data += struct.pack("<3i16f4i4f", name(group_name), name(label_name), 0, *matrix,
+                                  *([0] * 4), *([0.0] * 4))
+
     names = list(offsets.values())
     flags = 0
     if bsp:
@@ -208,8 +219,9 @@ def write_gm(meshes, path, skinned=False, bsp=False):
             base = len(bsp_vertices)
             bsp_vertices += [v[0] for v in mesh.vertices]
             bsp_triangles += [tuple(base + i for i in tri) for tri in mesh.triangles]
-    head = struct.pack("<11i3f3ff", RDF_VERSION, flags, len(strings), len(names), len(textures), len(meshes), 0, 0,
-                       len(meshes), striangle, 1, *bbox_size, *bbox_center, radius)
+    head = struct.pack("<11i3f3ff", RDF_VERSION, flags, len(strings), len(names), len(textures),
+                       len(meshes), 0, len(labels), len(meshes), striangle, 1,
+                       *bbox_size, *bbox_center, radius)
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "wb") as out:
@@ -218,6 +230,7 @@ def write_gm(meshes, path, skinned=False, bsp=False):
         out.write(struct.pack(f"<{len(names)}i", *names))
         out.write(struct.pack(f"<{len(textures)}i", *texture_names))
         out.write(materials)
+        out.write(label_data)
         out.write(objects)
         out.write(triangles)
         out.write(struct.pack("<2i", VB_SKINNED if skinned else 0, len(vertices)))  # RDF_VERTEXBUFF

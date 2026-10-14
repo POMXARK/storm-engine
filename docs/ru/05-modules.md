@@ -23,4 +23,6 @@
 | `editor` | встроенный редактор (`--editor`) |
 | `src/apps/configapp` | отдельная утилита настроек |
 
+Корабль (проверено в `demos/ship`, рецепт 6.10): сущность `ship` (корпус, ход, качка; события `SeaGetLayers`, `Shp_UpdParams`, `ShpCreate`, `Ship_StartLoad/EndLoad`), `sail` из `rigging` (паруса, их анимация по ветру из `Weather.Wind.*`), `SEA_CAMERAS` + `SHIP_CAMERA` из `sea_cameras` (камера вокруг корабля, `AI_CAMERAS_SET_CAMERA 55001`). Нужны также `weather`, `sky`, `sea` из 6.9.
+
 Для своей игры достаточно `core`, `renderer`, `xinterface`, `sound_service`, `pcs_controls` (это подтверждает `tools/menu-demo`). Морские и сухопутные модули подключаются, только если скрипт создаёт их сущности.
