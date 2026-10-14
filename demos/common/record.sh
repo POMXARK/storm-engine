@@ -1,0 +1,77 @@
+#!/bin/bash
+# Records a demo run to a video: starts the demo, captures its window with ffmpeg and plays a
+# scripted sequence of inputs, then quits the engine.
+# Usage: record.sh <demo dir> <engine executable> <out.mp4> <step>...
+# Steps run in order once the window is up and the recording has started:
+#   sleep:S          wait S seconds (fractions allowed)
+#   key:K            press and release key K (xdotool key names: 1, Escape, space, w...)
+#   hold:K:S         hold key K for S seconds
+#   move:DX:DY:S     move the mouse by DX, DY pixels evenly over S seconds
+# The engine is stopped after the last step, so end with the time the result should stay in view.
+# Each recording is listed in index.tsv next to the video: date, demo, engine commit, file.
+# Needs X11, xdotool and ffmpeg with libx264.
+set -euo pipefail
+DEMO="$(realpath "$1")"
+ENGINE="$(realpath "$2")"
+OUT="$(realpath -m "$3")"
+shift 3
+FPS=30
+
+
+"$DEMO/run.sh" "$ENGINE" > "$DEMO/engine.out" 2>&1 &
+ENGINE_PID=$!
+FFMPEG_PID=
+cleanup() {
+    if [ -n "$FFMPEG_PID" ]; then kill -INT "$FFMPEG_PID" 2>/dev/null || true; wait "$FFMPEG_PID" 2>/dev/null || true; fi
+    # SDL turns SIGTERM into a quit event the scripts do not handle, so the engine gets a moment
+    # and is then killed
+    kill "$ENGINE_PID" 2>/dev/null || true
+    for _ in $(seq 10); do kill -0 "$ENGINE_PID" 2>/dev/null || break; sleep 0.2; done
+    kill -KILL "$ENGINE_PID" 2>/dev/null || true
+    wait "$ENGINE_PID" 2>/dev/null || true
+}
+trap cleanup EXIT
+
+# run.sh execs the engine, so the window belongs to this pid; asset generation may take a while
+WID=
+for _ in $(seq 120); do
+    WID=$(xdotool search --onlyvisible --pid "$ENGINE_PID" 2>/dev/null | tail -1 || true)
+    [ -n "$WID" ] && break
+    sleep 0.5
+done
+[ -n "$WID" ] || { echo "record.sh: no engine window" >&2; exit 1; }
+xdotool windowactivate --sync "$WID" 2>/dev/null || true
+# the first frames are spent loading the scene
+sleep 3
+
+mkdir -p "$(dirname "$OUT")"
+eval "$(xdotool getwindowgeometry --shell "$WID")"
+# x264 needs even sizes
+WIDTH=$((WIDTH / 2 * 2))
+HEIGHT=$((HEIGHT / 2 * 2))
+ffmpeg -loglevel error -y -f x11grab -draw_mouse 0 -framerate "$FPS" -window_id "$WID" \
+    -video_size "${WIDTH}x${HEIGHT}" -i "$DISPLAY" \
+    -c:v libx264 -preset veryfast -crf 23 -pix_fmt yuv420p -movflags +faststart "$OUT" &
+FFMPEG_PID=$!
+
+for step in "$@"; do
+    IFS=: read -r action a b c <<< "$step"
+    case "$action" in
+        sleep) sleep "$a" ;;
+        # a short hold: a press and release within one frame may be missed
+        key) xdotool keydown "$a"; sleep 0.15; xdotool keyup "$a" ;;
+        hold) xdotool keydown "$a"; sleep "$b"; xdotool keyup "$a" ;;
+        move)
+            n=$(awk -v s="$c" 'BEGIN { n = int(s * 30 + 0.5); print (n < 1 ? 1 : n) }')
+            for i in $(seq "$n"); do
+                xdotool mousemove_relative -- $((a * i / n - a * (i - 1) / n)) $((b * i / n - b * (i - 1) / n))
+                sleep 0.033
+            done ;;
+        *) echo "record.sh: unknown step $step" >&2; exit 1 ;;
+    esac
+done
+# the videos are kept out of git, an index next to them tells which engine build each shows
+COMMIT=$(git -C "$DEMO" describe --always --dirty 2>/dev/null || echo unknown)
+printf '%s\t%s\t%s\t%s\n' "$(date -Iseconds)" "$(basename "$DEMO")" "$COMMIT" "$(basename "$OUT")" \
+    >> "$(dirname "$OUT")/index.tsv"
+echo "record.sh: $OUT"
