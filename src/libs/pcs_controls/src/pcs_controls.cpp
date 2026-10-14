@@ -28,6 +28,9 @@ PCS_CONTROLS::PCS_CONTROLS()
     nLastControlTime = 0;
 
     nMouseWheel = 0;
+    // Update() only overwrites the deltas on Windows; elsewhere SDL events are added to them
+    nMouseDx = 0;
+    nMouseDy = 0;
     memset(&ControlsTab[0], 0, sizeof(ControlsTab));
 
     auto pIni = fio->OpenIniFile(core.EngineIniFileName());
