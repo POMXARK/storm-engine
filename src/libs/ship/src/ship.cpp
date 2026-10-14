@@ -1317,6 +1317,10 @@ uint64_t SHIP::ProcessMessage(MESSAGE &message)
         // all system which have particles - must be deleted here
         aFirePlaces.clear();
         break;
+    // a ship made without SEA_AI could not be sunk by a script, SetDead was reached only through it
+    case MSG_SHIP_SET_DEAD:
+        SetDead();
+        break;
         // boal 20.08.06 redrawing the flag -->
     case MSG_SHIP_FLAG_REFRESH:
         core.Send_Message(flag_id, "li", MSG_FLAG_DEL_GROUP, GetModelEID());

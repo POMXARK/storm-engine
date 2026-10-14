@@ -288,6 +288,26 @@ def bsp_tree(positions, triangles):
         side = [dot(normal, positions[i]) - distance for i in triangles[t]]
         return min(side) < -BSP_EPSILON, max(side) > BSP_EPSILON
 
+    def median_split(tris, depth):
+        centers = [[sum(positions[i][k] for i in triangles[t]) / 3 for k in range(3)] for t in tris]
+        extent = [max(c[k] for c in centers) - min(c[k] for c in centers) for k in range(3)]
+        axis = extent.index(max(extent))
+        normal = tuple(1.0 if k == axis else 0.0 for k in range(3))
+        distance = sorted(c[axis] for c in centers)[len(centers) // 2]
+        left, right = [], []
+        for t in tris:
+            neg, pos = classify(t, normal, distance)
+            if neg:
+                left.append(t)
+            if pos or not neg:
+                right.append(t)
+        # triangles crossing the plane go to both sides; a split that halves nothing is no use
+        if max(len(left), len(right)) > 0.8 * len(tris):
+            return None
+        node = _BspNode(normal, distance, [])
+        node.left, node.right = build(left, depth + 1), build(right, depth + 1)
+        return node
+
     def build(tris, depth):
         if not tris:
             return None
@@ -313,6 +333,13 @@ def bsp_tree(positions, triangles):
                 best = score, key
         faces = groups[best[1]][:BSP_MAX_FACES]
         node = _BspNode(*planes[faces[0]], faces)
+        # a convex shape (a hull) has every other face on one side of each face plane, so face
+        # splits peel off a few faces at a time and the tree gets as deep as the face count; then
+        # a node without faces halves the triangles at the median along the longest axis
+        if best[0] > 0.6 * len(tris) and len(tris) > 2 * BSP_MAX_FACES:
+            split = median_split(tris, depth)
+            if split:
+                return split
         left, right = [], []
         taken = set(faces)
         for t in tris:

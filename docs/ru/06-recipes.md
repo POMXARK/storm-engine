@@ -14,6 +14,7 @@
 | Диалог: ветвление, поле ввода, листание страниц | `demos/dialog` | `program/dialog.c` |
 | Сохранение и загрузка | `demos/save` | `program/save.c` |
 | Музыка, 3D-звук, алиасы, фоновая схема | `demos/sound` | `program/sound.c` |
+| Морской бой: бортовые залпы, ядра, попадания, потопление | `demos/battle` | `program/battle.c` |
 
 ## 6.1 Минимальная игра
 ```c
@@ -232,3 +233,33 @@ SendMessage(&Sound, "lll", 77004, waves, 2000);                      // оста
 - Новый музыкальный трек вытесняет прошлый с кроссфейдом; вернувшийся трек продолжает с места остановки.
 - Схема играет `ch`-звуки (можно алиасы) со случайной паузой; зацикленный фон надёжнее запускать скриптом, `ch_loop` после `SCHEME_RESET` не останавливается.
 - Управление в демо: Space — выстрел, M — смена музыки, ↑/↓ — громкость музыки, G — фон вкл/выкл, A/D — руль, W/S — паруса, мышь — камера, Esc — выход.
+
+## 6.15 Морской бой (`demos/battle`)
+Бриг из 6.10 и второй бриг-мишень. Q/E — залп левым/правым бортом, R — новая мишень на траверзе. Спрайт ядра, пробоины и звуки попаданий генерирует `make_battle.py`, частицы `explosion`/`splash` — генератор 6.11, выстрел — алиас `cannon` из 6.14.
+```c
+CreateEntity(&AISea, "SEA_AI");                       // без него AIBalls рисует через нулевой рендер
+CreateEntity(&AIBalls, "AIBalls");
+LayerAddObject(EXECUTE, &AIBalls, 10); LayerAddObject(REALIZE, &AIBalls, 10);
+AIBalls.Texture = "demo\ball.tga"; AIBalls.SubTexX = 1; AIBalls.SubTexY = 1; AIBalls.SpeedMultiply = 1.0;
+AIBalls.Balls.Balls.Size = 0.5; ...                   // тип ядер "Balls" (4.10.1)
+AIBalls.isDone = "";
+
+// одна пушка: дуло на борту, повёрнутое курсом корабля
+AIBalls.Type = "Balls"; AIBalls.CharacterIndex = Player.index;
+AIBalls.x = x; AIBalls.y = y; AIBalls.z = z; AIBalls.SpdV0 = 80.0;
+AIBalls.Ang = 0.055;                                  // возвышение: ~90 м до воды
+AIBalls.Dir = heading + side * PI * 0.5;              // side −1 — левый борт, 1 — правый
+AIBalls.HeightMultiply = 1.0; AIBalls.SizeMultiply = 1.0; AIBalls.TimeSpeedMultiply = 1.0; AIBalls.Event = "";
+AIBalls.add = "";
+
+SetEventHandler("Shp_HullHit", "Demo_HullHit", 0);    // "illffflf": взрыв, звук, счёт корпуса
+SetEventHandler("Ball_WaterHit", "Demo_WaterHit", 0); // "lfff": всплеск
+SetEventHandler("ShpMastDamage", "Demo_MastDamage", 0); // float Demo_MastDamage() — вернуть новый урон
+SendMessage(&Target, "l", 50316);                     // MSG_SHIP_SET_DEAD: корпус на нуле — тонет
+```
+- Корпус и мачты должны иметь BSP (`write_gm(..., bsp=True)`, 4.2), иначе ядра пролетают насквозь.
+- Свои ядра корабль пропускает по `index` персонажа, поэтому у каждого корабля он свой.
+- Пушки залпа стреляют по очереди через `GUN_INTERVAL` из обработчика `frame`; разброс по курсу и возвышению — `frnd()`.
+- Мишень — не главный персонаж, контролы не читает; паруса стоят, скорость задаёт `MaxSpeedZ` в `Shp_UpdParams`. R удаляет её `DeleteClass` и создаёт заново.
+- Ядра летят низко, поэтому мачты почти не задевают; обработчик `ShpMastDamage` всё равно нужен (иначе движок читает ответ из пустоты).
+- Управление: Q/E — залпы, R — новая мишень, A/D — руль, W/S — паруса, мышь — камера, Esc — выход.

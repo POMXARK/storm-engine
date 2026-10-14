@@ -217,11 +217,12 @@ def main():
            ("sailt9", "sail2", (0.0, DECK + fore["height"] - 3.0, fore["z"] + 0.4)),
            ("sailt9", "sail3", (BOWSPRIT_TIP[0], BOWSPRIT_TIP[1] - 0.3, BOWSPRIT_TIP[2] - 0.6))]
     masts = [("geometry", name, (0.0, DECK - 0.3, m["z"])) for name, m in MASTS.items()]
-    write_gm(hull_meshes(), models / f"{SHIP}.gm", labels=masts + jib)
+    # the BSP is what cannonballs (and the camera) trace against: without it a ball flies through
+    write_gm(hull_meshes(), models / f"{SHIP}.gm", labels=masts + jib, bsp=True)
     group = 1
     for name, m in MASTS.items():
         yards = [("geometry", yard, (0.0, y, 0.0)) for yard, y, _, _ in m["yards"]]
-        write_gm(mast_meshes(m["height"]), models / f"{SHIP}_{name}.gm", labels=yards)
+        write_gm(mast_meshes(m["height"]), models / f"{SHIP}_{name}.gm", labels=yards, bsp=True)
         for yard, _, width, drop in m["yards"]:
             write_gm(yard_meshes(width), models / f"{SHIP}_{yard}.gm", labels=square_sail(f"sails{group}", width, drop))
             group += 1

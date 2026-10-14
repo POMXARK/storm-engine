@@ -313,11 +313,15 @@ void CoreImpl::ProcessEngineIniFile()
     {
         if (!Compiler->CreateProgram(String))
         {
+            // the error is in compile.log, but the exception below ends the engine before the
+            // periodic flush writes it out
+            spdlog::apply_all([](const auto &logger) { logger->flush(); });
             SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", "Failed to compile program.", nullptr);
             throw std::runtime_error("fail to create program");
         }
         if (!Compiler->Run())
         {
+            spdlog::apply_all([](const auto &logger) { logger->flush(); });
             SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", "Failed to run program.", nullptr);
             throw std::runtime_error("fail to run program");
         }
