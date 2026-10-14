@@ -1,4 +1,4 @@
-#include "IniFile.h"
+#include "iniFile.h"
 #include <algorithm>
 #include <fstream>
 #include <sstream>
