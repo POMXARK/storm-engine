@@ -23,7 +23,7 @@
 | `language.ini` | `resource/ini/texts/` | string_service/str_service.cpp | языки, каталоги, шрифты по языку | 4.6 |
 | `<lang>/*.txt/*.ini` | `resource/ini/texts/<dir>/` | str_service.cpp | строки `Key,"Text"` | 4.6 |
 | `aliases/*.ini` | `resource/ini/aliases/` (без рекурсии) | sound_service | звуковые алиасы | 4.7 |
-| `sound_scheme.ini` | `resource/ini/` | sound_service | фоновые схемы | `ch = alias,a,b,volume`, `ch_loop = …` |
+| `sound_scheme.ini` | `resource/ini/` | sound_service | фоновые схемы | 4.7 |
 | wav/mp3/ogg/flac | `resource/sounds/` | sound_service (miniaudio / FMOD) | звук | обычные файлы |
 | `*.xps` | `resource/particles/` | particles (particle_manager.cpp:699) | системы частиц | см. 4.11, пишет `storm_formats.write_xps` |
 | `particles.ini` | `resource/ini/` и `resource/ini/particles/` | sea_foam, ball_splash, sink_effect, locator/blast | параметры эффектов | по образцу TEHO |
@@ -172,22 +172,37 @@ name = interface\click1.wav, 1
 name = interface\click2.wav, 1   ; несколько name — случайный выбор с весом
 ```
 
-`SoundPlay` (sound_service.cpp:290): имя без `\` сначала ищется среди алиасов, иначе файл берётся из `resource\sounds\`.
+`SoundPlay` (sound_service.cpp:290): имя без `\` сначала ищется среди алиасов, иначе файл берётся из `resource\sounds\`. Алиас задаёт файл (случайный по весам), `minDistance`/`maxDistance`, `volume`, `prior` — они заменяют переданные в сообщении. Алиасы читаются один раз при старте сервиса.
 
-Из скрипта звук управляется через сущность `Sound`:
+Фоновая схема (`resource\ini\sound_scheme.ini`), включается `MSG_SOUND_SCHEME_SET`:
+```ini
+[sea_day]
+ch = gull, 3, 9, 0.45        ; звук или алиас, пауза от 3 до 9 с, громкость
+ch_loop = demo\waves.wav     ; зациклен с момента установки схемы
+```
+Звуки схемы — стерео, без позиции. `MSG_SOUND_SCHEME_RESET` только перестаёт запускать новые; `ch_loop` после сброса продолжает играть (id его канала сервис не хранит), поэтому зацикленный фон лучше запускать из скрипта и останавливать по id (`demos/sound`).
 
-| Сообщение | Код | Формат |
+Из скрипта звук управляется через сущность `Sound` (sound/src/sound.cpp). Первым в формате идёт `l` — код сообщения:
+
+| Сообщение | Код | Формат после кода |
 |---|---|---|
-| MSG_SOUND_PLAY | 77003 | `s` имя, `l` type, [`l` volumeType, simpleCache, looped, cached, fadeIn…] |
-| MSG_SOUND_STOP | 77004 | `ll` |
-| MSG_SOUND_RELEASE | 77005 | — |
-| MSG_SOUND_SET_VOLUME | 77008 | `lf` |
-| MSG_SOUND_IS_PLAYING | 77009 | — |
-| MSG_SOUND_SCHEME_SET | 77014 | `s` |
-| MSG_SOUND_ALIAS_ADD | 77017 | — |
-| MSG_SOUND_SET_MASTER_VOLUME | 77021 | `fff` |
+| MSG_SOUND_PLAY | 77003 | `s` файл или алиас, `l` тип, `l` канал громкости, `l` только закэшировать, `l` looped, `l` cached, `l` fade in, мс; дальше для 3D: `fff` позиция, `ff` min/max дистанция; для стерео-стрима с looped: `l` пауза между повторами, `f` громкость. Хвост можно опускать. Возвращает id |
+| MSG_SOUND_STOP | 77004 | `ll` id (0 — все), fade out, мс |
+| MSG_SOUND_RELEASE | 77005 | `l` id |
+| MSG_SOUND_SET_3D_PARAM | 77007 | `ll` id, параметр (`SOUND_PARAM_POSITION 3` + `fff`; `MAX_DISTANCE 1`/`MIN_DISTANCE 2` + `f`) |
+| MSG_SOUND_SET_VOLUME | 77008 | `lf` id, громкость |
+| MSG_SOUND_IS_PLAYING | 77009 | `l` id |
+| MSG_SOUND_SCHEME_RESET | 77013 | — |
+| MSG_SOUND_SCHEME_SET | 77014 | `s` секция `sound_scheme.ini` |
+| MSG_SOUND_ALIAS_ADD | 77017 | `s` файл алиасов |
+| MSG_SOUND_SET_MASTER_VOLUME | 77021 | `fff` эффекты, музыка, речь (0..1) |
 
-Типы: `SOUND_WAV_3D 1`, `SOUND_MP3_STEREO 2` (стрим), `SOUND_MP3_3D 3`, `SOUND_WAV_STEREO 4`. Каналы громкости: `VOLUME_FX 1`, `VOLUME_MUSIC 2`, `VOLUME_SPEECH 3`. Бэкенд (miniaudio/FMOD) — см. [08-linux-build.md](08-linux-build.md) §7.
+Типы (`eSoundType`): `PCM_3D 1`, `MP3_STEREO 2` (музыка: стрим с диска), `MP3_3D 3`, `PCM_STEREO 4`. Каналы громкости: `VOLUME_FX 1`, `VOLUME_MUSIC 2`, `VOLUME_SPEECH 3`. Форматы файлов — wav/ogg/mp3/flac (miniaudio); бэкенд (miniaudio/FMOD) — см. [08-linux-build.md](08-linux-build.md) §7.
+
+- **Слушатель** — камера: сервис каждый кадр берёт позицию и ориентацию из матрицы вида рендера (`RunStart`), из скрипта ничего делать не нужно.
+- **3D**: громкость 1 до `min`, линейно до 0 к `max`; дальше `MAX_DISTANCE` (500 м) звук не создаётся.
+- **Музыка** играет в двух слотах (id 1 и 2): новый трек наплывает за fade in, прошлый за то же время затихает. Позиция остановленного трека запоминается по имени, при повторном запуске он продолжает с неё.
+- **Fade in/out** у обычных звуков (не музыки) раньше не работал: фейдер обрабатывался только для двух слотов музыки, звук с fade in оставался беззвучным, с fade out не останавливался. Исправлено вместе с `demos/sound` (`SoundService::RunStart`, `SoundPlay`).
 
 ## 4.8 Патч персонажей `.ptc` (location/include/ptc.h)
 

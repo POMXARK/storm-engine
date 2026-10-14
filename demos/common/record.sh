@@ -10,13 +10,28 @@
 #   move:DX:DY:S     move the mouse by DX, DY pixels evenly over S seconds
 # The engine is stopped after the last step, so end with the time the result should stay in view.
 # Each recording is listed in index.tsv next to the video: date, demo, engine commit, file.
-# Needs X11, xdotool and ffmpeg with libx264.
+# RECORD_AUDIO=1 records the sound of the engine too: it plays into a null PulseAudio sink of its own,
+# so nothing else gets into the recording, ffmpeg captures its monitor and a loopback plays it on the
+# default output, so the run is heard as well.
+# Needs X11, xdotool and ffmpeg with libx264 (and pactl and the pulse input of ffmpeg for the sound).
 set -euo pipefail
 DEMO="$(realpath "$1")"
 ENGINE="$(realpath "$2")"
 OUT="$(realpath -m "$3")"
 shift 3
 FPS=30
+AUDIO_ARGS=()
+AUDIO_MODULES=()
+if [ "${RECORD_AUDIO:-0}" = 1 ]; then
+    OUTPUT=$(pactl get-default-sink)
+    AUDIO_MODULES+=("$(pactl load-module module-null-sink sink_name=storm_record \
+        sink_properties=device.description=storm_record)")
+    AUDIO_MODULES+=("$(pactl load-module module-loopback source=storm_record.monitor sink="$OUTPUT" \
+        latency_msec=40)")
+    # libpulse (also under the ALSA pulse plugin) plays to this sink instead of the default one
+    export PULSE_SINK=storm_record
+    AUDIO_ARGS=(-f pulse -i storm_record.monitor -c:a aac -b:a 160k)
+fi
 
 
 "$DEMO/run.sh" "$ENGINE" > "$DEMO/engine.out" 2>&1 &
@@ -30,6 +45,8 @@ cleanup() {
     for _ in $(seq 10); do kill -0 "$ENGINE_PID" 2>/dev/null || break; sleep 0.2; done
     kill -KILL "$ENGINE_PID" 2>/dev/null || true
     wait "$ENGINE_PID" 2>/dev/null || true
+    # the loopback goes before the sink it plays from
+    for ((m = ${#AUDIO_MODULES[@]} - 1; m >= 0; m--)); do pactl unload-module "${AUDIO_MODULES[m]}" || true; done
 }
 trap cleanup EXIT
 
@@ -51,7 +68,7 @@ eval "$(xdotool getwindowgeometry --shell "$WID")"
 WIDTH=$((WIDTH / 2 * 2))
 HEIGHT=$((HEIGHT / 2 * 2))
 ffmpeg -loglevel error -y -f x11grab -draw_mouse 0 -framerate "$FPS" -window_id "$WID" \
-    -video_size "${WIDTH}x${HEIGHT}" -i "$DISPLAY" \
+    -video_size "${WIDTH}x${HEIGHT}" -i "$DISPLAY" "${AUDIO_ARGS[@]}" \
     -c:v libx264 -preset veryfast -crf 23 -pix_fmt yuv420p -movflags +faststart "$OUT" &
 FFMPEG_PID=$!
 

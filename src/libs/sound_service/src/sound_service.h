@@ -220,6 +220,7 @@ class SoundService : public VSoundService
     void Draw2DCircle(const CVECTOR &center, uint32_t dwColor, float fRadius, uint32_t dwColor2, float fRadius2) const;
 
     void ProcessFader(uint16_t idx);
+    void StopFaded(uint16_t idx);
 
     uint16_t FreeSound(uint16_t idx);
 };

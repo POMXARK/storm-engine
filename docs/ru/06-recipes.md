@@ -13,6 +13,7 @@
 | Частицы: огонь, дым, всплески, взрывы | `demos/particles` | `program/particles.c` |
 | Диалог: ветвление, поле ввода, листание страниц | `demos/dialog` | `program/dialog.c` |
 | Сохранение и загрузка | `demos/save` | `program/save.c` |
+| Музыка, 3D-звук, алиасы, фоновая схема | `demos/sound` | `program/sound.c` |
 
 ## 6.1 Минимальная игра
 ```c
@@ -54,7 +55,7 @@ object Sound;
 CreateEntity(&Sound, "Sound");
 SendMessage(&Sound, "lsll", 77003, "smoke_tone.wav", 4, 1);   // WAV_STEREO, VOLUME_FX
 ```
-Для алиаса нужна секция в `resource/ini/aliases/*.ini`, имя передаётся без `\`.
+Для алиаса нужна секция в `resource/ini/aliases/*.ini`, имя передаётся без `\`. Музыка, 3D и схемы — 6.14.
 
 ## 6.6 Модель, камера, свет (`demos/model`)
 ```c
@@ -211,3 +212,23 @@ LoadEngineState("save\ship.sav");         // в следующем кадре: �
 - Есть ли файл: `FINDFILESINTODIRECTORY` с атрибутами `dir`, `mask` заполняет `filelist.id0...` при создании.
 - Экранный лог: `ScreenLog.Log.font/left/up/width/height/color/speed/color_speed`, `CreateEntity(&ScreenLog, "ILogAndActions")`, в слои EXECUTE и REALIZE, `SendMessage(&ScreenLog, "lll", 45022, 0, 1)`, строка — `SendMessage(&ScreenLog, "lls", 45020, 0, text)`.
 - Управление в демо: F5 — сохранить, F9 — загрузить, A/D — руль, W/S — паруса, ←/→ — ветер, мышь — камера, Esc — выход. Сохранение переживает перезапуск.
+
+## 6.14 Музыка и 3D-звук (`demos/sound`)
+Корабль из 6.10 идёт мимо буя с колоколом. Все звуки и обе аранжировки «Drunken Sailor» синтезирует `make_sound.py`; он же пишет алиасы, `sound_scheme.ini` (4.7) и модель буя.
+```c
+CreateEntity(&Sound, "Sound");
+SendMessage(&Sound, "lfff", 77021, 1.0, 0.6, 1.0);                  // громкость: эффекты, музыка, речь
+
+// зацикленный 3D-звук в точке: тип PCM_3D 1, VOLUME_FX 1, cache, looped, cached, fade in, x, y, z, min, max
+bell = SendMessage(&Sound, "lsllllllfffff", 77003, "demo\bell.wav", 1, 1, false, true, false, 0, 0.0, 2.0, 70.0, 15.0, 260.0);
+// алиас: файл и дистанции из resource\ini\aliases\demo.ini, задаётся только позиция
+SendMessage(&Sound, "lsllllllfff", 77003, "cannon", 1, 1, false, false, false, 0, x, 3.0, z);
+// музыка: MP3_STEREO 2, VOLUME_MUSIC 2, looped, наплыв 3 с, пауза между повторами, громкость
+SendMessage(&Sound, "lslllllllf", 77003, "music\calm.wav", 2, 2, false, true, false, 3000, 0, 1.0);
+SendMessage(&Sound, "ls", 77014, "sea_day");                         // фоновая схема
+SendMessage(&Sound, "lll", 77004, waves, 2000);                      // остановить по id с затуханием
+```
+- Слушатель — камера, позицию берёт сам сервис; для движущегося источника — `SendMessage(&Sound, "llfff", 77007, id, 3, x, y, z)` каждый кадр.
+- Новый музыкальный трек вытесняет прошлый с кроссфейдом; вернувшийся трек продолжает с места остановки.
+- Схема играет `ch`-звуки (можно алиасы) со случайной паузой; зацикленный фон надёжнее запускать скриптом, `ch_loop` после `SCHEME_RESET` не останавливается.
+- Управление в демо: Space — выстрел, M — смена музыки, ↑/↓ — громкость музыки, G — фон вкл/выкл, A/D — руль, W/S — паруса, мышь — камера, Esc — выход.

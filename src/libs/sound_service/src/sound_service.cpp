@@ -124,10 +124,7 @@ void SoundService::ProcessFader(uint16_t idx)
     {
         if (PlayingSounds[idx].fFaderDeltaInSec < 0)
         {
-            uint32_t OGGpos = 0;
-            PlayingSounds[idx].channel.getPositionMs(OGGpos);
-            SetOGGPosition(PlayingSounds[idx].Name.c_str(), OGGpos);
-            PlayingSounds[idx].channel.stop();
+            StopFaded(idx);
         }
         return;
     }
@@ -151,14 +148,22 @@ void SoundService::ProcessFader(uint16_t idx)
         if (PlayingSounds[idx].fFaderCurrentVolume < PlayingSounds[idx].fFaderNeedVolume)
         {
             PlayingSounds[idx].fFaderCurrentVolume = PlayingSounds[idx].fFaderNeedVolume;
-            uint32_t OGGpos = 0;
-            PlayingSounds[idx].channel.getPositionMs(OGGpos);
-            SetOGGPosition(PlayingSounds[idx].Name.c_str(), OGGpos);
-
-            PlayingSounds[idx].channel.stop();
+            StopFaded(idx);
         }
     }
     PlayingSounds[idx].channel.setVolume(PlayingSounds[idx].fFaderCurrentVolume);
+}
+
+void SoundService::StopFaded(uint16_t idx)
+{
+    // only the music resumes where it stopped
+    if (idx <= 1)
+    {
+        uint32_t OGGpos = 0;
+        PlayingSounds[idx].channel.getPositionMs(OGGpos);
+        SetOGGPosition(PlayingSounds[idx].Name.c_str(), OGGpos);
+    }
+    PlayingSounds[idx].channel.stop();
 }
 
 uint16_t SoundService::FreeSound(const uint16_t idx)
@@ -216,6 +221,11 @@ void SoundService::RunStart()
 
         if (paused)
             continue;
+
+        // the music slots are faded above; an effect played with a fade in or stopped with a fade out
+        // is faded here, so it is heard and stops, it used to stay silent or play on
+        if (i > 1)
+            ProcessFader(i);
 
         bool is_playing;
         status = CHECKAUDIOERR(PlayingSounds[i].channel.isPlaying(is_playing));
@@ -454,6 +464,15 @@ TSD_ID SoundService::SoundPlay(const std::string_view &name, const SoundPlayOpti
     else
     {
         CHECKAUDIOERR(PlayingSounds[SoundIdx].channel.setVolume(0));
+    }
+
+    // the fader of an effect slot starts anew, a fade left in it by its previous sound would stop this one
+    if (SoundIdx > 1)
+    {
+        const bool fade_in = options.fadeInTime > 0;
+        PlayingSounds[SoundIdx].fFaderNeedVolume = _volume;
+        PlayingSounds[SoundIdx].fFaderCurrentVolume = fade_in ? 0.0f : _volume;
+        PlayingSounds[SoundIdx].fFaderDeltaInSec = fade_in ? _volume / (options.fadeInTime * 0.001f) : 0.0f;
     }
 
     CHECKAUDIOERR(PlayingSounds[SoundIdx].channel.setPitch(fPitch));

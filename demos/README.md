@@ -6,7 +6,7 @@ sounds) from free sources at run time. Game content does not belong here — the
 repository and uses this engine as a submodule.
 
 Each demo is started with `run.sh <path to built engine executable>` from its folder.
-`common/record.sh` records a run to a video with scripted input. How the engine works, the formats and a recipe per demo are described (in Russian) in [`docs/ru`](../docs/ru).
+`common/record.sh` records a run to a video with scripted input (`RECORD_AUDIO=1` adds the sound). How the engine works, the formats and a recipe per demo are described (in Russian) in [`docs/ru`](../docs/ru).
 
 | Mechanic | Demo | Status |
 |---|---|---|
@@ -25,4 +25,4 @@ Each demo is started with `run.sh <path to built engine executable>` from its fo
 | Particles: fire and smoke, cannonball splashes and blasts from `.xps` systems | [`particles`](particles) | done |
 | Dialogs: branching answers, a text field, paging, the speaker's name plate | [`dialog`](dialog) | done |
 | Save / load: `SaveEngineState`/`LoadEngineState`, `OnSave`/`OnLoad`, rebuilding entities from restored attributes, on-screen log | [`save`](save) | done |
-| Music and 3D sound | — | planned |
+| Music and 3D sound: streamed music with crossfade, looped and one-shot 3D sounds, aliases, the ambient scheme | [`sound`](sound) | done |
