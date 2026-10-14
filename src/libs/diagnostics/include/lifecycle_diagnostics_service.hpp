@@ -54,6 +54,7 @@ class LifecycleDiagnosticsService final
 
   private:
     bool initialized_{false};
+    bool sentryInitialized_{false};
     std::unique_ptr<LoggingService> loggingService_;
     crash_info_collector collectCrashInfo_;
 

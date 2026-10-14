@@ -193,7 +193,12 @@ LifecycleDiagnosticsService::Guard LifecycleDiagnosticsService::initialize(const
 {
     loggingService_->initialize();
 
-    if (!initialized_)
+    // without crash reports sentry is not initialized at all, otherwise it still sends session data
+    if (!initialized_ && !enableCrashReports)
+    {
+        initialized_ = true;
+    }
+    else if (!initialized_)
     {
         // TODO: make this crossplatform
         auto *options = sentry_options_new();
@@ -213,7 +218,8 @@ LifecycleDiagnosticsService::Guard LifecycleDiagnosticsService::initialize(const
         sentry_options_set_on_crash(options, beforeCrash, this);
         sentry_options_set_system_crash_reporter_enabled(options, enableCrashReports);
 
-        initialized_ = sentry_init(options) == 0;
+        sentryInitialized_ = sentry_init(options) == 0;
+        initialized_ = sentryInitialized_;
     }
 
     return Guard(*this);
@@ -223,7 +229,7 @@ void LifecycleDiagnosticsService::terminate() const
 {
     loggingService_->terminate();
 
-    if (initialized_)
+    if (sentryInitialized_)
     {
         sentry_close();
     }
