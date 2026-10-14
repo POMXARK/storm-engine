@@ -1,5 +1,6 @@
 #include "attributes.h"
 
+#include <cstdio>
 #include <execution>
 
 #include "string_compare.hpp"
@@ -221,7 +222,7 @@ bool ATTRIBUTES::SetAttributeUseDword(const char *name, uint32_t val)
 bool ATTRIBUTES::SetAttributeUseFloat(const char *name, float val)
 {
     char buffer[128];
-    sprintf_s(buffer, "%g", val);
+    std::snprintf(buffer, sizeof(buffer), "%g", val);
     if (name)
         return SetAttribute(name, buffer) != 0;
     SetValue(buffer);

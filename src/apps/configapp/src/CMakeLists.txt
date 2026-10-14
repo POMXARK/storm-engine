@@ -3,11 +3,6 @@ add_library(inimanager
     iniFile.h
 )
 
-add_executable(configapp
-    configapp.cpp
-    ../rsrc/resource.rc
-)
-
 if (NOT WIN32)
     set(SYSTEM_DEPS "${NATIVE_D3D9_LIBS}")
 endif()
@@ -30,12 +25,20 @@ endif()
 target_include_directories(imgui_backend PUBLIC ${IMGUI_BINGINDS_DIR})
 target_link_libraries(imgui_backend PUBLIC imgui ${SDL2_LIBRARIES} ${SYSTEM_DEPS})
 
-target_link_libraries(configapp PRIVATE imgui_backend inimanager)
+# configapp uses WinAPI (windows.h, shlwapi, imgui DX9 backend)
+if (WIN32)
+    add_executable(configapp
+        configapp.cpp
+        ../rsrc/resource.rc
+    )
 
-set_target_properties(configapp PROPERTIES
-    WIN32_EXECUTABLE ON
-    OUTPUT_NAME "config"
-)
+    target_link_libraries(configapp PRIVATE imgui_backend inimanager)
+
+    set_target_properties(configapp PROPERTIES
+        WIN32_EXECUTABLE ON
+        OUTPUT_NAME "config"
+    )
+endif()
 
 #set_target_properties(configapp PROPERTIES
 #    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}

@@ -33,7 +33,7 @@ STORM_SETUP(
     mimalloc
     sentry::sentry
     ${SDL2_LIBRARIES}
-    zlib
+    ZLIB::ZLIB
     CLI11::CLI11
 
     # system
