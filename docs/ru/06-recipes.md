@@ -298,3 +298,36 @@ SendMessage(&AISea, "la", 51026, &Enemy);                            // CHARACTE
 - Предел хода и поворота врага скрипт задаёт как обычно — `MaxSpeedZ`/`MaxSpeedY` в `Shp_UpdParams` (6.10); SEA_AI выбирает курс и ход в этих пределах.
 - R: `DeleteClass(&AISea)` удаляет группы, `AIShip` и сущности кораблей; после `CreateEntity` заново снова отправить `AI_MESSAGE_SET_CAMERAS_ATTRIBUTE` (Helper.Uninit обнулил камеры) и `AI_CAMERAS_SET_CAMERA`.
 - Управление: A/D — руль, W/S — паруса, мышь — камера, Space — огонь, R — новый бой, Esc — выход.
+
+## 6.17 Остров, мель и риф (`demos/island`)
+Бой из 6.16, а между бригами — остров: враг стартует за ним и обходит его, чтобы атаковать. У берега мель, на юго-востоке под водой риф. Корабль, который выходит на мель, получает удар и урон, ядра бьются о склон. Ассеты — генераторы 6.16 и `make_island.py`: модель, дно, текстуры, карта глубин и граф обхода строятся из одной функции высот (4.14).
+```c
+#define MSG_ISLAND_LOAD_GEO 50100
+
+// до SEA_AI: AIHelper ищет остров при создании SEA_AI
+CreateEntity(&Island, "island");
+Island.LightingPath = "";                      // без готовых цветов вершин
+Island.dynamicLightsOn = 0;                    // свет запечён в текстуру
+Island.Technique = "DLightModel";              // техника для суши и дна (атрибут добавлен для демо)
+Island.FogDensity = 0.0015;                    // свой туман острова
+Island.ImmersionDistance = 3000.0; Island.ImmersionDepth = 25.0;  // вдали остров чуть опускается
+SendMessage(&Island, "lsss", MSG_ISLAND_LOAD_GEO, "islands", "islands\isle", "isle");
+LayerAddObject(REALIZE, &Island, 4);           // до моря: море ложится поверх отмели и дна
+
+// ... SEA_AI, AIBalls как в 6.16
+// перед кораблями каждого боя: touch запоминает корабли при создании
+CreateEntity(&Touch, "touch");
+LayerAddObject(EXECUTE, &Touch, 1);
+Touch.CollisionDepth = -4.0;                   // корпус упирается там, где дно мельче 4 м
+// ... AddShip игрока и врага
+
+SetEventHandler("Shp_ShipIslColl", "Demo_ShipIslandCollision", 0);  // "llfflfff"
+SetEventHandler("Shp2Strand", "Demo_Shallows", 0);                  // "ll"
+SetEventHandler("Ball_IslandHit", "Demo_IslandHit", 0);             // "lfff"
+```
+- Урон от удара — `(1 − slide)·power·k`: в оригинале k = 3. `Shp_ShipIslColl` приходит каждый кадр, пока корпус трётся о дно, а ветер прижимает корабль под парусами к берегу, и толчки доходят до 3–5 узлов. Поэтому демо засчитывает только удар после отрыва: флаг `Ship.Grounded` снимает `Demo_GroundClear`, и только если 1.5 с не было ни одного касания (`Ship.Touched`). Толчки слабее 1 узла не считаются вовсе. Без этого прижатый корабль тонет за пару минут.
+- `Shp2Strand` переключается 0/1 на каждой волне, пока киль над краем мели. Предупреждение лотового демо выводит не чаще раза в 5 с.
+- Старты кораблей ставить на воду глубже −14: SEA_AI отклоняет мелкие места (`isCanPlace`).
+- Ядро летит по дуге и проходит над низким берегом. `Ball_IslandHit` приходит, только если трасса полёта задела модель: склон холма или промах ниже цели. С `OutsideCamera` залп игрока уходит лишь тогда, когда враг в секторе борта и в пределах дальности, а остров стрельбу не запрещает.
+- R: `DeleteClass(&Touch)` вместе с `SEA_AI`. Остров живёт всю сцену.
+- Управление как в 6.16. Камера корабля стартует перед носом (`vAng.y = 0`), поэтому остров по курсу виден, если развернуть её мышью.

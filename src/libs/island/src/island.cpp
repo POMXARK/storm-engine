@@ -591,6 +591,13 @@ bool ISLAND::Mount(const std::string_view &fname, const std::string_view &fdir, 
     else
         core.Trace("Island: island %s has no sea bed, check me!", std::string(fname).c_str());
 
+    // optional: without a technique the nodes are drawn with whatever render state is left over
+    if (const char *technique = AttributesPointer->GetAttribute("Technique"); technique && technique[0])
+    {
+        core.Send_Message(model_id, "ls", MSG_MODEL_SET_TECHNIQUE, technique);
+        core.Send_Message(seabed_id, "ls", MSG_MODEL_SET_TECHNIQUE, technique);
+    }
+
     core.AddToLayer(ISLAND_TRACE, model_id, 10);
     core.AddToLayer(ISLAND_TRACE, seabed_id, 10);
     core.AddToLayer(RAIN_DROPS, model_id, 100);

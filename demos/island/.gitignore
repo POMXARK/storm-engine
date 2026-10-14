@@ -1,0 +1,6 @@
+resource/
+assets/
+engine.out
+*.log
+*.dxvk-cache
+__pycache__/
