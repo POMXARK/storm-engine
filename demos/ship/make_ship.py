@@ -30,6 +30,12 @@ MASTS = {
     "mast2": dict(z=-5.5, height=18.0, yards=[("rey_a2", 8.0, 9.5, 6.0), ("rey_b2", 14.0, 7.5, 5.0)]),
 }
 BOWSPRIT_TIP = (0.0, DECK + 3.5, LENGTH / 2 + 7.0)
+# six guns a side, from the stern quarter to the bow; the muzzles are a little off the side so a
+# ball does not start inside the hull it is fired from
+GUNS = 6
+GUN_AFT, GUN_FORE = -8.0, 7.0
+GUN_SIDE = BEAM / 2 + 0.4
+GUN_HEIGHT = 2.6
 
 
 # ---------------------------------------------------------------- textures
@@ -217,8 +223,12 @@ def main():
            ("sailt9", "sail2", (0.0, DECK + fore["height"] - 3.0, fore["z"] + 0.4)),
            ("sailt9", "sail3", (BOWSPRIT_TIP[0], BOWSPRIT_TIP[1] - 0.3, BOWSPRIT_TIP[2] - 0.6))]
     masts = [("geometry", name, (0.0, DECK - 0.3, m["z"])) for name, m in MASTS.items()]
+    # SEA_AI finds the guns of a side by the label group named as the side in Cannons.Borts of the
+    # ship type, and fires each along the z axis of its label
+    guns = [(bort, f"gun{i}", (side * GUN_SIDE, GUN_HEIGHT, GUN_AFT + (GUN_FORE - GUN_AFT) * i / (GUNS - 1)), (side, 0.0))
+            for bort, side in (("cannonl", -1.0), ("cannonr", 1.0)) for i in range(GUNS)]
     # the BSP is what cannonballs (and the camera) trace against: without it a ball flies through
-    write_gm(hull_meshes(), models / f"{SHIP}.gm", labels=masts + jib, bsp=True)
+    write_gm(hull_meshes(), models / f"{SHIP}.gm", labels=masts + jib + guns, bsp=True)
     group = 1
     for name, m in MASTS.items():
         yards = [("geometry", yard, (0.0, y, 0.0)) for yard, y, _, _ in m["yards"]]

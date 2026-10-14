@@ -96,6 +96,10 @@ COMMIT=$(git -C "$DEMO" describe --always --dirty 2>/dev/null || echo unknown)
 printf '%s\t%s\t%s\t%s\n' "$(date -Iseconds)" "$(basename "$DEMO")" "$COMMIT" "$(basename "$OUT")" \
     >> "$(dirname "$OUT")/index.tsv"
 if [ -n "${PREVIEW:-}" ]; then
+    # the frame is read from a finished file: ffmpeg writes the index (moov) only when it stops
+    kill -INT "$FFMPEG_PID" 2>/dev/null || true
+    wait "$FFMPEG_PID" 2>/dev/null || true
+    FFMPEG_PID=
     ffmpeg -v error -y -ss "$PREVIEW" -i "$OUT" -frames:v 1 -q:v 4 "${OUT%.*}.jpg"
 fi
 echo "record.sh: $OUT"

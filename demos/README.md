@@ -27,6 +27,7 @@ Each demo is started with `run.sh <path to built engine executable>` from its fo
 | Save / load: `SaveEngineState`/`LoadEngineState`, `OnSave`/`OnLoad`, rebuilding entities from restored attributes, on-screen log | [`save`](save) | done |
 | Music and 3D sound: streamed music with crossfade, looped and one-shot 3D sounds, aliases, the ambient scheme | [`sound`](sound) | done |
 | Naval battle: broadsides, cannonballs (`AIBalls`), hits on the hull, sails and masts, shot holes, sinking | [`battle`](battle) | done |
+| Enemy ship AI: `SEA_AI` sails the enemy into range, turns its broadside and fires the guns that bear; cannons as model labels | [`ai-ship`](ai-ship) | done |
 
 ## Videos
 
@@ -36,4 +37,4 @@ A recorded run of every demo (`common/record.sh`); click a frame to open the vid
 |---|---|---|---|---|
 | [![Interface](interface/media/interface.jpg)](interface/media/interface.mp4)<br>Interface | [![Models](model/media/model.jpg)](model/media/model.mp4)<br>Models | [![Character](character/media/character.jpg)](character/media/character.mp4)<br>Character | [![Location](location/media/location.jpg)](location/media/location.mp4)<br>Location | [![Sea](sea/media/sea.jpg)](sea/media/sea.mp4)<br>Sea |
 | [![Ship](ship/media/ship.jpg)](ship/media/ship.mp4)<br>Ship | [![Particles](particles/media/particles.jpg)](particles/media/particles.mp4)<br>Particles | [![Dialog](dialog/media/dialog.jpg)](dialog/media/dialog.mp4)<br>Dialog | [![Save / load](save/media/save.jpg)](save/media/save.mp4)<br>Save / load | [![Sound](sound/media/sound.jpg)](sound/media/sound.mp4)<br>Sound |
-| [![Battle](battle/media/battle.jpg)](battle/media/battle.mp4)<br>Battle |   |   |   |   |
+| [![Battle](battle/media/battle.jpg)](battle/media/battle.mp4)<br>Battle | [![Enemy ship](ai-ship/media/ai-ship.jpg)](ai-ship/media/ai-ship.mp4)<br>Enemy ship |   |   |   |

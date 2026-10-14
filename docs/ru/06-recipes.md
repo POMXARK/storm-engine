@@ -15,6 +15,7 @@
 | Сохранение и загрузка | `demos/save` | `program/save.c` |
 | Музыка, 3D-звук, алиасы, фоновая схема | `demos/sound` | `program/sound.c` |
 | Морской бой: бортовые залпы, ядра, попадания, потопление | `demos/battle` | `program/battle.c` |
+| ИИ-противник: SEA_AI ведёт корабль и стреляет бортами | `demos/ai-ship` | `program/ai_ship.c` |
 
 ## 6.1 Минимальная игра
 ```c
@@ -263,3 +264,37 @@ SendMessage(&Target, "l", 50316);                     // MSG_SHIP_SET_DEAD: ко
 - Мишень — не главный персонаж, контролы не читает; паруса стоят, скорость задаёт `MaxSpeedZ` в `Shp_UpdParams`. R удаляет её `DeleteClass` и создаёт заново.
 - Ядра летят низко, поэтому мачты почти не задевают; обработчик `ShpMastDamage` всё равно нужен (иначе движок читает ответ из пустоты).
 - Управление: Q/E — залпы, R — новая мишень, A/D — руль, W/S — паруса, мышь — камера, Esc — выход.
+
+## 6.16 ИИ-противник (`demos/ai-ship`)
+Бриг игрока и вражеский бриг под управлением `SEA_AI`: враг сам подходит на `AttackDistance`, разворачивается бортом и стреляет. Space — огонь бортами игрока, которые достают врага, R — новый бой. Ассеты — генераторы 6.10, 6.11, 6.14 и `make_battle.py` из 6.15; у модели брига по 6 пушек-меток на борт (4.10.2).
+```c
+CreateEntity(&AISea, "SEA_AI");                        // до AIBalls: он берёт рендер у SEA_AI
+LayerAddObject(EXECUTE, &AISea, 0); LayerAddObject(REALIZE, &AISea, 0);
+// ... AIBalls как в 6.15
+
+BaseShip.Cannons.Borts.cannonl.FireDir = PI * 1.5;     // борта = группы меток пушек в модели
+BaseShip.Cannons.Borts.cannonl.FireZone = 1.4;
+BaseShip.Cannons.Borts.cannonl.FireAngMin = -0.1; BaseShip.Cannons.Borts.cannonl.FireAngMax = 0.2;  // дальность ~250 м
+// ... то же для cannonr с FireDir = PI * 0.5
+
+Player.index = 0; Player.SeaAI.Group.Name = "PlayerGroup"; Player.MainCharacter = 1;
+Player.Ship.Cannons.SpeedV0 = 80.0; Player.Ship.Cannons.Borts = ""; Player.Ship.HP = 100;
+Enemy.index = 1;  Enemy.SeaAI.Group.Name = "EnemyGroup"; Enemy.Ship.SeaAI.Init.AttackDistance = 110.0;
+// ... остальное как у игрока
+
+SendMessage(&AISea, "lsa", 51022, "EnemyGroup", &Enemy);             // GROUP_SET_COMMANDER
+SendMessage(&AISea, "lsffff", 51010, "EnemyGroup", x, 0.0, z, ay);   // GROUP_SET_XYZ_AY
+CreateEntity(&Enemy, "ship");
+SendMessage(&AISea, "liaa", 51001, &Enemy, &Enemy, &BaseShip);       // ADD_SHIP
+// ... то же для игрока
+AISea.isDone = "";
+SendMessage(&AISea, "lllaa", 51011, 1, 0, &Enemy, &Player);          // SHIP_SET_TASK: ATTACK, PRIMARY
+
+SendMessage(&AISea, "lal", 51002, &Player, 1);                       // CANNON_FIRE: огонь игрока
+SendMessage(&AISea, "la", 51026, &Enemy);                            // CHARACTER_DEAD: корабль тонет
+```
+- События с ответом (обработчик **обязан** вернуть значение): `GetRelationEvent` "ll" → int (1 — друг, 2 — нейтрал, 3 — враг), `Shp_GetCurBallsNum` "a" → int (ядер в трюме), `CannGRTime` "a" → float (время перезарядки), `CannGFTime` "a" → float (задержка между пушками), `CannGFHeight` "aa" → float (высота прицела над водой), `CannLoad` "a" → int, `ShpGetBortFireDelta` "afff" → float (разброс).
+- `CannFire` "afffffffff" — выстрел одной пушки: персонаж, дуло x/y/z, `SpeedV0`, курс, возвышение, `dirY`, `MaxFireDistance`, `RawAng`. Скрипт создаёт ядро `AIBalls` (6.15) с этими значениями. `Ship_Bort_Fire` "lisffffff" приходит в начале залпа борта синхронно внутри сообщения огня, поэтому по счётчику залпов скрипт узнаёт, что ни один борт не достаёт («No loaded side bears»). `Shp_BortReloaded` "as" — борт перезаряжен.
+- Предел хода и поворота врага скрипт задаёт как обычно — `MaxSpeedZ`/`MaxSpeedY` в `Shp_UpdParams` (6.10); SEA_AI выбирает курс и ход в этих пределах.
+- R: `DeleteClass(&AISea)` удаляет группы, `AIShip` и сущности кораблей; после `CreateEntity` заново снова отправить `AI_MESSAGE_SET_CAMERAS_ATTRIBUTE` (Helper.Uninit обнулил камеры) и `AI_CAMERAS_SET_CAMERA`.
+- Управление: A/D — руль, W/S — паруса, мышь — камера, Space — огонь, R — новый бой, Esc — выход.

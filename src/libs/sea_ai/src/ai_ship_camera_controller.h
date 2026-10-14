@@ -9,11 +9,13 @@ class AIShipCameraController
     uint32_t dwTarget;
     float fDelta;
     int32_t iCrosshairTex;
-    bool bCameraOutside;
+    // read from Crosshair.OutsideCamera of the sea cameras; without the attribute the camera aims
+    // along the view
+    bool bCameraOutside = false;
 
-    uint32_t Colors[4];
+    uint32_t Colors[4]{};
 
-    uint32_t dwSubTexturesX, dwSubTexturesY;
+    uint32_t dwSubTexturesX = 1, dwSubTexturesY = 1;
 
     AIShip *pOurAIShip;
     ATTRIBUTES *pACrosshair;

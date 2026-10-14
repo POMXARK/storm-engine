@@ -133,7 +133,9 @@ def write_gm(meshes, path, skinned=False, bsp=False, labels=()):
     """Writes a .gm: one material and texture per mesh, one vertex buffer and, with bsp, the tree
     GEOM::Trace and GEOM::Clip search (without it every trace misses the model).
 
-    Labels are (group, name, position) locators, unrotated. Group "geometry" makes the model load
+    Labels are (group, name, position) locators, unrotated, or (group, name, position, (x, z))
+    turned so that their z axis points along (x, z), as ship cannons (sea_ai/src/ai_cannon.cpp).
+    Group "geometry" makes the model load
     <file>_<name>.gm as a child node there (model/src/node.cpp); other groups are read by the
     entities that use the model, such as the sail corners of a ship (rigging/src/sail.cpp).
 
@@ -205,8 +207,10 @@ def write_gm(meshes, path, skinned=False, bsp=False, labels=()):
 
     # RDF_LABEL; group names are matched by the address of the string, so equal names share one
     label_data = b""
-    for group_name, label_name, pos in labels:
-        matrix = (1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, *pos, 1.0)
+    # a label may carry a horizontal direction (x, z) for its z axis: a cannon fires along it
+    for group_name, label_name, pos, *direction in labels:
+        dx, dz = direction[0] if direction else (0.0, 1.0)
+        matrix = (dz, 0.0, -dx, 0.0, 0.0, 1.0, 0.0, 0.0, dx, 0.0, dz, 0.0, *pos, 1.0)
         label_data += struct.pack("<3i16f4i4f", name(group_name), name(label_name), 0, *matrix,
                                   *([0] * 4), *([0.0] * 4))
 
