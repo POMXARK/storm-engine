@@ -10,6 +10,8 @@
 #   move:DX:DY:S     move the mouse by DX, DY pixels evenly over S seconds
 # The engine is stopped after the last step, so end with the time the result should stay in view.
 # Each recording is listed in index.tsv next to the video: date, demo, engine commit, file.
+# PREVIEW=S also writes the frame at S seconds next to the video as a .jpg. The take shown on GitHub
+# goes to demos/<demo>/media/<demo>.{mp4,jpg}, the gallery in demos/README.md links it.
 # RECORD_AUDIO=1 records the sound of the engine too: it plays into a null PulseAudio sink of its own,
 # so nothing else gets into the recording, ffmpeg captures its monitor and a loopback plays it on the
 # default output, so the run is heard as well.
@@ -89,8 +91,11 @@ for step in "$@"; do
         *) echo "record.sh: unknown step $step" >&2; exit 1 ;;
     esac
 done
-# the videos are kept out of git, an index next to them tells which engine build each shows
+# an index next to the videos tells which engine build each shows
 COMMIT=$(git -C "$DEMO" describe --always --dirty 2>/dev/null || echo unknown)
 printf '%s\t%s\t%s\t%s\n' "$(date -Iseconds)" "$(basename "$DEMO")" "$COMMIT" "$(basename "$OUT")" \
     >> "$(dirname "$OUT")/index.tsv"
+if [ -n "${PREVIEW:-}" ]; then
+    ffmpeg -v error -y -ss "$PREVIEW" -i "$OUT" -frames:v 1 -q:v 4 "${OUT%.*}.jpg"
+fi
 echo "record.sh: $OUT"
