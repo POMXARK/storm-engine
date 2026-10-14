@@ -696,6 +696,14 @@ VDATA *COMPILER::ProcessEvent(const char *event_name)
 
     RDTSC_B(dwRDTSC);
 
+    // an engine event can fire while a script function runs without calling another function, e.g.
+    // Sky.isDone = "" makes the sky ask WhrCalcFogColor; BC_CallFunction saves the running function
+    // around calls, here the handlers would leave it reading the code of the last handler
+    FuncInfo *const mem_pfi = pRun_fi;
+    const uint32_t mem_InstructionPointer = InstructionPointer;
+    const char *const mem_codebase = pRunCodeBase;
+    const uint32_t mem_RunningSegmentID = RunningSegmentID;
+
     bEventsBreak = false;
 
     uint32_t nTimeOnEvent = SDL_GetTicks();
@@ -772,7 +780,13 @@ VDATA *COMPILER::ProcessEvent(const char *event_name)
 
     nRuntimeTicks += nTimeOnEvent;
 
-    pRun_fi = nullptr;
+    pRun_fi = mem_pfi;
+    if (mem_pfi)
+    {
+        InstructionPointer = mem_InstructionPointer;
+        pRunCodeBase = mem_codebase;
+        RunningSegmentID = mem_RunningSegmentID;
+    }
 
 #ifdef _WIN32 // S_DEBUG
     if (current_debug_mode == TMODE_CONTINUE)
