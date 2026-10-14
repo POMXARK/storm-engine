@@ -6,42 +6,17 @@ textures are generated, so the demo has no third-party assets.
 """
 import math
 import random
-import struct
 import sys
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFilter
 
-TXF_A8R8G8B8 = 21
-
-# geometry/src/rdf.h
-RDF_VERSION = (ord("1") << 24) | (ord(".") << 16) | (ord("0") << 8) | ord("5")
-OBJECT_VISIBLE = 1
-TEXTURE_BASE = 1
-# vertex colour is the albedo the lighting multiplies; the texture stage then applies MODULATE2X,
-# so 0x80 grey keeps the texture as is under full light
-VERTEX_COLOR = 0xFF808080
+# the .tx/.gm writers are shared by the demos
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "common"))
+from storm_formats import Mesh, write_gm, write_tx  # noqa: E402
 
 
 # ---------------------------------------------------------------- textures
-
-def write_tx(image, path):
-    """Writes an A8R8G8B8 texture with the full mip chain, the engine's native format."""
-    image = image.convert("RGBA")
-    width, height = image.size
-    mips = []
-    while True:
-        r, g, b, a = image.split()
-        mips.append(Image.merge("RGBA", (b, g, r, a)).tobytes())  # D3DFMT_A8R8G8B8 is BGRA in memory
-        if image.width == 1 or image.height == 1:
-            break
-        image = image.resize((image.width // 2, image.height // 2), Image.LANCZOS)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "wb") as out:
-        out.write(struct.pack("<6i", 0, width, height, len(mips), TXF_A8R8G8B8, len(mips[0])))
-        for mip in mips:
-            out.write(mip)
-
 
 def wood(width, height, boards, base, rng, gap=3):
     """Vertical boards with grain streaks and dark gaps between them."""
@@ -98,36 +73,6 @@ def deck(rng):
 
 
 # ---------------------------------------------------------------- geometry
-
-class Mesh:
-    """One .gm object: vertices (pos, normal, uv) and triangles facing along the vertex normals."""
-
-    def __init__(self, name, texture):
-        self.name = name
-        self.texture = texture
-        self.vertices = []
-        self.triangles = []
-
-    def vertex(self, pos, normal, uv):
-        self.vertices.append((pos, normal, uv))
-        return len(self.vertices) - 1
-
-    def triangle(self, a, b, c):
-        # D3D culls counter-clockwise faces by default: in its left-handed space a front face has
-        # cross(b - a, c - a) pointing to the viewer, so orient every triangle along its normals
-        pa, pb, pc = (self.vertices[i][0] for i in (a, b, c))
-        e1 = [pb[k] - pa[k] for k in range(3)]
-        e2 = [pc[k] - pa[k] for k in range(3)]
-        cross = (e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0])
-        normal = [sum(self.vertices[i][1][k] for i in (a, b, c)) for k in range(3)]
-        if sum(cross[k] * normal[k] for k in range(3)) < 0:
-            b, c = c, b
-        self.triangles.append((a, b, c))
-
-    def quad(self, a, b, c, d):
-        self.triangle(a, b, c)
-        self.triangle(a, c, d)
-
 
 def barrel_meshes(height=1.2, r_end=0.36, r_mid=0.43, segments=32, rings=12):
     body = Mesh("body", "demo\\barrel_side.tga")
@@ -192,76 +137,6 @@ def deck_meshes(size=120.0, cells=40, tiles=44.0):
         for i in range(cells):
             mesh.quad(index[i, j], index[i + 1, j], index[i + 1, j + 1], index[i, j + 1])
     return [mesh]
-
-
-def write_gm(meshes, path):
-    """Writes a static .gm: one material and texture per mesh, one vertex buffer, no BSP."""
-    strings = bytearray()
-    offsets = {}
-
-    def name(text):
-        if text not in offsets:
-            offsets[text] = len(strings)
-            strings.extend(text.encode("ascii") + b"\0")
-        return offsets[text]
-
-    group = name("geometry")
-    textures = []
-    for mesh in meshes:
-        if mesh.texture not in textures:
-            textures.append(mesh.texture)
-    texture_names = [name(t) for t in textures]
-    object_names = [name(m.name) for m in meshes]
-    material_names = [name(m.name + "_mtl") for m in meshes]
-
-    all_pos = [v[0] for m in meshes for v in m.vertices]
-    lo = [min(p[k] for p in all_pos) for k in range(3)]
-    hi = [max(p[k] for p in all_pos) for k in range(3)]
-    bbox_size = [hi[k] - lo[k] for k in range(3)]
-    bbox_center = [(hi[k] + lo[k]) / 2 for k in range(3)]
-    radius = max(math.dist(p, bbox_center) for p in all_pos)
-
-    materials = b""
-    objects = b""
-    triangles = b""
-    vertices = b""
-    striangle = svertex = 0
-    for o, mesh in enumerate(meshes):
-        texture_type = [TEXTURE_BASE, 0, 0, 0]
-        texture = [textures.index(mesh.texture), 0, 0, 0]
-        materials += struct.pack("<2i4f4i4i", group, material_names[o], 1.0, 0.0, 1.0, 0.0, *texture_type, *texture)
-
-        pos = [v[0] for v in mesh.vertices]
-        lo_o = [min(p[k] for p in pos) for k in range(3)]
-        hi_o = [max(p[k] for p in pos) for k in range(3)]
-        center = [(hi_o[k] + lo_o[k]) / 2 for k in range(3)]
-        obj_radius = max(math.dist(p, center) for p in pos)
-        objects += struct.pack("<3i3ff6i8i4ii", group, object_names[o], OBJECT_VISIBLE, *center, obj_radius,
-                               0, len(mesh.triangles), striangle, len(mesh.vertices), svertex, o,
-                               *([-1] * 8), *([-1] * 4), 0)
-        # indices are relative to the object's first vertex (DrawIndexedPrimitive BaseVertexIndex)
-        for tri in mesh.triangles:
-            triangles += struct.pack("<3H", *tri)
-        for p, n, uv in mesh.vertices:
-            vertices += struct.pack("<3f3fI2f", *p, *n, VERTEX_COLOR, *uv)
-        striangle += len(mesh.triangles)
-        svertex += len(mesh.vertices)
-    assert svertex < 65536, "16-bit indices"
-
-    names = list(offsets.values())
-    head = struct.pack("<11i3f3ff", RDF_VERSION, 0, len(strings), len(names), len(textures), len(meshes), 0, 0,
-                       len(meshes), striangle, 1, *bbox_size, *bbox_center, radius)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "wb") as out:
-        out.write(head)
-        out.write(bytes(strings))
-        out.write(struct.pack(f"<{len(names)}i", *names))
-        out.write(struct.pack(f"<{len(textures)}i", *texture_names))
-        out.write(materials)
-        out.write(objects)
-        out.write(triangles)
-        out.write(struct.pack("<2i", 0, len(vertices)))  # RDF_VERTEXBUFF: type 0 = one uv set
-        out.write(vertices)
 
 
 def main():
