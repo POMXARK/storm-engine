@@ -1,6 +1,6 @@
 # Credits
 
-The sound demo ships no binary assets: `../dialog/fetch_assets.sh` downloads the font, `make_sound.py` synthesizes every sound and both pieces of music and builds the buoy, and the sea and the ship come from the generators of the sea and ship demos.
+The sound demo's binary assets are committed in `resource/` and `assets/` and rebuilt by `run.sh` from free sources: `../dialog/fetch_assets.sh` downloads the font, `make_sound.py` synthesizes every sound and both pieces of music and builds the buoy, and the sea and the ship come from the generators of the sea and ship demos.
 
 | Asset | Author | License | Source |
 |---|---|---|---|

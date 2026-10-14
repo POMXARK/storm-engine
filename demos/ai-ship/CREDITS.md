@@ -1,6 +1,6 @@
 # Credits
 
-The enemy ship demo ships no binary assets: `../dialog/fetch_assets.sh` downloads the font, and the sea, the ship, the particles, the cannonball, the shot holes, the sounds and the music come from the generators of the sea, ship, particles, sound and battle demos.
+The enemy ship demo's binary assets are committed in `resource/` and `assets/` and rebuilt by `run.sh` from free sources: `../dialog/fetch_assets.sh` downloads the font, and the sea, the ship, the particles, the cannonball, the shot holes, the sounds and the music come from the generators of the sea, ship, particles, sound and battle demos.
 
 | Asset | Author | License | Source |
 |---|---|---|---|

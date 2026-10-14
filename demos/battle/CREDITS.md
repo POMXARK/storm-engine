@@ -1,6 +1,6 @@
 # Credits
 
-The battle demo ships no binary assets: `../dialog/fetch_assets.sh` downloads the font, `make_battle.py` draws the cannonball and the shot holes and synthesizes the hit, splash and mast sounds, and the sea, the ship, the particles, the cannon shots and the music come from the generators of the sea, ship, particles and sound demos.
+The battle demo's binary assets are committed in `resource/` and `assets/` and rebuilt by `run.sh` from free sources: `../dialog/fetch_assets.sh` downloads the font, `make_battle.py` draws the cannonball and the shot holes and synthesizes the hit, splash and mast sounds, and the sea, the ship, the particles, the cannon shots and the music come from the generators of the sea, ship, particles and sound demos.
 
 | Asset | Author | License | Source |
 |---|---|---|---|

@@ -1,6 +1,6 @@
 # Credits
 
-The interface demo ships no binary assets: `fetch_assets.sh` downloads them and `make_assets.py` converts them.
+The interface demo's binary assets are committed in `resource/` and `assets/` and rebuilt by `run.sh` from free sources: `fetch_assets.sh` downloads them and `make_assets.py` converts them.
 
 | Asset | Author | License | Source |
 |---|---|---|---|

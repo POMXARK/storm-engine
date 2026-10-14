@@ -1,6 +1,6 @@
 # Credits
 
-The dialog demo ships no binary assets: `fetch_assets.sh` downloads the font and `make_dialog.py` generates everything else.
+The dialog demo's binary assets are committed in `resource/` and `assets/` and rebuilt by `run.sh` from free sources: `fetch_assets.sh` downloads the font and `make_dialog.py` generates everything else.
 
 | Asset | Author | License | Source |
 |---|---|---|---|

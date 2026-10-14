@@ -1,8 +1,9 @@
 # Engine demos
 
 Small self-contained examples of the engine's basic mechanics. They need no files from any game:
-every demo has its own `engine.ini`, scripts and configs, and builds binary assets (textures, fonts,
-sounds) from free sources at run time. Game content does not belong here — the game lives in its own
+every demo has its own `engine.ini`, scripts and configs, and binary assets (textures, fonts, sounds)
+made from free sources. The built assets are committed, so a demo runs as cloned; `run.sh` rebuilds
+them with the `make_*.py` generators and `fetch_assets.sh` before every start. Game content does not belong here — the game lives in its own
 repository and uses this engine as a submodule.
 
 Each demo is started with `run.sh <path to built engine executable>` from its folder.

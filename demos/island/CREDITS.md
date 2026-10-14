@@ -1,6 +1,6 @@
 # Credits
 
-The island demo ships no binary assets: `../dialog/fetch_assets.sh` downloads the font, `make_island.py` generates the island, its sea floor, textures and depth map, and the sea, the ship, the particles, the cannonball, the sounds and the music come from the generators of the sea, ship, particles, sound and battle demos.
+The island demo's binary assets are committed in `resource/` and `assets/` and rebuilt by `run.sh` from free sources: `../dialog/fetch_assets.sh` downloads the font, `make_island.py` generates the island, its sea floor, textures and depth map, and the sea, the ship, the particles, the cannonball, the sounds and the music come from the generators of the sea, ship, particles, sound and battle demos.
 
 | Asset | Author | License | Source |
 |---|---|---|---|

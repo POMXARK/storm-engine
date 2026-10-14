@@ -1,5 +1,4 @@
-resource/
-assets/
+resource/techniques
 save/
 engine.out
 *.log

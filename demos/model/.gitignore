@@ -1,4 +1,4 @@
-resource/
+resource/techniques
 engine.out
 *.log
 *.dxvk-cache
