@@ -10,6 +10,7 @@
 | Локация, персонаж игрока, камера от третьего лица | `demos/location` | `program/location.c` |
 | Море, небо, погода | `demos/sea` | `program/sea.c` |
 | Корабль: паруса, ход, руль, морская камера | `demos/ship` | `program/ship.c` |
+| Частицы: огонь, дым, всплески, взрывы | `demos/particles` | `program/particles.c` |
 
 ## 6.1 Минимальная игра
 ```c
@@ -147,3 +148,18 @@ SendMessage(&Scene, "si", "SetActiveCamera", &ShipCamera);
 - Контролы камеры: `ShipCamera_Turn_H/V` (мышь), `ShipCamera_Forward/Backward` (зум). Управление в демо: A/D — руль, W/S — паруса, мышь и Q/E — камера, ←/→ — ветер.
 - Некритичные предупреждения в `error.log`: нет `BLOT.TGA`, «no active ShipsLights», «doesn't have fire places» — у демо нет фонарей и мест пожаров.
 
+## 6.11 Частицы (`demos/particles`)
+Атлас, `.xps` и скалу генерирует `make_particles.py` (4.11), море и небо — как в 6.9.
+```c
+CreateEntity(&Particles, "particles");             // системы — все resource\particles\*.xps, загружены при старте
+// "lsffffffl": имя .xps, позиция, углы, время жизни в мс (0 — до удаления)
+SendMessage(&Particles, "lsffffffl", 10000, "splash", x, 0.0, z, 0.0, 0.0, 0.0, 0);   // PS_CREATE
+// бесконечную систему запоминаем, чтобы потом удалить
+SendMessage(&Particles, "l", 10011);               // PS_CREATIONCAPTURE_BEG
+SendMessage(&Particles, "lsffffffl", 10000, "campfire", 0.0, 2.5, 0.0, 0.0, 0.0, 0.0, 0);
+SendMessage(&Particles, "l", 10012);               // PS_CREATIONCAPTURE_END
+SendMessage(&Particles, "l", 10013);               // PS_CLEAR_CAPTURED — удалить захваченные
+```
+- Неповторяющийся эмиттер (`Looping` = false) работает `Life time` секунд, а система удаляется сама, когда умрёт последняя частица — для всплесков и взрывов ничего удалять не нужно.
+- `PS_DELETE 10007` читает указатель как Long — на 64-битной сборке ненадёжен, используйте захват.
+- Управление в демо: мышь и W/S — камера, 1 — всплеск ядра, 2 — взрыв, F — потушить/зажечь огонь.

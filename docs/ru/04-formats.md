@@ -24,7 +24,7 @@
 | `aliases/*.ini` | `resource/ini/aliases/` (без рекурсии) | sound_service | звуковые алиасы | 4.7 |
 | `sound_scheme.ini` | `resource/ini/` | sound_service | фоновые схемы | `ch = alias,a,b,volume`, `ch_loop = …` |
 | wav/mp3/ogg/flac | `resource/sounds/` | sound_service (miniaudio / FMOD) | звук | обычные файлы |
-| `*.xps` | `resource/particles/` | particles (particle_manager.cpp:699) | системы частиц | **[формат не разбирался]** — брать примеры из TEHO |
+| `*.xps` | `resource/particles/` | particles (particle_manager.cpp:699) | системы частиц | см. 4.11, пишет `storm_formats.write_xps` |
 | `particles.ini` | `resource/ini/` и `resource/ini/particles/` | sea_foam, ball_splash, sink_effect, locator/blast | параметры эффектов | по образцу TEHO |
 | `TextureSequence.ini` | `resource/ini/` | renderer/xinterface | анимированные текстуры | **[не разбирался]** |
 | `star.dat`, `hic.dat`, `hic.txt` | `resource/` | weather/stars | звёздное небо | — |
@@ -208,3 +208,13 @@ name = interface\click2.wav, 1   ; несколько name — случайны�
 - Текстуры: ткань — что вернёт `GetSailTextureData` (`normalTex`), плюс `ships\parus_hole.tga` (дыры; альфа умножается, поэтому непрозрачная) и `ships\emptygerald.tga` (герб; прозрачный).
 - `resource\ini\rigging.ini` [SAILS] обязателен. Значения разбирает `parseValue`; цвета — целое 0xRRGGBBAA, записанное десятичным числом (`ColorToD3D`: r — старший байт), например `Diffuse = 2576980479`.
 
+## 4.11 Системы частиц `.xps` (particles/src/system/data_source)
+
+`resource\particles\<имя>.xps`, все файлы грузятся при старте сервиса частиц, система создаётся по имени файла. Little-endian:
+- Заголовок: `"PSYS"`, `"v3.5"`, uint32 число эмиттеров. Эмиттер: uint32 тип (0 — POINT), список полей, uint32 число частиц; частица: uint32 тип (1 — BILLBOARD, 2 — MODEL), список полей.
+- Список полей: uint32 count, затем поля: uint32 тип, данные, имя (uint32 длина+1, байты, `\0`; длина < 128). Типы и данные: BOOL 1 — uint32; FLOAT 2 — float; GRAPH 3 — uint32 negative, uint32 relative, граф max (uint32 count, пары float время/значение), граф min; POSITION 4 — 3 float; STRING 5 — 128 байт; UV 6 — count, по 4 float x, y, w, h (движок прибавляет x, y к w, h); COLOR 7 — count, на точку: время, цвет max (4 float rgba 0..1), цвет min.
+- Отсутствующие поля создаются с дефолтами (в основном 0), поля чужого типа удаляются. Значение — случайное между min и max.
+- Графы читаются по времени эмиттера в секундах (последняя точка — до 99999, после неё 0), с `relative` — по возрасту частицы в процентах 0..100; цвет всегда по возрасту 0..1. Отрицательные значения обнуляются без `negative`.
+- Эмиттер: `Name`, `Life time` (с), `Looping`, `Position`, `Physics Dir X/Y/Z` — разброс направления в градусах от +y.
+- Billboard: `Emission rate` (в секунду), `Max Particles count`, `Life time`, `Velocity`, `Mass` (отрицательная — всплывает), `ForceField_gravity` (% от 9.8·масса), `Friction` (%), `Spin` (град/с), `Size`, `Color`, `Transparency` (0 — непрозрачно, 100 — невидимо), `Texture` (UV кадров атласа), `Animation frame` (индекс кадра), `Add Technique Power` (100 — аддитивно, 0 — обычное смешивание), `Track X/Y/Z` (при времени 0 — смещение рождения), `Attached emitter`.
+- Рисуются техникой `AdvancedParticles` с атласом `resource\textures\particles_list.tga` и нормал-картой `particles_listnm.tga`; rgb умножается на (dot(нормаль, …) + 0.6), поэтому плоская нормал-карта (128, 128, 255) — ровный свет. Низ billboard берёт верх кадра (TY1).

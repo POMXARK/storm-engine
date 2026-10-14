@@ -25,4 +25,6 @@
 
 Корабль (проверено в `demos/ship`, рецепт 6.10): сущность `ship` (корпус, ход, качка; события `SeaGetLayers`, `Shp_UpdParams`, `ShpCreate`, `Ship_StartLoad/EndLoad`), `sail` из `rigging` (паруса, их анимация по ветру из `Weather.Wind.*`), `SEA_CAMERAS` + `SHIP_CAMERA` из `sea_cameras` (камера вокруг корабля, `AI_CAMERAS_SET_CAMERA 55001`). Нужны также `weather`, `sky`, `sea` из 6.9.
 
+Частицы (проверено в `demos/particles`, рецепт 6.11): сущность `particles` создаёт системы из `resource\particles\*.xps` (4.11) сообщением `PS_CREATE 10000` и рисует их после всего остального. Указатель на систему, который возвращает `PS_CREATE`, 64-битный — в int скрипта не помещается, поэтому системы удаляются через захват: `PS_CREATIONCAPTURE_BEG/END 10011/10012` и `PS_CLEAR_CAPTURED 10013` (или все сразу — `PS_CLEARALL 10006`).
+
 Для своей игры достаточно `core`, `renderer`, `xinterface`, `sound_service`, `pcs_controls` (это подтверждает `tools/menu-demo`). Морские и сухопутные модули подключаются, только если скрипт создаёт их сущности.

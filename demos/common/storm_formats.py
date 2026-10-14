@@ -5,6 +5,7 @@
        optionally the BSP tree that traces and clips run against (shadows, cameras, shots)
 - .an  skeletal animation: bone hierarchy, root positions and per-bone quaternions per frame
 - .ptc character patch: the walkable surface of a location, its neighbours, lookup grid and paths
+- .xps particle system: point emitters with billboard particles, every parameter a graph
 
 Meshes and skeletons are authored in model space as they should appear on screen; the writers take
 care of the engine's conventions (see the notes at write_gm and write_an).
@@ -549,3 +550,101 @@ def write_ptc(triangles, path, materials=("ground",), cell=1.0):
         for name in list(materials) + [""] * (16 - len(materials)):
             out.write(name.encode("ascii")[:15].ljust(16, b"\0"))
     return count
+
+
+# particles/src: system/data_source (data_source.cpp, field_list.cpp, data_*.cpp), i_common/types.h
+XPS_POINT_EMITTER = 0
+XPS_BILLBOARD = 1
+XPS_FIELD_BOOL, XPS_FIELD_FLOAT, XPS_FIELD_GRAPH, XPS_FIELD_POSITION = 1, 2, 3, 4
+XPS_FIELD_STRING, XPS_FIELD_UV, XPS_FIELD_COLOR = 5, 6, 7
+XPS_MAX_TIME = 99999.0  # i_common/graph_time.h MAX_GRAPH_TIME
+
+
+class Graph:
+    """A particle parameter: two polylines of (time, value), the lower and the upper bound. Every
+    particle takes a random point between them (fixed per particle for the curves over its life).
+
+    Plain graphs are read at the time of the emitter in seconds, relative ones at the age of the
+    particle in percent of its life (0..100). Past the last point a graph gives 0, so plain ones
+    run to XPS_MAX_TIME. Negative values are dropped on load unless the graph allows them.
+    """
+
+    def __init__(self, low, high=None, relative=False):
+        self.low = list(low)
+        self.high = list(high if high is not None else low)
+        self.relative = relative
+        self.negative = any(v < 0 for _, v in self.low + self.high)
+
+    @classmethod
+    def const(cls, low, high=None):
+        """The same range all the time."""
+        high = low if high is None else high
+        return cls([(0.0, low), (XPS_MAX_TIME, low)], [(0.0, high), (XPS_MAX_TIME, high)])
+
+    @classmethod
+    def life(cls, low, high=None):
+        """A curve over the life of the particle, (percent, value) points from 0 to 100."""
+        return cls(low, high, relative=True)
+
+
+class Frames(list):
+    """Texture frames of a billboard: (x, y, width, height) rectangles in 0..1 of the atlas."""
+
+
+class Colors(list):
+    """Colour over the life of a particle: (fraction 0..1, (r, g, b), (r, g, b)) lower and upper
+    bounds in 0..1; alpha comes from the transparency graph."""
+
+
+def _xps_fields(fields):
+    """A FieldList: the count, then per field its type, value and zero-terminated name."""
+    out = bytearray(struct.pack("<I", len(fields)))
+    for name, value in fields.items():
+        if isinstance(value, bool):
+            out += struct.pack("<II", XPS_FIELD_BOOL, int(value))
+        elif isinstance(value, (int, float)):
+            out += struct.pack("<If", XPS_FIELD_FLOAT, value)
+        elif isinstance(value, Graph):
+            out += struct.pack("<III", XPS_FIELD_GRAPH, value.negative, value.relative)
+            # the upper bound is stored first
+            for points in (value.high, value.low):
+                out += struct.pack("<I", len(points))
+                for t, v in points:
+                    out += struct.pack("<2f", t, v)
+        elif isinstance(value, str):
+            out += struct.pack("<I", XPS_FIELD_STRING) + value.encode("ascii")[:127].ljust(128, b"\0")
+        elif isinstance(value, Frames):
+            out += struct.pack("<II", XPS_FIELD_UV, len(value))
+            for frame in value:
+                out += struct.pack("<4f", *frame)
+        elif isinstance(value, Colors):
+            out += struct.pack("<II", XPS_FIELD_COLOR, len(value))
+            for t, low, high in value:
+                out += struct.pack("<9f", t, *high, 1.0, *low, 1.0)
+        elif isinstance(value, tuple) and len(value) == 3:
+            out += struct.pack("<I3f", XPS_FIELD_POSITION, *value)
+        else:
+            raise TypeError(f"{name}: no particle field type for {value!r}")
+        encoded = name.encode("ascii") + b"\0"
+        assert len(encoded) < 128
+        out += struct.pack("<I", len(encoded)) + encoded
+    return bytes(out)
+
+
+def write_xps(emitters, path):
+    """Writes a particle system: a list of point emitters as (fields, [billboard fields, ...]).
+
+    Field names are the strings of particles/src/i_common/names.h ("Emission rate", "Size", ...);
+    their types decide how they are stored: bool, float, str, Graph, Frames, Colors or an (x, y, z)
+    position. Fields left out are created by the engine with its defaults (system/data_source/
+    field_list.cpp, Convert), mostly zero.
+    """
+    out = bytearray(b"PSYSv3.5" + struct.pack("<I", len(emitters)))
+    for emitter, particles in emitters:
+        out += struct.pack("<I", XPS_POINT_EMITTER) + _xps_fields(emitter)
+        out += struct.pack("<I", len(particles))
+        for particle in particles:
+            out += struct.pack("<I", XPS_BILLBOARD) + _xps_fields(particle)
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(bytes(out))
