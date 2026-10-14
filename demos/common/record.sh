@@ -6,6 +6,7 @@
 #   sleep:S          wait S seconds (fractions allowed)
 #   key:K            press and release key K (xdotool key names: 1, Escape, space, w...)
 #   hold:K:S         hold key K for S seconds
+#   type:TEXT        type TEXT as a player would, a letter at a time (no colons in it)
 #   move:DX:DY:S     move the mouse by DX, DY pixels evenly over S seconds
 # The engine is stopped after the last step, so end with the time the result should stay in view.
 # Each recording is listed in index.tsv next to the video: date, demo, engine commit, file.
@@ -60,6 +61,7 @@ for step in "$@"; do
         sleep) sleep "$a" ;;
         # a short hold: a press and release within one frame may be missed
         key) xdotool keydown "$a"; sleep 0.15; xdotool keyup "$a" ;;
+        type) xdotool type --delay 150 "$a" ;;
         hold) xdotool keydown "$a"; sleep "$b"; xdotool keyup "$a" ;;
         move)
             n=$(awk -v s="$c" 'BEGIN { n = int(s * 30 + 0.5); print (n < 1 ? 1 : n) }')

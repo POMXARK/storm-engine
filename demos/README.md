@@ -23,6 +23,6 @@ Each demo is started with `run.sh <path to built engine executable>` from its fo
 | Sea (animated waves, cube-map sky reflection, foam), skybox, weather presets switched by script | [`sea`](sea) | done |
 | Ship: hull, masts and sails from `.gm` labels, sails in the wind, helm and sail controls, ship camera | [`ship`](ship) | done |
 | Particles: fire and smoke, cannonball splashes and blasts from `.xps` systems | [`particles`](particles) | done |
-| Dialogs | — | planned |
+| Dialogs: branching answers, a text field, paging, the speaker's name plate | [`dialog`](dialog) | done |
 | Save / load | — | planned |
 | Music and 3D sound | — | planned |

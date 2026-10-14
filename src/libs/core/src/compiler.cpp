@@ -769,7 +769,9 @@ VDATA *COMPILER::ProcessEvent(const char *event_name)
         {
             SStack.InvalidateFrom(nStackVars); // restore stack state - crash situation
             pVD = nullptr;
-            SetError("process event stack error");
+            // after ExitProgram the handler stops at its next line without popping its locals
+            if (!core_internal.Exit_flag)
+                SetError("process event stack error");
         }
 
         if (bEventsBreak)

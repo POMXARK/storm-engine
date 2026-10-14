@@ -11,6 +11,7 @@
 | Море, небо, погода | `demos/sea` | `program/sea.c` |
 | Корабль: паруса, ход, руль, морская камера | `demos/ship` | `program/ship.c` |
 | Частицы: огонь, дым, всплески, взрывы | `demos/particles` | `program/particles.c` |
+| Диалог: ветвление, поле ввода, листание страниц | `demos/dialog` | `program/dialog.c` |
 
 ## 6.1 Минимальная игра
 ```c
@@ -163,3 +164,30 @@ SendMessage(&Particles, "l", 10013);               // PS_CLEAR_CAPTURED — уд
 - Неповторяющийся эмиттер (`Looping` = false) работает `Life time` секунд, а система удаляется сама, когда умрёт последняя частица — для всплесков и взрывов ничего удалять не нужно.
 - `PS_DELETE 10007` читает указатель как Long — на 64-битной сборке ненадёжен, используйте захват.
 - Управление в демо: мышь и W/S — камера, 1 — всплеск ядра, 2 — взрыв, F — потушить/зажечь огонь.
+
+## 6.12 Диалог (`demos/dialog`)
+Окно, шрифты (PT Serif, `write_fonts`), пирс и матроса генерирует `make_dialog.py` (4.12), море и небо — как в 6.9.
+```c
+MapKey("DlgUp", 38); MapKey("DlgDown", 40);        // выбор ответа
+MapKey("DlgAction", 32); MapKey("DlgAction2", 13);  // подтвердить (в поле ввода пробел печатается, работает Enter)
+MapKey("DlgScrollUp", 33); MapKey("DlgScrollDown", 34);
+MapKey("DlgCancel", 27);                            // событие "DialogCancel"
+SetEventHandler("DialogEvent", "Dialog_Event", 0);
+
+Sailor.name = "Том"; Sailor.lastname = "Бакстер";   // имя на табличке
+Dialog.Text = "Эй, моряк! Как тебя звать?";         // "\n" в тексте — новая страница
+Dialog.Links.l1 = "Джек Хоук";                       // сначала текст ответа,
+Dialog.Links.l1.go = "name";                         // потом узел (иначе Assert)
+Dialog.Links.l1.edit = "string";                     // ответ — поле ввода, введённое — в Dialog.value
+CreateEntity(&Dialog, "dialog");
+SendMessage(&Dialog, "lii", 1, &Sailor, &Sailor);   // собеседник: имя из name + lastname
+LayerAddObject(REALIZE, &Dialog, -256);
+
+void Dialog_Event() { Dialog_Node(Dialog.CurrentNode); }  // заменить Text и Links
+// закрыть — не из обработчика самого диалога: PostEvent("Demo_DialogClose", 1) → DeleteClass(&Dialog)
+```
+- Ответы показываются в порядке добавления; перед новым узлом `DeleteAttribute(&Dialog, "Links")`.
+- Пустой `go` или тот же `go`, что у прошлого выбранного ответа, движок считает сломанным деревом и шлёт `EmergencyDialogExit`. Повторяющийся узел («А ещё что?») чередует два имени: `rumour` / `rumour_more`.
+- Курсор поля ввода стоит после подсказки: Backspace стирает её, ←/→/Delete работают; ширина ограничена окном.
+- Управление в демо: ↑/↓ — ответ, Space/Enter/ЛКМ — выбрать, PgUp/PgDn — листать, Esc — закрыть диалог (ещё раз — выйти), E — заговорить снова.
+

@@ -44,6 +44,8 @@ void DlgLinkDescribe::ChangeText(ATTRIBUTES *pALinks)
                 edit_ = EditConfig{
                     .line = static_cast<int32_t>(i),
                     .varIndex = has_var_target ? static_cast<int32_t>(pA->GetAttributeAsDword("edit", 0)) : -1,
+                    // the cursor starts after the suggested text, so Backspace erases it and typing extends it
+                    .charIndex = pA->HasValue() ? static_cast<int32_t>(utf8::Utf8StringLength(pA->GetValue().c_str())) : 0,
                 };
             }
             Assert(pA->HasValue());

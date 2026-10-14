@@ -13,7 +13,8 @@
 | `*.ani` | `resource/animation/` | animation | ini: ссылка на скелет и описание действий | текстом (4.3), пример — `make_character.py` |
 | `*.an` | `resource/animation/` | animation (an_file.h) | бинарный скелет и ключи | `storm_formats.py` `write_an` (4.3) |
 | `*.ptc` | `resource/models/<локация>/` | location (ptc.h, PtcData::Load) | патч персонажей: где можно ходить | `storm_formats.py` `write_ptc` (4.8) |
-| `fonts.ini` | `resource/ini/` (`startFontIniFile`) | renderer/font.cpp:69, storm/font_loading.cpp | растровые шрифты | 4.4 |
+| `fonts.ini` | `resource/ini/` (`startFontIniFile`) | renderer/font.cpp:69, storm/font_loading.cpp | растровые шрифты | 4.4, из TTF — `storm_formats.write_fonts` |
+| `dialog.ini` | `resource/ini/` | dialog/src/dialog.cpp | окно диалога: шрифты, цвета, 9-slice фона, табличка имени, кнопки листания | 4.12, пример — `demos/dialog/make_dialog.py` |
 | `*.fnt` (AngelCode, бинарный BMF) | рядом с ini | storm/font_loading.cpp | BmFont (unicode) | BMFont/Hiero, binary, unicode |
 | `interfaces.ini` | `resource/ini/interfaces/` | xinterface.cpp:1062 | платформа/масштаб GUI, курсор | 4.5 |
 | `defaultnode.ini` | `resource/ini/interfaces/` | xinterface | дефолты для каждого типа узла | 4.5 |
@@ -109,6 +110,8 @@ data = "Walk speed", "-1.312"
 | Классический (FONT::Init, font.cpp:69) | нет `file` | `Texture`, `Techniques` (обычно `InterfaceFont` из `interfaces/game_interface.fx`), `Height`, `AspectHeightConstant`, `pcscale`, `Texture_xsize/ysize`, `Symbol_interval`, `Shadow` (сам факт наличия ключа), `Shadow_offsetx/y` (2), `Spacebar` (8), `char_X = x,y,w,h` для кодов 30..0x206F |
 
 Особенности ключей символов: строчная латиница записывается как `char_a_` (ini регистрозависим), знак `=` — как `char_equ`.
+
+Из TTF шрифт делает `storm_formats.write_fonts({имя: (ttf, размер, обводка)}, resource)`: рисует атлас `textures/fonts/<имя>.tga.tx` (латиница, кириллица, знаки) и пишет секции `[ИМЯ]` в `ini/fonts.ini` с техникой `InterfaceFont`.
 
 ## 4.5 Интерфейс (xinterface)
 
@@ -218,3 +221,13 @@ name = interface\click2.wav, 1   ; несколько name — случайны�
 - Эмиттер: `Name`, `Life time` (с), `Looping`, `Position`, `Physics Dir X/Y/Z` — разброс направления в градусах от +y.
 - Billboard: `Emission rate` (в секунду), `Max Particles count`, `Life time`, `Velocity`, `Mass` (отрицательная — всплывает), `ForceField_gravity` (% от 9.8·масса), `Friction` (%), `Spin` (град/с), `Size`, `Color`, `Transparency` (0 — непрозрачно, 100 — невидимо), `Texture` (UV кадров атласа), `Animation frame` (индекс кадра), `Add Technique Power` (100 — аддитивно, 0 — обычное смешивание), `Track X/Y/Z` (при времени 0 — смещение рождения), `Attached emitter`.
 - Рисуются техникой `AdvancedParticles` с атласом `resource\textures\particles_list.tga` и нормал-картой `particles_listnm.tga`; rgb умножается на (dot(нормаль, …) + 0.6), поэтому плоская нормал-карта (128, 128, 255) — ровный свет. Низ billboard берёт верх кадра (TY1).
+
+## 4.12 Окно диалога `dialog.ini` (dialog/src/dialog.cpp)
+
+Читается при создании сущности `dialog`. Координаты — в экране `baseScreenSize` (обычно 800,600), движок масштабирует их под окно.
+- `[DIALOG]`: `mainfont` (реплика), `subfont` (ответы), `charnamefont` (имя на табличке) — имена секций fonts.ini; `mainFontScale`, `subFontScale`, `charnamescale`; цвета десятичным ARGB: `mainFontColor`, `subFontColor` (невыбранный ответ), `subFontColorSelect`, `charnamecolor`; `maxtextlines`, `maxlinkslines` — строк на страницу; `charnameoffset` — текст имени относительно таблички.
+- `[BACKPARAM]`: `texture` — атлас окна; `uvLeftTop`, `uvTop`, `uvRightTop`, `uvLeft`, `uvCenter`, `uvRight`, `uvLeftBottom`, `uvBottom`, `uvRightBottom` — 9-slice фона (UV 0..1), `backBorderOffset` — толщина рамки; `backPosition` = left,top,right,bottom (верх пересчитывается по высоте текста, окно растёт вверх от `bottom`); `uvDivider`, `dividerHeight`, `dividerOffsetX` — линия между репликой и ответами; табличка имени — `uvChrNameLeft/Center/Right`, `ChrNameLeftWidth`, `ChrNameCenterWidth` (заменяется длиной имени), `ChrNameRightWidth`, `ChrNameHeight`, `chrNameOffset`.
+- `[BUTTON]`: стрелки листания — `uvUpNormal`, `uvUpLight`, `uvDownNormal`, `uvDownLight`, `buttonSize`, `rightoffset`, `topoffset`, `bottomoffset`.
+- Текст рисуется в области фона минус рамка, с отступом 20 по горизонтали; перенос — по словам (`dialog_utils.cpp` `AddToStringArrayLimitedByWidth`).
+- Щелчок при выборе — `resource\sounds\interface\ok.wav`.
+

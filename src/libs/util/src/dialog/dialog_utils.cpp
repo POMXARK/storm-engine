@@ -76,6 +76,15 @@ void AddToStringArrayLimitedByWidth(const std::string_view &text, int32_t nLimit
         }
         else
         {
+            // the words before the last one fit, but the last word itself may still overflow the line
+            const size_t last_space = current_span.find_last_of(' ');
+            if (last_space != std::string_view::npos && get_string_width(current_span) > nLimitWidth)
+            {
+                asOutTextList.emplace_back(current_span.substr(0, last_space));
+                current_span = current_span.substr(last_space + 1u);
+                current_offset = 0;
+                continue;
+            }
             asOutTextList.emplace_back(current_span);
         }
 

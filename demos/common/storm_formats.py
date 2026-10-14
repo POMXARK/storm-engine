@@ -6,6 +6,7 @@
 - .an  skeletal animation: bone hierarchy, root positions and per-bone quaternions per frame
 - .ptc character patch: the walkable surface of a location, its neighbours, lookup grid and paths
 - .xps particle system: point emitters with billboard particles, every parameter a graph
+- fonts.ini bitmap fonts: glyph atlases rendered from a TrueType font and their ini sections
 
 Meshes and skeletons are authored in model space as they should appear on screen; the writers take
 care of the engine's conventions (see the notes at write_gm and write_an).
@@ -15,7 +16,7 @@ import struct
 from collections import deque
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 
 TXF_A8R8G8B8 = 21
 
@@ -32,15 +33,16 @@ VERTEX_COLOR = 0xFF808080
 
 # ---------------------------------------------------------------- textures
 
-def write_tx(image, path):
-    """Writes an A8R8G8B8 texture with the full mip chain, the engine's native format."""
+def write_tx(image, path, mip_chain=True):
+    """Writes an A8R8G8B8 texture with the full mip chain (or only the top level), the engine's
+    native format."""
     image = image.convert("RGBA")
     width, height = image.size
     mips = []
     while True:
         r, g, b, a = image.split()
         mips.append(Image.merge("RGBA", (b, g, r, a)).tobytes())  # D3DFMT_A8R8G8B8 is BGRA in memory
-        if image.width == 1 or image.height == 1:
+        if not mip_chain or image.width == 1 or image.height == 1:
             break
         image = image.resize((image.width // 2, image.height // 2), Image.LANCZOS)
     path = Path(path)
@@ -648,3 +650,60 @@ def write_xps(emitters, path):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(bytes(out))
+
+
+# ---------------------------------------------------------------- fonts
+
+# Latin, Cyrillic and the punctuation the demo texts use
+FONT_CHARS = [chr(c) for c in range(33, 127)] + [chr(c) for c in range(0x410, 0x450)] + ["Ё", "ё", "—", "«", "»", "·"]
+FONT_SKIP_KEYS = {";", "[", "]"}  # would break the ini syntax
+
+
+def write_fonts(fonts, resource, comment):
+    """Renders each font of `fonts` ({name: (TrueType file, pixel size, outline)}) into
+    textures/fonts/<name>.tga.tx and writes ini/fonts.ini with a [NAME] section per font.
+    Glyphs are white with a black outline, so the colour a text is printed with tints them.
+    `comment` heads the ini file (where the font comes from and its license)."""
+    resource = Path(resource)
+    sections = []
+    for name, (ttf, size, outline) in fonts.items():
+        font = ImageFont.truetype(str(ttf), size)
+        ascent, descent = font.getmetrics()
+        cell_h = ascent + descent + outline * 2
+        atlas_w = 1024
+        atlas = Image.new("RGBA", (atlas_w, 1024), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(atlas)
+        x, y = 1, 1
+        records = []
+        for ch in FONT_CHARS:
+            w = int(font.getlength(ch)) + outline * 2 + 1
+            if x + w + 1 > atlas_w:
+                x, y = 1, y + cell_h + 2
+            draw.text((x + outline, y + outline), ch, font=font, fill=(255, 255, 255, 255),
+                      stroke_width=outline, stroke_fill=(0, 0, 0, 255))
+            records.append((ch, x, y, w))
+            x += w + 2
+        atlas_h = 1
+        while atlas_h < y + cell_h + 2:
+            atlas_h *= 2
+        # text is drawn pixel for pixel, a mip chain would only blur the glyphs
+        write_tx(atlas.crop((0, 0, atlas_w, atlas_h)), resource / f"textures/fonts/{name}.tga.tx", mip_chain=False)
+
+        lines = [f"[{name.upper()}]",
+                 f"Texture = fonts\\{name}.tga",
+                 "Techniques = InterfaceFont",
+                 f"Texture_xsize = {atlas_w}",
+                 f"Texture_ysize = {atlas_h}",
+                 f"Height = {cell_h}",
+                 f"Spacebar = {int(font.getlength(' '))}",
+                 "Symbol_interval = -1",
+                 ""]
+        for ch, cx, cy, w in records:
+            if ch in FONT_SKIP_KEYS:
+                continue
+            # renderer/src/font.cpp: a-z are read as char_<c>_ (ini keys ignore case), "=" as char_equ
+            key = "equ" if ch == "=" else (ch + "_" if "a" <= ch <= "z" else ch)
+            lines.append(f"char_{key} = {cx},{cy},{w},{cell_h}")
+        sections.append("\n".join(lines))
+    (resource / "ini").mkdir(parents=True, exist_ok=True)
+    (resource / "ini/fonts.ini").write_text(f"; {comment}\n\n" + "\n\n".join(sections) + "\n", encoding="utf-8")
