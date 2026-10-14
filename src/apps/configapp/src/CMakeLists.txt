@@ -1,6 +1,6 @@
 add_library(inimanager
-    IniFile.cpp
-    IniFile.h
+    iniFile.cpp
+    iniFile.h
 )
 
 add_executable(configapp
