@@ -1,5 +1,5 @@
 #!/bin/bash
-# Main menu demo without game files: downloads free assets, converts them to engine formats
+# Interface demo without game files: downloads free assets, converts them to engine formats
 # (.tx textures, fonts.ini) and starts the engine with the XINTERFACE main menu.
 # Usage: run.sh <path to built engine executable>
 set -euo pipefail

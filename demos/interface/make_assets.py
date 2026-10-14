@@ -1,4 +1,4 @@
-"""Builds the menu demo textures (.tx) and the font ini from downloaded free assets.
+"""Builds the interface demo textures (.tx) and the font ini from downloaded free assets.
 
 Usage: make_assets.py <assets dir> <output resource dir>
 <assets dir> must contain OldStandard-Bold.ttf and ninth_wave.jpg (see fetch_assets.sh).

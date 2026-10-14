@@ -1,4 +1,4 @@
-// Main menu demo: maps the interface controls, creates XINTERFACE and loads mainmenu.ini.
+// Interface demo: maps the interface controls, creates XINTERFACE and loads mainmenu.ini.
 // Buttons report to compile.log, "Выход" (or Escape) quits.
 
 #define MSG_INTERFACE_INIT 45010
