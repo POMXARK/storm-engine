@@ -34,7 +34,7 @@
 | `resource/foam/locations/` | — | island/foam | пена у берегов | — |
 | `rigging.ini`, `mast.ini`, `dialog.ini`, `animals.ini`, `loclighter.ini`, `helpchooser.ini`, `interfaces/battle_interface.ini` | `resource/ini/` | одноимённые libs | параметры подсистем | по образцу TEHO |
 | видео | `resource/videos/` | xinterface/aviplayer | ролики | на Linux `aviplayer` закрыт `#ifdef _WIN32` (FIX_LINUX) — **видео не работает** |
-| Сохранения | stash/`SaveData` | core (SaveEngineState) | — | — |
+| Сохранения | путь из скрипта (`save\...`) | core (`SaveEngineState`, compiler.cpp `SaveState`) | состояние всех переменных скрипта (4.13) | `demos/save` |
 
 ## 4.1 `.tx` (renderer/include/texture.h)
 
@@ -231,3 +231,10 @@ name = interface\click2.wav, 1   ; несколько name — случайны�
 - Текст рисуется в области фона минус рамка, с отступом 20 по горизонтали; перенос — по словам (`dialog_utils.cpp` `AddToStringArrayLimitedByWidth`).
 - Щелчок при выборе — `resource\sounds\interface\ok.wav`.
 
+## 4.13 Файл сохранения (core/src/compiler.cpp `SaveState`/`LoadState`)
+
+Пишет `SaveEngineState(path)`, путь — как у любого файла движка (на Linux — от cwd, каталог должен существовать до старта, 2.2).
+- `EXTDATA_HEADER` (compiler.h): `char sFileInfo[32]` — строка из глобальной переменной скрипта `savefile_info` (иначе `"save"`), `uint32 dwExtDataOffset`, `uint32 dwExtDataSize` — блок доп. данных в конце файла (его дописывает `SetSaveData`, так xinterface хранит описание и скриншот для экрана загрузки).
+- `uint32` длина распакованных данных, `uint32` длина сжатых, данные zlib (`compress2`, максимальное сжатие).
+- Внутри: каталог программы, таблица строк кодека атрибутов (`SCodec`), имена загруженных сегментов (сохраняется только первый — файл из `run` в engine.ini), затем все глобальные переменные: имя + значение, у `object` — со всем деревом атрибутов.
+- Сущности, обработчики событий, слои и отложенные события не сохраняются. Загрузка ищет переменные по имени, так что файл переживает перестановку кода, но не переименование переменных.

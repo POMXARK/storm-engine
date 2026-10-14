@@ -12,6 +12,7 @@
 | Корабль: паруса, ход, руль, морская камера | `demos/ship` | `program/ship.c` |
 | Частицы: огонь, дым, всплески, взрывы | `demos/particles` | `program/particles.c` |
 | Диалог: ветвление, поле ввода, листание страниц | `demos/dialog` | `program/dialog.c` |
+| Сохранение и загрузка | `demos/save` | `program/save.c` |
 
 ## 6.1 Минимальная игра
 ```c
@@ -191,3 +192,22 @@ void Dialog_Event() { Dialog_Node(Dialog.CurrentNode); }  // заменить Te
 - Курсор поля ввода стоит после подсказки: Backspace стирает её, ←/→/Delete работают; ширина ограничена окном.
 - Управление в демо: ↑/↓ — ответ, Space/Enter/ЛКМ — выбрать, PgUp/PgDn — листать, Esc — закрыть диалог (ещё раз — выйти), E — заговорить снова.
 
+## 6.13 Сохранение и загрузка (`demos/save`)
+Корабль из 6.10, шрифт экранного лога (`ILogAndActions`) генерирует `make_save.py`. `run.sh` создаёт каталог `save/` до старта движка.
+```c
+string savefile_info = "";                 // попадёт в заголовок файла (4.13)
+float sailState = 1.0;                     // состояние внутри сущности копируем в переменную
+
+void Main()    { /* начальные значения в атрибутах */ CreateScene(); }
+void OnSave()  { SendMessage(&Player, "le", MSG_SHIP_GET_SAIL_STATE, &sailState); }
+void OnLoad()  { CreateScene(); SendMessage(&Player, "lf", MSG_SHIP_SET_SAIL_STATE, sailState); }
+
+SaveEngineState("save\ship.sav");         // синхронно, внутри вызывает OnSave
+LoadEngineState("save\ship.sav");         // в следующем кадре: сущности удалены, переменные восстановлены, OnLoad
+```
+- `CreateScene` общая для старта и загрузки: создаёт сущности по тем атрибутам, что уже лежат в переменных, и заново ставит `SetEventHandler`.
+- Атрибут, присвоенный **до** `CreateEntity` (или восстановленный загрузкой), сущность может не увидеть: `weather` берёт ветер только в `AttributeChanged`. Поэтому после создания — `Weather.Wind.Angle = stf(Weather.Wind.Angle);` иначе в сущности мусор, море и паруса рисуются кусками.
+- Корабль ставится по `Player.ship.pos`/`ship.ang` при `MSG_SHIP_CREATE`, ship.cpp обновляет эти атрибуты каждый кадр — сохранять отдельно не нужно.
+- Есть ли файл: `FINDFILESINTODIRECTORY` с атрибутами `dir`, `mask` заполняет `filelist.id0...` при создании.
+- Экранный лог: `ScreenLog.Log.font/left/up/width/height/color/speed/color_speed`, `CreateEntity(&ScreenLog, "ILogAndActions")`, в слои EXECUTE и REALIZE, `SendMessage(&ScreenLog, "lll", 45022, 0, 1)`, строка — `SendMessage(&ScreenLog, "lls", 45020, 0, text)`.
+- Управление в демо: F5 — сохранить, F9 — загрузить, A/D — руль, W/S — паруса, ←/→ — ветер, мышь — камера, Esc — выход. Сохранение переживает перезапуск.

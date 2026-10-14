@@ -1,0 +1,6 @@
+resource/
+assets/
+save/
+engine.out
+*.log
+*.dxvk-cache

@@ -36,7 +36,7 @@
 | Слои | `LayerAddObject`, `LayerDelObject`, `LayerDeleteContent`, `LayerSetRealize`, `LayerSetExecute`, `LayerSetMessages`, `LayerFreeze` |
 | События/сообщения | `SendMessage`, `Event`, `PostEvent`, `GetEventData`, `SetEventHandler`, `DelEventHandler`, `ClearEvents`, `ClearPostEvents`, `EventsBreak` |
 | Контролы | `CreateControl`, `DeleteControl`, `MapControl`, `SetControlFlags`, `SetControlTreshold`, `LockControl` |
-| Сегменты/состояние | `LoadSegment`, `UnloadSegment`, `SegmentIsLoaded`, `SaveEngineState`, `LoadEngineState`, `SaveVariable`, `LoadVariable` |
+| Сегменты/состояние | `LoadSegment`, `UnloadSegment`, `SegmentIsLoaded`, `SaveEngineState`, `LoadEngineState` (скрипт отвечает функциями `OnSave`/`OnLoad`, 6.13), `SaveVariable`, `LoadVariable` |
 | Математика | `Rand`, `frnd`, `abs`, `sqrt`, `sqr`, `sin`, `cos`, `tan`, `atan`, `atan2`, `asin`, `acos`, `Pow`, `shl`, `shr`, `and`, `or` |
 | Строки/типы | `sti`, `stf`, `fts`, `MakeInt`, `MakeFloat`, `strcut`, `findSubStr`, `strlen`, `GetSymbol`, `IsDigit`, `argb`, `Vartype`, `sort` |
 | Массивы/ссылки | `SetArraySize`, `GetArraySize`, `ClearRef`, `TestRef` |

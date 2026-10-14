@@ -24,5 +24,5 @@ Each demo is started with `run.sh <path to built engine executable>` from its fo
 | Ship: hull, masts and sails from `.gm` labels, sails in the wind, helm and sail controls, ship camera | [`ship`](ship) | done |
 | Particles: fire and smoke, cannonball splashes and blasts from `.xps` systems | [`particles`](particles) | done |
 | Dialogs: branching answers, a text field, paging, the speaker's name plate | [`dialog`](dialog) | done |
-| Save / load | — | planned |
+| Save / load: `SaveEngineState`/`LoadEngineState`, `OnSave`/`OnLoad`, rebuilding entities from restored attributes, on-screen log | [`save`](save) | done |
 | Music and 3D sound | — | planned |
