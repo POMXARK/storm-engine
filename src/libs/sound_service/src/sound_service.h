@@ -9,7 +9,7 @@
 #include "sound_defines.h"
 #include "v_sound_service.h"
 
-#include <fmod.hpp>
+#include "audio_backend.h"
 
 #define MAX_SOUNDS_SLOTS 4095
 
@@ -28,14 +28,14 @@ class SoundService : public VSoundService
     bool bShowDebugInfo;
     bool initialized;
 
-    FMOD::System *system;
-    FMOD::Sound *OGG_sound[2];
+    storm::audio::System system;
+    storm::audio::Sound OGG_sound[2];
 
     struct tSoundCache
     {
         uint32_t dwNameHash;
         std::string Name;
-        FMOD::Sound *sound;
+        storm::audio::Sound sound;
         float fTimeFromLastPlay;
         eSoundType type;
 
@@ -53,7 +53,7 @@ class SoundService : public VSoundService
         float fFaderCurrentVolume;
         float fFaderDeltaInSec;
 
-        FMOD::Channel *channel;
+        storm::audio::Channel channel;
         eVolumeType type;
         eSoundType sound_type;
         float fSoundVolume;
@@ -66,7 +66,6 @@ class SoundService : public VSoundService
 
         tPlayedSound() : sound_type(), fSoundVolume(0)
         {
-            channel = nullptr;
             type = VOLUME_FX;
 
             fFaderNeedVolume = 0;
@@ -101,9 +100,9 @@ class SoundService : public VSoundService
 
     bool FaderParity;
 
-    FMOD_VECTOR vListenerPos;
-    FMOD_VECTOR vListenerForward;
-    FMOD_VECTOR vListenerTop;
+    storm::audio::Vector3 vListenerPos;
+    storm::audio::Vector3 vListenerForward;
+    storm::audio::Vector3 vListenerTop;
 
     void CreateEntityIfNeed();
 

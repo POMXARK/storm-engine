@@ -15,7 +15,8 @@ class StormEngine(ConanFile):
         "watermark_file": ["ANY"],
         "crash_reports": [True, False],
         "steam": [True, False],
-        "conan_sdl": [True, False]
+        "conan_sdl": [True, False],
+        "sound_backend": ["fmod", "miniaudio"]
     }
 
     # dependencies used in deploy binaries
@@ -31,8 +32,6 @@ class StormEngine(ConanFile):
         "imgui/1.90-docking",
         "cli11/2.3.2",
         "ms-gsl/4.1.0",
-        # gitlab.com/piratesahoy
-        "fmod/2.02.05+1@piratesahoy+storm-engine/stable"
     ]
 
     # optional dependencies
@@ -46,6 +45,11 @@ class StormEngine(ConanFile):
             self.requires("steamworks/1.5.1@storm/prebuilt")
         if self.options.conan_sdl:
             self.requires("sdl/2.32.2")
+        if self.options.sound_backend == "fmod":
+            # gitlab.com/piratesahoy (Windows only), on Linux see cmake/conan-recipes/fmod-linux
+            self.requires("fmod/2.02.05+1@piratesahoy+storm-engine/stable")
+        else:
+            self.requires("miniaudio/0.11.21")
 
         self.test_requires("catch2/3.9.1")
 
@@ -55,6 +59,7 @@ class StormEngine(ConanFile):
         "crash_reports": False,
         "steam": False,
         "conan_sdl": True,
+        "sound_backend": "fmod",
         "sentry-native/*:backend": "crashpad",
         "mimalloc/*:shared": True,
         "mimalloc/*:override": True
@@ -81,10 +86,11 @@ class StormEngine(ConanFile):
             self.__copy_imgui_binding("imgui_impl_dx9.cpp")
             self.__copy_imgui_binding("imgui_impl_dx9.h")
 
+        with_fmod = self.options.sound_backend == "fmod"
         if self.settings.os == "Windows":
-            if self.settings.build_type == "Debug":
+            if with_fmod and self.settings.build_type == "Debug":
                 self.__install_lib("fmodL.dll", self.dependencies["fmod"])
-            else:
+            elif with_fmod:
                 self.__install_lib("fmod.dll", self.dependencies["fmod"])
 
             self.__install_bin("crashpad_handler.exe", self.dependencies["sentry-native"])
@@ -100,9 +106,9 @@ class StormEngine(ConanFile):
                 self.__install_bin("mimalloc.dll", self.dependencies["mimalloc"])
 
         else: # not Windows
-            if self.settings.build_type == "Debug":
+            if with_fmod and self.settings.build_type == "Debug":
                 self.__install_lib("libfmodL.so.13", self.dependencies["fmod"])
-            else:
+            elif with_fmod:
                 self.__install_lib("libfmod.so.13", self.dependencies["fmod"])
 
             self.__install_bin("crashpad_handler", self.dependencies["sentry-native"])
