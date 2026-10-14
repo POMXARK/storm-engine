@@ -140,15 +140,21 @@ void Shadow::Realize(uint32_t Delta_Time)
     if (!obj)
         return;
 
-    auto *pV = core.Event("EWhr_GetShadowDensity");
-    HEAD_DENSITY = ((VDATA *)pV->GetArrayElement(0))->GetInt();
-    DENSITY = ((VDATA *)pV->GetArrayElement(1))->GetInt();
+    // the weather scripts answer these events; without them use the game's default densities
+    HEAD_DENSITY = ARGB(255, 96, 96, 96);
+    DENSITY = ARGB(255, 96, 96, 64);
+    if (auto *pV = core.Event("EWhr_GetShadowDensity"))
+    {
+        HEAD_DENSITY = ((VDATA *)pV->GetArrayElement(0))->GetInt();
+        DENSITY = ((VDATA *)pV->GetArrayElement(1))->GetInt();
+    }
 
     D3DVIEWPORT9 vp;
     rs->GetViewport(&vp);
 
-    pV = core.Event("EWhr_GetFogDensity");
-    auto fogDensity = pV->GetFloat();
+    auto fogDensity = 0.0f;
+    if (auto *pV = core.Event("EWhr_GetFogDensity"))
+        fogDensity = pV->GetFloat();
 
     // MODEL *obj = (MODEL*)core.GetEntityPointer(entity);
     auto *node = obj->GetNode(0);
