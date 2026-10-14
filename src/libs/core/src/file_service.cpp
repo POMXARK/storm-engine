@@ -453,7 +453,9 @@ void FILE_SERVICE::ScanResourcePaths()
     }
     ResourcePaths.clear();
     std::string ExePath = "";
-    for (const auto &entry : std::filesystem::recursive_directory_iterator("."))
+    // follow symlinks: resource folders are often linked into the game folder on Linux
+    for (const auto &entry : std::filesystem::recursive_directory_iterator(
+             ".", std::filesystem::directory_options::follow_directory_symlink))
     {
         AddEntryToResourcePaths(entry, ExePath);
     }
