@@ -14,6 +14,12 @@ option(STORM_ENABLE_CRASH_REPORTS "Enable automatic crash reports" OFF)
 option(STORM_ENABLE_STEAM "Enable Steam integration" OFF)
 option(STORM_ENABLE_SAFE_MODE "Enable additional runtime checks" OFF)
 option(STORM_USE_CONAN_SDL "Use sdl from conan" ON)
+if (WIN32)
+    set(STORM_SOUND_BACKEND "fmod" CACHE STRING "Sound backend: fmod or miniaudio")
+else()
+    set(STORM_SOUND_BACKEND "miniaudio" CACHE STRING "Sound backend: fmod or miniaudio")
+endif()
+set_property(CACHE STORM_SOUND_BACKEND PROPERTY STRINGS fmod miniaudio)
 if (NOT WIN32)
     option(STORM_MESA_NINE "Use Gallium Nine from Mesa for native D3D9 API" OFF)
 endif()
@@ -33,6 +39,7 @@ set(CONAN_INSTALL_ARGS ${CONAN_INSTALL_ARGS}
         "-o crash_reports=${STORM_ENABLE_CRASH_REPORTS}"
         "-o steam=${STORM_ENABLE_STEAM}"
         "-o conan_sdl=${STORM_USE_CONAN_SDL}"
+        "-o sound_backend=${STORM_SOUND_BACKEND}"
         "-c tools.cmake:cmake_program=${CMAKE_COMMAND}"
 )
 
@@ -58,7 +65,11 @@ find_package(CLI11 REQUIRED)
 if (WIN32)
     find_package(directx REQUIRED)
 endif()
-find_package(fmod REQUIRED)
+if (STORM_SOUND_BACKEND STREQUAL "fmod")
+    find_package(fmod REQUIRED)
+else()
+    find_package(miniaudio REQUIRED)
+endif()
 find_package(Microsoft.GSL REQUIRED)
 find_package(ImGui REQUIRED)
 find_package(SDL2 REQUIRED)
