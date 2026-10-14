@@ -45,7 +45,11 @@ std::string_view GetConfigFileExtension(ConfigFormat format)
     const std::filesystem::path stem = source_path.stem();
     const std::filesystem::path directory = source_path.parent_path();
 
-    return directory / (stem.string() + std::string(GetConfigFileExtension(format)));
+    const std::filesystem::path path = directory / (stem.string() + std::string(GetConfigFileExtension(format)));
+    // resolve backslashes and case like every other resource lookup (no-op on Windows);
+    // keep the original path on a miss, the resolver lowercases unknown paths
+    const auto resolved = std::filesystem::u8path(fio->ConvertPathResource(path.string().c_str()));
+    return std::filesystem::exists(resolved) ? resolved : path;
 }
 
 Data::object_t ConvertTable(const toml::table &toml);
