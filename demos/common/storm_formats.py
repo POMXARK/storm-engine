@@ -1,6 +1,6 @@
 """Writers for the engine's native asset formats, shared by the demo generators.
 
-- .tx  textures: A8R8G8B8 with the full mip chain
+- .tx  textures: A8R8G8B8 with the full mip chain; read_tx also reads the 16-bit and DXT ones
 - .gm  geometry: static (RDF_VERTEX0) or skinned (RDF_AVERTEX0) meshes, one vertex buffer and
        optionally the BSP tree that traces and clips run against (shadows, cameras, shots)
 - .an  skeletal animation: bone hierarchy, root positions and per-bone quaternions per frame
@@ -48,6 +48,46 @@ def write_tx(image, path):
         out.write(struct.pack("<6i", 0, width, height, len(mips), TXF_A8R8G8B8, len(mips[0])))
         for mip in mips:
             out.write(mip)
+
+
+# renderer/src/texture.h: uncompressed formats as (bytes per pixel, Pillow raw mode); DXT ones as
+# the BCn decoder number of Pillow
+TX_RAW = {21: (4, "BGRA"), 22: (4, "BGRX"), 23: (2, "BGR;16"), 25: (2, "BGRA;15"), 26: (2, None)}
+TX_DXT = {fourcc_le: n for fourcc_le, n in ((int.from_bytes(b"DXT1", "little"), 1),
+                                           (int.from_bytes(b"DXT3", "little"), 2),
+                                           (int.from_bytes(b"DXT5", "little"), 3))}
+TX_FLAGS_PALETTE = 1
+TX_FLAGS_CUBEMAP = 2
+
+
+def read_tx(path):
+    """Reads the largest mip of a .tx (of a cubemap: its first face, +Z) as an RGBA image."""
+    data = Path(path).read_bytes()
+    flags, width, height, nmips, fmt, mip_size = struct.unpack_from("<6i", data)
+    if flags & TX_FLAGS_PALETTE:
+        raise ValueError("palette textures are not loaded by the engine either")
+    pixels = data[24:24 + mip_size]
+    if fmt in TX_DXT:
+        return Image.frombytes("RGBA", (width, height), pixels, "bcn", TX_DXT[fmt]).convert("RGBA")
+    if fmt not in TX_RAW:
+        raise ValueError(f"unsupported .tx format {fmt:#x}")
+    size, mode = TX_RAW[fmt]
+    if mode is None:
+        # A4R4G4B4, which Pillow has no raw mode for: the 16-bit value holds a, r, g, b nibbles from
+        # the top; each nibble x17 gives 8 bits
+        pixels = bytes(17 * (byte >> shift & 15) for i in range(0, len(pixels), 2)
+                       for byte, shift in ((pixels[i + 1], 0), (pixels[i], 4), (pixels[i], 0), (pixels[i + 1], 4)))
+        mode = "RGBA"
+    rgb = "RGB" if mode in ("BGRX", "BGR;16") else "RGBA"
+    return Image.frombytes(rgb, (width, height), pixels, "raw", mode).convert("RGBA")
+
+
+def tx_info(path):
+    flags, width, height, nmips, fmt, mip_size = struct.unpack_from("<6i", Path(path).read_bytes())
+    names = {21: "A8R8G8B8", 22: "X8R8G8B8", 23: "R5G6B5", 25: "A1R5G5B5", 26: "A4R4G4B4"}
+    name = names.get(fmt) or fmt.to_bytes(4, "little").decode("ascii", "replace")
+    kind = " cubemap" if flags & TX_FLAGS_CUBEMAP else ""
+    return f"{width}x{height} {name}{kind}, {nmips} mips"
 
 
 # ---------------------------------------------------------------- geometry
