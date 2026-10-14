@@ -296,7 +296,7 @@ SendMessage(&AISea, "la", 51026, &Enemy);                            // CHARACTE
 - События с ответом (обработчик **обязан** вернуть значение): `GetRelationEvent` "ll" → int (1 — друг, 2 — нейтрал, 3 — враг), `Shp_GetCurBallsNum` "a" → int (ядер в трюме), `CannGRTime` "a" → float (время перезарядки), `CannGFTime` "a" → float (задержка между пушками), `CannGFHeight` "aa" → float (высота прицела над водой), `CannLoad` "a" → int, `ShpGetBortFireDelta` "afff" → float (разброс).
 - `CannFire` "afffffffff" — выстрел одной пушки: персонаж, дуло x/y/z, `SpeedV0`, курс, возвышение, `dirY`, `MaxFireDistance`, `RawAng`. Скрипт создаёт ядро `AIBalls` (6.15) с этими значениями. `Ship_Bort_Fire` "lisffffff" приходит в начале залпа борта синхронно внутри сообщения огня, поэтому по счётчику залпов скрипт узнаёт, что ни один борт не достаёт («No loaded side bears»). `Shp_BortReloaded` "as" — борт перезаряжен.
 - Предел хода и поворота врага скрипт задаёт как обычно — `MaxSpeedZ`/`MaxSpeedY` в `Shp_UpdParams` (6.10); SEA_AI выбирает курс и ход в этих пределах.
-- R: `DeleteClass(&AISea)` удаляет группы, `AIShip` и сущности кораблей; после `CreateEntity` заново снова отправить `AI_MESSAGE_SET_CAMERAS_ATTRIBUTE` (Helper.Uninit обнулил камеры) и `AI_CAMERAS_SET_CAMERA`.
+- R: `DeleteClass(&AISea)` удаляет группы, `AIShip` и сущности кораблей. Новый бой создавать в следующем кадре (`PostEvent("Demo_StartBattle", 1)`): деструктор SEA_AI срабатывает в конце кадра и чистит статические списки кораблей вместе с уже добавленными новыми (07). После `CreateEntity` заново снова отправить `AI_MESSAGE_SET_CAMERAS_ATTRIBUTE` (Helper.Uninit обнулил камеры) и `AI_CAMERAS_SET_CAMERA`.
 - Управление: A/D — руль, W/S — паруса, мышь — камера, Space — огонь, R — новый бой, Esc — выход.
 
 ## 6.17 Остров, мель и риф (`demos/island`)
@@ -331,3 +331,55 @@ SetEventHandler("Ball_IslandHit", "Demo_IslandHit", 0);             // "lfff"
 - Ядро летит по дуге и проходит над низким берегом. `Ball_IslandHit` приходит, только если трасса полёта задела модель: склон холма или промах ниже цели. С `OutsideCamera` залп игрока уходит лишь тогда, когда враг в секторе борта и в пределах дальности, а остров стрельбу не запрещает.
 - R: `DeleteClass(&Touch)` вместе с `SEA_AI`. Остров живёт всю сцену.
 - Управление как в 6.16. Камера корабля стартует перед носом (`vAng.y = 0`), поэтому остров по курсу виден, если развернуть её мышью.
+
+## 6.18 Боевой HUD (`demos/hud`)
+Бой у острова из 6.17, поверх него — `battle_interface`. Справа сверху навигатор: мини-карта острова с врагом, сектора и дальность бортов, компас и ветер (повёрнуты курсом вверх), заряд бортов по ободу (зелёный — заряжен, жёлтый — перезарядка, красный — повреждён), скорость ветра и корабля в узлах, иконки ядер, парусов и ветра. Слева снизу панель корабля: картинка, имя, экипаж, HP и SP. Текстуры рисует `make_hud.py`.
+```c
+#define BI_IN_CREATE_SHIP 46011
+#define BI_IN_DEAD_SHIP 46009
+
+// атрибуты — до CreateEntity: Init читает их один раз
+BattleInterface.MainChrIndex = sti(Player.index);
+BattleInterface.ShowNavigator = 1;
+BattleInterface.ShowCommands = 1;              // без него нет и панели корабля
+BattleInterface.navigation.navigatorWidth = 220; // ... rightPos/topPos — угол на экране
+BattleInterface.navigation.mapRadius = 77;     // круг карты внутри рамки, px
+BattleInterface.navigation.horizontRadius = 400; // сколько метров вмещает карта
+BattleInterface.navigation.leftChargeBegAngle = 220;  // дуга борта, градусы по часовой от носа
+BattleInterface.navigation.leftChargeEndAngle = 320;
+BattleInterface.navigation.chargeTexture = "hud\icons.tga";
+BattleInterface.navigation.chargeTextureGreed = "4,2";  // сетка картинок в текстуре
+BattleInterface.navigation.chargePos = "-58,128";       // смещение от центра навигатора
+BattleInterface.ShipIcon.iconoffset1 = "84,512";        // центр панели первого корабля
+BattleInterface.ShipIcon.shipclassiconsize = "0,0";     // не рисовать класс
+BattleInterface.CommandList.ActiveIcon_Size = "0,0";    // и пустую иконку меню
+CreateEntity(&BattleInterface, "battle_interface");
+LayerAddObject(EXECUTE, &BattleInterface, 65534);
+LayerAddObject(REALIZE, &BattleInterface, 65534);
+
+// после кораблей: индекс, персонаж, базовый корабль, свой ли, отношение (0 враг, 1 друг, 2 нейтрал)
+SendMessage(&BattleInterface, "llaall", BI_IN_CREATE_SHIP, sti(Player.index), &Player, &BaseShip, 1, 1);
+SendMessage(&BattleInterface, "llaall", BI_IN_CREATE_SHIP, sti(Enemy.index), &Enemy, &BaseShip, 0, 0);
+
+int hudIcons[5];                               // заряд, паруса, ветер, порох, порох кончился
+ref Hud_GetCurrentCharge() { hudIcons[1] = ...; return &hudIcons; }
+SetEventHandler("GetCurrentCharge", "Hud_GetCurrentCharge", 0);
+```
+- HP и SP панель делит на `BaseShip.HP/SP`. Урон парусам приходит событием `ShpSailDamage` "lfffl" (корабль, точка, владелец ядра) — `Ship.SP` уменьшает скрипт.
+- При потоплении — `BI_IN_DEAD_SHIP`: на карте корабль становится серым.
+- Рамка «идёт бой» (`battleborder`) включается, когда враг рядом. Её значения по умолчанию рассчитаны на 1024×768 и белые, поэтому рамку стоит задать под своё окно:
+  ```c
+  BattleInterface.battleborder.used = 1;
+  BattleInterface.battleborder.texture = "hud\border.tga"; // цвет из текстуры, альфа = текстура × color
+  BattleInterface.battleborder.color1 = argb(200,255,255,255); // пульс между color1 и color2
+  BattleInterface.battleborder.color2 = argb(60,255,255,255);
+  BattleInterface.battleborder.extpos = "0,0,800,600";        // внешний край, v текстуры = 0
+  BattleInterface.battleborder.intpos1 = "24,24,776,576";     // внутренний край в двух фазах пульса
+  BattleInterface.battleborder.intpos2 = "14,14,786,586";
+  BattleInterface.battleborder.speed = 1.2;                   // ×0.001 за мс
+  ```
+- R: сначала `DeleteClass(&BattleInterface)`, потом `SEA_AI`. Список кораблей HUD хранит указатели на сущности `ship`, а `SEA_AI` их удаляет. После нового боя HUD создаётся заново.
+- Z/X — контролы `MiniMapZoomIn/Out`: масштаб карты меняется, пока клавиша нажата (`scaleStep` за кадр, от `minScale` до `maxScale`).
+- Скорость печатается только числом (`%.1f`), подпись к ней — забота текстуры. Debug-клавиша K прячет HUD.
+- Лог (6.15) стоит сузить: навигатор занимает правый верхний угол.
+

@@ -3,7 +3,7 @@ textures, the sail textures and the sail parameters.
 
 Usage: make_ship.py <output resource dir>
 Writes models/ships/Brig/Brig*.gm, textures/ships/brig/*.tga.tx, the textures the sail entity
-loads by fixed names (textures/ships/parus_hole.tga.tx, emptygerald.tga.tx) and ini/rigging.ini.
+loads by fixed names (textures/ships/parus_hole.tga.tx, emptygerald.tga.tx) and ini/rigging.ini, ini/mast.ini.
 The sea and the sky come from ../sea/make_sea.py. Everything is generated, so the demo has no
 third-party assets.
 """
@@ -240,6 +240,14 @@ def main():
     ini = resource / "ini" / "rigging.ini"
     ini.parent.mkdir(parents=True, exist_ok=True)
     ini.write_text(RIGGING_INI)
+    # a mast broken by a ball becomes a mast entity; it throws when the file is missing
+    (resource / "ini" / "mast.ini").write_text(MAST_INI)
+
+
+# parameters of a falling mast (mast/src/mast.cpp): every key has a default, the file must exist
+MAST_INI = """[MAST]
+; downfall_acceleration, downfall_maxspeed, fMaxAngle, fMaxDeep ... as in mast.cpp
+"""
 
 
 # parameters of the sail entity (rigging/src/sail_config.cpp); what is left out takes its default.

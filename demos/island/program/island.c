@@ -154,6 +154,7 @@ void Main()
 	CreateCamera();
 
 	SetEventHandler("Control Activation", "Demo_Control", 0);
+	SetEventHandler("Demo_StartBattle", "Demo_StartBattle", 0);
 	Log("The enemy is behind the island. Mind the shallows! Space fires, R a new battle");
 	Trace("ISLAND: scene loaded");
 }
@@ -296,10 +297,17 @@ void AddShip(ref character, string group, float x, float z, float heading)
 }
 
 // A new battle: deleting SEA_AI deletes its ships and their entities, then both are made again.
+// SEA_AI keeps its ships in static lists and its destructor runs at the end of the frame: made
+// in the same frame, the new ships would be deleted with the old ones, so they wait a frame.
 void Demo_NewBattle()
 {
 	DeleteClass(&AISea);
 	DeleteClass(&Touch);
+	PostEvent("Demo_StartBattle", 1);
+}
+
+void Demo_StartBattle()
+{
 	CreateSeaAI();
 	shots = 0;
 	hits = 0;
