@@ -27,12 +27,6 @@ normalize_booleans(STORM_ENABLE_CRASH_REPORTS STORM_ENABLE_STEAM STORM_USE_CONAN
 
 set(STORM_WATERMARK_FILE ${CMAKE_CURRENT_BINARY_DIR}/watermark.hpp CACHE FILEPATH "Include file containing build revision, etc." FORCE)
 
-if (WIN32)
-    set(SDL2_LIBRARIES "sdl")
-else()
-    include(linux)
-endif()
-
 set(CONAN_INSTALL_ARGS ${CONAN_INSTALL_ARGS}
         "-o output_directory=${CMAKE_RUNTIME_OUTPUT_DIRECTORY}"
         "-o watermark_file=${STORM_WATERMARK_FILE}"
@@ -47,6 +41,12 @@ conan_add_remote(NAME piratesahoy
     VERIFY_SSL True
 )
 
+if (WIN32)
+    set(SDL2_LIBRARIES "sdl")
+else()
+    include(linux)
+endif()
+
 find_package(zlib REQUIRED)
 find_package(spdlog REQUIRED)
 find_package(FastFloat REQUIRED)
@@ -55,7 +55,9 @@ find_package(sentry REQUIRED)
 find_package(tomlplusplus REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(cli11 REQUIRED)
-find_package(directx REQUIRED)
+if (WIN32)
+    find_package(directx REQUIRED)
+endif()
 find_package(fmod REQUIRED)
 find_package(Microsoft.GSL REQUIRED)
 find_package(ImGui REQUIRED)

@@ -32,7 +32,6 @@ class StormEngine(ConanFile):
         "cli11/2.3.2",
         "ms-gsl/4.1.0",
         # gitlab.com/piratesahoy
-        "directx/jun10+9.29.1962.1",
         "fmod/2.02.05+1@piratesahoy+storm-engine/stable"
     ]
 
@@ -41,11 +40,8 @@ class StormEngine(ConanFile):
         if self.settings.os == "Windows":
             # conan-center
             self.requires("7zip/19.00")
-        else:
-            # conan-center
-            self.requires("openssl/1.1.1n")#fix for error: 'sentry-crashpad/0.4.13' requires 'openssl/1.1.1n' while 'pulseaudio/14.2' requires 'openssl/1.1.1q'
-            self.options["sdl"].nas = False #fix for https://github.com/conan-io/conan-center-index/issues/16606 - error: nas/1.9.4: Invalid ID: Recipe cannot be built with clang
-            self.options["libsndfile"].with_mpeg= False #fix for 0a12560440ac9f760670829a1cde44b787f587ad/src/src/libmpg123/mpg123lib_intern.h:346: undefined reference to `__pow_finite'
+            # gitlab.com/piratesahoy
+            self.requires("directx/jun10+9.29.1962.1")
         if self.options.steam:
             self.requires("steamworks/1.5.1@storm/prebuilt")
         if self.options.conan_sdl:
@@ -63,6 +59,11 @@ class StormEngine(ConanFile):
         "mimalloc/*:shared": True,
         "mimalloc/*:override": True
     }
+
+    def configure(self):
+        if self.settings.os != "Windows":
+            self.options["sdl"].nas = False #fix for https://github.com/conan-io/conan-center-index/issues/16606 - error: nas/1.9.4: Invalid ID: Recipe cannot be built with clang
+            self.options["libsndfile"].with_mpeg = False #fix for 0a12560440ac9f760670829a1cde44b787f587ad/src/src/libmpg123/mpg123lib_intern.h:346: undefined reference to `__pow_finite'
 
     def validate(self):
         check_min_cppstd(self, "20")
