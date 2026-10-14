@@ -14,7 +14,9 @@ Each demo is started with `run.sh <path to built engine executable>` from its fo
 | Bitmap fonts and localized strings (`fonts.ini`, `language.ini`, `common.ini`) | [`interface`](interface) | done |
 | Input: keyboard and mouse controls (`pcs_controls`, `MapControl`) | [`interface`](interface) | done |
 | Textures in `.tx` format | [`interface`](interface) | done |
-| 3D model (`.gm`), camera, lighting | — | planned |
+| Static 3D models (`.gm`) with textures and materials, placed and rotated by script | [`model`](model) | done |
+| Free camera (`FREE_CAMERA` run by the `Scene` entity) | [`model`](model) | done |
+| Dynamic sun light, ambient and fog (`weather` attributes + `DLightModel` technique) | [`model`](model) | done |
 | Animated character (`.ani`), locations | — | planned |
 | Sea, sky, weather | — | planned |
 | Ship sailing and ship controls | — | planned |
