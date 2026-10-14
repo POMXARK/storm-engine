@@ -19,7 +19,7 @@ Each demo is started with `run.sh <path to built engine executable>` from its fo
 | Dynamic sun light, ambient and fog (`weather` attributes + `DLightModel` technique) | [`model`](model) | done |
 | Skeletal animation: skinned `.gm`, `.an` skeleton, `.ani` actions played and switched by script | [`character`](character) | done |
 | Locations: model with BSP (traces, shadows), walkable `.ptc` patch, player character controller, following camera | [`location`](location) | done |
-| Sea, sky, weather | — | planned |
+| Sea (animated waves, cube-map sky reflection, foam), skybox, weather presets switched by script | [`sea`](sea) | done |
 | Ship sailing and ship controls | — | planned |
 | Particles and effects | — | planned |
 | Dialogs | — | planned |
