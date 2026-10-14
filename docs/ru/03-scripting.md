@@ -1,0 +1,87 @@
+# 3. Скриптовый язык
+
+Это C-подобный язык с атрибутами и событиями, без указателей. Компилятор и VM находятся в `S/src/libs/core/src/compiler.cpp` (около 8000 строк), лексер — в `token.cpp:153`.
+
+## 3.1 Синтаксис
+
+| Категория | Состав |
+|---|---|
+| Типы | `int`, `float`, `string`, `bool` (= int), `object`, `ref`, `aref`, `ptr` (uint64) |
+| Управление | `if/else`, `for`, `while`, `switch/case`, `break`, `continue`, `return`, `goto` + метка `name:` |
+| Ссылки | `makeref(rChar, Characters[n])` (ref на объект), `makearef(ar, obj.a.b)` (ref на узел атрибутов) |
+| Атрибуты | `obj.a.b = 5;` и динамическое имя `obj.(sName).x`; `CheckAttribute`, `DeleteAttribute`, `GetAttributesNum`, `GetAttributeN`, `GetAttributeName`, `GetAttributeValue`, `CopyAttributes`, `DumpAttributes` |
+| Объявления | `extern void F();` (функция в другом файле), `native float F(...);` (функция из C++-библиотеки) |
+| Операторы | `= == != > >= < <= += -= *= /= + - * / % ^ ++ -- && \|\| ! &` |
+| Комментарии | `//`, `/* */` |
+
+**Директивы** (token.cpp):
+
+| Директива | Действие |
+|---|---|
+| `#include "file.c"` | путь относительно `program_directory`; `#include "storm-engine\x.h"` берётся из `<exe dir>/resource/shared/` (compiler.cpp:213) |
+| `#define NAME value` | константа |
+| `#event_handler(EVENT,"Func");` | статическая подписка на событие |
+| `#library "Name"` / `#libriary "Name"` | подключение нативной библиотеки (compiler.cpp:1411) |
+| `#hold`, `#file` | служебные |
+| `#ifndef` / `#endif` | **считаются комментариями**: include guards безопасны, но условная компиляция не работает |
+
+Заголовки в `resource/shared` (копии `S/src/libs/shared_headers/include/shared/`): `layers.h`, `events.h`, `messages.h`, `sound.h`, `controls.h`, `interface/messages.h` и др.
+
+## 3.2 Встроенные функции (`internal_functions.cpp:120` IntFuncTable)
+
+| Группа | Функции |
+|---|---|
+| Сущности | `CreateClass`, `CreateEntity`, `DeleteClass`, `DeleteEntities`, `DeleteEntitiesByType`, `IsEntity`, `GetEntity`, `FindEntity`, `FindEntityNext`, `EntityUpdate`, `ClearEntityAP` |
+| Слои | `LayerAddObject`, `LayerDelObject`, `LayerDeleteContent`, `LayerSetRealize`, `LayerSetExecute`, `LayerSetMessages`, `LayerFreeze` |
+| События/сообщения | `SendMessage`, `Event`, `PostEvent`, `GetEventData`, `SetEventHandler`, `DelEventHandler`, `ClearEvents`, `ClearPostEvents`, `EventsBreak` |
+| Контролы | `CreateControl`, `DeleteControl`, `MapControl`, `SetControlFlags`, `SetControlTreshold`, `LockControl` |
+| Сегменты/состояние | `LoadSegment`, `UnloadSegment`, `SegmentIsLoaded`, `SaveEngineState`, `LoadEngineState`, `SaveVariable`, `LoadVariable` |
+| Математика | `Rand`, `frnd`, `abs`, `sqrt`, `sqr`, `sin`, `cos`, `tan`, `atan`, `atan2`, `asin`, `acos`, `Pow`, `shl`, `shr`, `and`, `or` |
+| Строки/типы | `sti`, `stf`, `fts`, `MakeInt`, `MakeFloat`, `strcut`, `findSubStr`, `strlen`, `GetSymbol`, `IsDigit`, `argb`, `Vartype`, `sort` |
+| Массивы/ссылки | `SetArraySize`, `GetArraySize`, `ClearRef`, `TestRef` |
+| Прочее | `Trace`, `Breakpoint`, `Stop`, `ExitProgram`, `GetDeltaTime`, `SetTimeScale`, `CheckFunction`, `GetTargetPlatform`, `GetEngineVersion` |
+| Конфиги (config_library.cpp) | `LoadConfig`, `FindConfig`, `ListFiles` |
+
+## 3.3 Сообщения: `SendMessage(&entity, "fmt", ...)`
+
+Строка формата описывает аргументы, первый аргумент — обычно код сообщения (`compiler.cpp:2620` CreateMessage).
+
+| Символ | Тип |
+|---|---|
+| `l` | int |
+| `f` | float (int конвертируется) |
+| `s` | string |
+| `p` | ptr |
+| `i` | entity id из object/aref |
+| `e` | ссылка на переменную (C++ пишет туда ответ) |
+| `a` | атрибуты object/aref |
+
+В C++ (`message.cpp:185`) есть ещё `b`, `w`, `u`, `d`, `c` (CVECTOR). Возвращаемое значение — uint64 (ptr). При неверном формате будет `InvalidMessageFormatError` и ошибка в error.log.
+
+Пример: `SendMessage(&GameInterface, "ls", MSG_INTERFACE_INIT, "resource\ini\interfaces\mainmenu.ini");`
+
+## 3.4 События
+
+| Вызов | Поведение |
+|---|---|
+| `Event("Name", "fmt", ...)` | синхронно вызывает все обработчики |
+| `PostEvent("Name", delay_ms, "fmt", ...)` | откладывает событие (доставка в `ProcessFrame`); параметры передаются только при ≥4 аргументах (compiler.cpp:1824) |
+| `SetEventHandler("Name", "Func", flag)` | подписка. `flag` фактически ни на что не влияет: FSTATUS_NEW нигде не проверяется (s_eventtab.cpp:106) |
+| `GetEventData()` | внутри обработчика читает параметры по порядку |
+
+Движок сам вызывает обработчики не только из своего цикла, но и посреди выполнения скрипта. Пример: присваивание `Sky.isDone = ""` вызывает `AttributeChanged`, и небо прямо в нём запрашивает у скриптов `WhrCalcFogColor` для каждой вершины полосы тумана. До фикса e1c878b (`compiler.cpp`, `ProcessEvent`) VM после такого обработчика не восстанавливала выполняемую функцию: функция, где стояло присваивание, молча обрывалась, следующие строки (например, все `Sea.Sea2.*`) не выполнялись. Признак этой ошибки: Trace после присваивания не выводится, а море зелёное (дефолтный цвет). Обработчик, который движок ждёт синхронно (`WhrCalcFogColor`, `EWhr_GetShadowDensity`, `EWhr_GetFogDensity`), нужно назначить **до** создания сущности или присваивания, иначе вернётся 0.
+
+Системные события: `frame` (каждый кадр), `Control Activation` / `Control Deactivation` (параметр — имя контрола), `ievnt_command` (GUI, `"ss"`: команда, узел), `exitCancel`, `ExitApplication`, `DestroyWindow`.
+
+## 3.5 Нативные библиотеки (`#library`)
+
+| Библиотека | Где | Функции |
+|---|---|---|
+| `dx9render_script_libriary` | renderer/src/s_device.cpp:205 | `SetTexturePath`, `RPrint`, `SetGlowParams`, `GetTexture`, `ReleaseTexture` |
+| `script_libriary_test` | script_library/src/vano_files.cpp | `Bring2Range`, `Bring2RangeNoCheck`, `Degree2Radian`, `Clampf`, `rdtsc_b/e` |
+| `SteamApiScriptLib` | steam_api | `GetSteamEnabled`, `DLC*`, `SetAchievement`… |
+| location | location/src/location_script_lib.cpp:316 | `NativeFindCharacter`, `NativeFindLocation`, `NativeFindLoadCharacter`, `ReloadProgressStart/Update/End`, `SetReloadProgress*`, `SystemDelay`, `ExecuteTechnique`, `GetNextLineString` |
+| rigging | rigging | `funcGetSailSpeed`, `RandomHole2Sail`, `DeleteOneSailHole`, `GetAssembledString`, `ShipSailState` |
+| xinterface (SCRIPT_INTERFACE_FUNCTIONS) | xinterface/src/str_service.cpp:1574 | `LanguageOpenFile`, `LanguageConvertString`, `LanguageCloseFile`, `LanguageGetLanguage`, `LanguageSetLanguage`, `XI_ConvertString`, `XI_MakeNode`, `XI_DeleteNode`, `XI_WindowShow/Disable/IsWindowEnable/AddNode`, `XI_IsKeyPressed`, `XI_CreateFolder`…, `DialogAssembleStr`, `AddControlTreeNode` |
+
+Пример из TEHO (`T/PROGRAM/seadogs.c`): `#libriary "dx9render_script_libriary"` и затем `native float Bring2Range(...);`.

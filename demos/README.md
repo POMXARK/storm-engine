@@ -6,6 +6,7 @@ sounds) from free sources at run time. Game content does not belong here — the
 repository and uses this engine as a submodule.
 
 Each demo is started with `run.sh <path to built engine executable>` from its folder.
+`common/record.sh` records a run to a video with scripted input. How the engine works, the formats and a recipe per demo are described (in Russian) in [`docs/ru`](../docs/ru).
 
 | Mechanic | Demo | Status |
 |---|---|---|

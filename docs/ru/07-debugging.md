@@ -1,0 +1,44 @@
+# 7. Отладка
+
+| Что | Где / как |
+|---|---|
+| Логи | stash `Logs/`: `compile.log` (Trace, предупреждения компилятора), `error.log` (ошибки VM, SendMessage), `script_stack` (compiler.cpp:139), `system.log` (логгер по умолчанию, main.cpp:24) |
+| Отключить логи | `logs = 0` в engine.ini |
+| Отладочная информация VM | `[script] debuginfo = 1`, `runtimelog`, `codefiles` |
+| Кэш скриптов | `[script] cache_mode = 0` при отладке, иначе правки могут подхватываться из stash/`Cache` |
+| Сущности | F7 → `DumpEntitiesInfo` |
+| Время | R ×10, Y ×0.2 |
+| Память | Shift+F1 → статистика mimalloc |
+| Рендер | `show_fps`, `show_exinfo`, `texture_log`, `safe_render` |
+| Атрибуты | `DumpAttributes(&obj)` |
+| Точка останова | `Breakpoint()` **[поведение на Linux не проверено]** |
+| Headless-проверка | `tools/smoke-test/run.sh`: `timeout` + поиск маркера в `compile.log` ([08-linux-build.md](08-linux-build.md) §8) |
+| Нажатия в тестах | `xdotool keydown K; sleep 0.15; xdotool keyup K`: мгновенное нажатие движок может пропустить. Клик мышью по кнопке меню через xdotool не срабатывает, Enter — да |
+| Видео запуска | `demos/common/record.sh` (ниже) |
+
+Частые проблемы:
+- Файл не находится на Linux → проверить, что путь начинается с `program`/`resource`/`save` и что каталог существовал до старта движка (2.2).
+- Текстура не грузится → проверить, что есть `.tx` (raw TGA не читается на Linux) и что формат входит в список поддерживаемых (4.1).
+- `Wrong script version` → не объявлен `iScriptVersion = 54128` при `target_version = teho`.
+- Нет GUI-реакции → не привязаны контролы `I*` или слои 4/5.
+- Окно не обновляется → без фокуса нужен `run_in_background = 1`.
+- Море зелёное, атрибуты после `isDone` не применились, Trace после присваивания молчит → обработчик движка, вызванный из присваивания атрибута, оборвал функцию (3.4; исправлено в e1c878b).
+- `process event stack error` в `error.log` при `ExitProgram` — причина не разобрана, на работу не влияет (08-linux-build.md, таблица фиксов).
+
+## 7.1 Запись видео демо
+
+```
+demos/common/record.sh <demo dir> <engine> <out.mp4> <шаг>...
+  sleep:S       ждать S секунд
+  key:K         нажать и отпустить клавишу (имена xdotool: 1, Escape, space, w, Down)
+  hold:K:S      держать клавишу S секунд
+  move:DX:DY:S  плавно сдвинуть мышь за S секунд
+```
+Скрипт запускает `run.sh` демо, ищет окно движка, пишет его ffmpeg-ом (x11grab, libx264, 30 fps), выполняет шаги и останавливает движок. SIGTERM движок перехватывает (SDL превращает его в событие выхода, которое скрипты не обрабатывают), поэтому через 2 с он добивается KILL. Каждая запись добавляет строку в `index.tsv` рядом с видео: дата, демо, коммит движка, файл. Видео в git не кладутся. Запись длится десятки секунд, поэтому из агента её запускают в фоне.
+
+Пример (демо моря):
+```
+demos/common/record.sh demos/sea build/Debug/engine videos/sea.mp4 \
+    sleep:3 move:300:0:4 hold:w:3 key:2 sleep:5 key:3 sleep:6
+```
+Кадр для проверки: `ffmpeg -ss 12 -i videos/sea.mp4 -frames:v 1 frame.png`. Шаги отстают от плана на время загрузки сцены, поэтому моменты событий лучше сверять с метками времени Trace в `compile.log`.
