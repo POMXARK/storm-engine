@@ -2,8 +2,8 @@
 # - enters the x64 developer shell of the newest Visual Studio (2022 or 2019, Build Tools too): the
 #   compiler and the Windows SDK are in PATH only there;
 # - puts the Scripts folders of Python in PATH (pip puts conan.exe there and often does not add it);
-# - installs by pip what is missing: Conan 2.12.2, Ninja >= 1.10 (the preset builds with Ninja Multi-Config), CMake >= 3.24
-#   (Visual Studio 2019 brings 3.20), Pillow (the generators of the demos);
+# - installs by pip what is missing: Conan 2.12.2, Ninja >= 1.11 (the preset builds with Ninja Multi-Config), CMake 3.31
+#   (Visual Studio 2019 brings 3.20 and ninja 1.10), Pillow (the generators of the demos);
 # - makes the Conan profile and runs the preset default; the engine is build/default/<Config>/engine.exe.
 # Usage: build.ps1 [-Config Debug|Release] [-ExtraModules <folder of an engine module of a game>]
 param([ValidateSet('Debug', 'Release')][string]$Config = 'Debug', [string]$ExtraModules = '')
@@ -47,9 +47,10 @@ function Test-Version([string]$Program, [int]$Major, [int]$Minor)
 }
 $missing = @()
 if (-not (Get-Command conan -ErrorAction SilentlyContinue)) { $missing += 'conan==2.12.2' }
-# Ninja Multi-Config needs ninja 1.10 (include in its files); Visual Studio 2019 brings an older one
-if (-not (Test-Version ninja 1 10)) { $missing += 'ninja>=1.10' }
-if (-not (Test-Version cmake 3 24)) { $missing += 'cmake>=3.24' }
+# the try_compile of Ninja Multi-Config failed on Windows with CMake 3.25 and the ninja 1.10.2 of
+# Visual Studio 2019 (loading 'CMakeFiles\rules.ninja'): the versions the engine is built with are taken
+if (-not (Test-Version ninja 1 11)) { $missing += 'ninja>=1.11' }
+if (-not (Test-Version cmake 3 28)) { $missing += 'cmake==3.31.10' }
 # Windows PowerShell 5.1 turns redirected stderr of a program into an error, which Stop would throw
 $ErrorActionPreference = 'Continue'
 & $pyExe @pyArgs -c 'import PIL' 2>$null
@@ -79,6 +80,12 @@ try
         Remove-Item -Recurse -Force 'build/default'
     }
     & cmake @cmakeArgs
+    if ($LASTEXITCODE -ne 0)
+    {
+        # the reason of a failed compiler check is in the log, not on the screen
+        $log = 'build/default/CMakeFiles/CMakeError.log'
+        if (Test-Path $log) { Write-Host "--- $log"; Get-Content $log -Tail 40 | Write-Host }
+    }
     Assert-Exit 'cmake configure'
     & cmake --build --preset=$($Config.ToLower())
     Assert-Exit 'cmake build'
