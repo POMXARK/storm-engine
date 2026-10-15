@@ -1,6 +1,6 @@
 # 09. Редактор: как пользоваться
 
-Встроенный редактор Storm Engine — рабочее место в духе Godot или Unity. Он открывается поверх любого демо и игры, на Windows и Linux. Окна инструментов лежат в отдельном git-модуле [storm-editor](../../src/libs/editor_tools) (`src/libs/editor_tools`), рабочее место, панель инструментов и камера — в движке (`src/libs/editor`). Как это устроено внутри — [06 §6.21](06-recipes.md).
+Встроенный редактор Storm Engine — рабочее место в духе Godot или Unity. Он открывается поверх любого демо и игры, на Windows и Linux. Окна инструментов лежат в отдельном git-модуле [storm-editor](../../src/libs/editor_tools) (`src/libs/editor_tools`), рабочее место, панель инструментов и камера — в движке (`src/libs/editor`). Как это устроено внутри — [06 §6.21](06-recipes.md). Что ещё будет — [10](10-editor-roadmap.md).
 
 ![Сцена в редакторе, режим Edit](media/scene.jpg)
 
