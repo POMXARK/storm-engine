@@ -122,10 +122,6 @@ void CoreImpl::Init()
     SetLayerType(INFO_REALIZE, layer_type_t::realize);
     SetLayerType(SOUND_DEBUG_REALIZE, layer_type_t::realize);
 
-    storm::editor::EngineEditor::RegisterEditorTool("Entities", [this] (bool &active) {
-        entity_manager_.ShowEditor(active);
-    });
-
     storm::editor::EngineEditor::RegisterEditorTool("Sound Service", [this] (bool &active) {
         auto* sound_service = GetServiceX<VSoundService>();
         sound_service->ShowEditor(active);
@@ -1046,6 +1042,11 @@ bool CoreImpl::IsLayerFrozen(layer_index_t index) const
 void CoreImpl::ForEachEntity(const std::function<void(entptr_t)> &f)
 {
     entity_manager_.ForEachEntity(f);
+}
+
+std::optional<priority_t> CoreImpl::GetLayerPriority(layer_index_t index, entid_t id) const
+{
+    return entity_manager_.GetLayerPriority(index, id);
 }
 
 storm::editor::EngineEditor *CoreImpl::GetEditor()

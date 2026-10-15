@@ -24,8 +24,17 @@ struct EditorToolConfig
 
 class EngineEditor::Impl final {
 public:
-    static std::vector<EditorToolConfig> tools_;
-    static std::map<std::string, std::string, std::less<>> settings_;
+    // tools register from static constructors of other modules, so the lists are made on first use
+    static std::vector<EditorToolConfig> &Tools()
+    {
+        static std::vector<EditorToolConfig> tools;
+        return tools;
+    }
+    static std::map<std::string, std::string, std::less<>> &Settings()
+    {
+        static std::map<std::string, std::string, std::less<>> settings;
+        return settings;
+    }
 
     std::array<bool, 5> debugFlags_{};
 
@@ -34,8 +43,6 @@ public:
     bool isFocused_ = true;
 };
 
-std::vector<EditorToolConfig> EngineEditor::Impl::tools_;
-std::map<std::string, std::string, std::less<>> EngineEditor::Impl::settings_;
 
 namespace
 {
@@ -98,7 +105,7 @@ EngineEditor::EngineEditor(SDL_Window *window, IDirect3DDevice9 *device)
     ImGuiIO &io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-    AddSettingsHandler(Impl::tools_, Impl::settings_);
+    AddSettingsHandler(Impl::Tools(), Impl::Settings());
 
 #ifdef _WIN32
     ImGui_ImplSDL2_InitForD3D(window);
@@ -131,7 +138,7 @@ void EngineEditor::StartFrame()
         {
             if (ImGui::BeginMenu("Tools") )
             {
-                for (auto &config : Impl::tools_)
+                for (auto &config : Impl::Tools())
                 {
                     if (ImGui::MenuItem(config.title.c_str(), NULL, &config.active))
                     {
@@ -157,7 +164,7 @@ void EngineEditor::StartFrame()
     // End goes with every Begin, also when the window is collapsed and Begin is false
     ImGui::End();
 
-    for (auto &config : Impl::tools_)
+    for (auto &config : Impl::Tools())
     {
         if (config.active)
         {
@@ -194,18 +201,18 @@ bool EngineEditor::IsDebugFlagEnabled(DebugFlag flag) const
 
 void EngineEditor::RegisterEditorTool(const std::string_view &title, EditorToolCallback callback)
 {
-    Impl::tools_.push_back({.title = std::string(title), .callback = callback});
+    Impl::Tools().push_back({.title = std::string(title), .callback = callback});
 }
 
 std::string EngineEditor::GetSetting(const std::string_view &key)
 {
-    const auto it = Impl::settings_.find(key);
-    return it == Impl::settings_.end() ? std::string() : it->second;
+    const auto it = Impl::Settings().find(key);
+    return it == Impl::Settings().end() ? std::string() : it->second;
 }
 
 void EngineEditor::SetSetting(const std::string_view &key, const std::string_view &value)
 {
-    auto &stored = Impl::settings_[std::string(key)];
+    auto &stored = Impl::Settings()[std::string(key)];
     if (stored != value)
     {
         stored = value;

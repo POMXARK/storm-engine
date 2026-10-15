@@ -135,6 +135,7 @@ class CoreImpl final : public CorePrivate
     hash_t GetClassCode(entid_t id) const override;
     bool IsLayerFrozen(layer_index_t index) const override;
     void ForEachEntity(const std::function<void(entptr_t)>& f) override;
+    std::optional<priority_t> GetLayerPriority(layer_index_t index, entid_t id) const override;
 
     storm::editor::EngineEditor *GetEditor() override;
 

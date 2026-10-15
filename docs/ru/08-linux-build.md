@@ -83,7 +83,7 @@ export CC=clang CXX=clang++
 
 ```bash
 cd $W
-git clone https://github.com/POMXARK/storm-engine.git
+git clone --recursive https://github.com/POMXARK/storm-engine.git   # --recursive: окна редактора, submodule storm-editor
 cd storm-engine && git checkout linux-build
 # upstream для обновлений:
 git remote add upstream https://github.com/PiratesAhoy/storm-engine.git
@@ -141,6 +141,7 @@ Linux-порт сделан в 2022 (issue storm-devs/storm-engine#348), но с
 | 30 | редактор (`--editor`) на Linux ничего не рисует | бэкенд ImGui `imgui_impl_dx9` собирался только на Windows | dx9-бэкенд на всех ОС (`conanfile.py`, `src/libs/editor/CMakeLists.txt`): d3d9 на Linux даёт dxvk-native |
 | 31 | `use of undeclared identifier 'ZeroMemory'` в `imgui_impl_dx9.cpp` | макрос Win32, в заголовках dxvk-native его нет; макрос с параметрами через `target_compile_definitions` генератор Ninja молча отбрасывает | `-include src/imgui_dx9_posix.h` (memset) только для `imgui_backend` |
 | 32 | `ImGui_ImplSDL2_InitForD3D: Assertion 'Unsupported'` | SDL-бэкенд ImGui запрещает D3D вне Windows, хотя сам он только принимает ввод | `ImGui_ImplSDL2_InitForOther` вне Windows; `EndFrame` редактора — до `EndScene`, иначе d3d9 отбрасывает его отрисовку |
+| 33 | `cannot find -leditor_tools` после `-DSTORM_EDITOR_TOOLS=OFF` | список модулей `global_modules_list` кэшируется, выключенный модуль остаётся в нём | движок линкует только существующие цели (`cmake/StormSetup.cmake`) |
 
 ## 6. Обход недоступного gnu.org (локальное зеркало для Conan)
 

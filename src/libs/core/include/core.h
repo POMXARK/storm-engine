@@ -1,6 +1,7 @@
 #pragma once
 
 #include <functional>
+#include <optional>
 
 #include <spdlog/spdlog.h>
 
@@ -144,6 +145,8 @@ class Core
     virtual hash_t GetClassCode(entid_t id) const = 0;
     virtual bool IsLayerFrozen(layer_index_t index) const = 0;
     virtual void ForEachEntity(const std::function<void(entptr_t)> &f) = 0;
+    // the priority of the entity in the layer, none when it is not there
+    [[nodiscard]] virtual std::optional<priority_t> GetLayerPriority(layer_index_t index, entid_t id) const = 0;
 
     [[nodiscard]] virtual storm::editor::EngineEditor *GetEditor() = 0;
 

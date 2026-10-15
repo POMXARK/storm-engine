@@ -500,6 +500,7 @@ demos/model/run.sh build/Debug/engine --editor
 
 ![Инспектор атрибутов погоды в демо model](media/editor.jpg)
 
+- Оверлей (`src/libs/editor`) — часть движка. Окна инструментов живут в отдельном репозитории [storm-editor](https://github.com/POMXARK/storm-editor), submodule `src/libs/editor_tools` (`git clone --recursive` или `git submodule update --init`). Без него, или с `-DSTORM_EDITOR_TOOLS=OFF`, движок собирается как прежде, в **Tools** остаются окна самих модулей (Sound Service).
 - **Developer Tools → Tools** открывает окна инструментов, **Debug** — отладочную отрисовку модулей (каркас, звук, локаторы, пушки).
 - **Entities** — все сущности с классом, поле **Class** фильтрует список. Выбранная открывается в **Entity Properties**:
   - **Layers** — в каких слоях сущность и её приоритет там;
@@ -514,5 +515,5 @@ Entities.Class=WEATHER
 Entities.Filter=angle,density,color
 ```
 
-- Свой инструмент модуля: `storm::editor::EngineEditor::RegisterEditorTool("Имя", [](bool &active) { if (ImGui::Begin("Имя", &active)) { ... } ImGui::End(); })` — как `Entities` и `Sound Service` в `core_impl.cpp`. Сохранить своё значение между запусками — `EngineEditor::SetSetting/GetSetting`. Свои поля сущности показывает `Entity::ShowEditor()`.
+- Свой инструмент: `storm::editor::EngineEditor::RegisterEditorTool("Имя", [](bool &active) { if (ImGui::Begin("Имя", &active)) { ... } ImGui::End(); })`. Общие окна — в storm-editor, они регистрируются сами из статического инициализатора (модули линкуются целиком, пример в README репозитория); окно одного модуля — в нём самом, как `Sound Service` в `core_impl.cpp`. Редактору движок отдаёт общий API `core`: `ForEachEntity`, `GetClassCode`, `GetLayerPriority`, атрибуты. Сохранить своё значение между запусками — `EngineEditor::SetSetting/GetSetting`. Свои поля сущности показывает `Entity::ShowEditor()`.
 

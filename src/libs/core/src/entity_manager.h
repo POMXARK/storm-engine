@@ -3,6 +3,7 @@
 #include <array>
 #include <cstdint>
 #include <functional>
+#include <optional>
 #include <vector>
 
 #include "plf_stack.h"
@@ -34,7 +35,8 @@ class EntityManager final
     void NewLifecycle();
     void ForEachEntity(const std::function<void(entptr_t)> &f);
 
-    void ShowEditor(bool &active);
+    // the priority of the entity in the layer, none when it is not there
+    std::optional<priority_t> GetLayerPriority(layer_index_t index, entid_t id) const;
 
   private:
     constexpr static size_t kMaxLayerNum = sizeof(uint32_t) * 8;
