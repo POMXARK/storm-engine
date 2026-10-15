@@ -5,6 +5,7 @@
 $ErrorActionPreference = 'Stop'
 
 if (-not $DefaultEngine) { $DefaultEngine = Join-Path $Demo '../../build/default/Debug/engine.exe' }
+$DefaultEngine = [System.IO.Path]::GetFullPath($DefaultEngine)
 $Engine = $DefaultEngine
 $EngineArgs = @($args)
 if ($EngineArgs.Count -gt 0 -and -not ([string]$EngineArgs[0]).StartsWith('-'))
@@ -12,7 +13,7 @@ if ($EngineArgs.Count -gt 0 -and -not ([string]$EngineArgs[0]).StartsWith('-'))
     $Engine = $EngineArgs[0]
     $EngineArgs = @($EngineArgs | Select-Object -Skip 1)
 }
-if (-not (Test-Path $Engine -PathType Leaf)) { throw "no engine at ${Engine}: build it or pass its path" }
+if (-not (Test-Path $Engine -PathType Leaf)) { throw "no engine at ${Engine}: build it (build.bat) or pass its path" }
 $Engine = (Resolve-Path $Engine).Path
 
 # python.org installs the launcher py and python, the Microsoft Store one python3 too

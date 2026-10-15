@@ -257,7 +257,16 @@ demos\scene\run.bat D:\build\engine.exe --editor
 ```
 Общие шаги — в `demos/common/demo.ps1`: Python ищется как `py -3`, `python`, `python3`; шейдеры подключаются junction-ом (не нужны ни права администратора, ни режим разработчика), если не вышло — symlink, затем копия; движок стартует из папки демо, потому что `program\` и `resource\` он ищет от cwd. При ошибке окно `run.bat` не закрывается. Скачивание шрифтов — `fetch_assets.ps1` у dialog и interface (ассеты и так лежат в git). Скрипты проверены через PowerShell 7 на Linux (`run.ps1` запускает scene, trigger, interface, save, sound, gltf); на Windows не проверены. Git Bash с `run.sh` тоже работает, если есть `python3`.
 
-**Игра corsairs-remake.** Движок уже лежит в ней submodule `engine/` (тот коммит, с которым игра проверена), отдельный клон `storm-engine` не нужен:
+**Сборка одним шагом — `build.bat`** (`build.ps1`) в корне движка, из обычного PowerShell или двойным щелчком: входит в x64 developer shell самой новой Visual Studio (через `vswhere`, подходят и Build Tools, 2022 или 2019), добавляет в PATH папки `Scripts` Python (туда pip кладёт `conan.exe`, но в PATH их часто нет), доставляет pip-ом недостающее — Conan 2.12.2, Ninja, CMake ≥ 3.24 (у VS 2019 своя 3.20), Pillow, — делает профиль Conan и собирает пресет. Параметры: `-Config Release`, `-ExtraModules <папка модуля игры>`. Неудачная конфигурация без компилятора оставляет кэш, на котором спотыкается следующая; `build.ps1` такой `build\default` удаляет.
+
+**Игра corsairs-remake.** Движок уже лежит в ней submodule `engine/` (тот коммит, с которым игра проверена), отдельный клон `storm-engine` не нужен. `build.bat` в корне игры собирает `engine\` с окнами редактора игры:
+```powershell
+git clone --recursive https://github.com/POMXARK/corsairs-remake.git
+cd corsairs-remake
+.\build.bat
+.\run.bat --editor
+```
+Вручную то же — в Developer PowerShell for VS:
 ```powershell
 git clone --recursive https://github.com/POMXARK/corsairs-remake.git
 cd corsairs-remake\engine
@@ -272,11 +281,12 @@ cd ..
 - `The source directory "C:/storm-engine" does not exist` → `cmake` запущен не из той папки: путь к исходникам считается от текущей. Конфигурировать из папки движка пресетом (`cmake --preset=default`), а не `cmake ../storm-engine` из папки игры: так CMake пишет `CMakeCache.txt` и `CMakeFiles\` прямо в репозиторий игры, их надо удалить.
 - `-DSTORM_EXTRA_MODULES=<this repo>/editor` → `<this repo>` — подстановка, а не синтаксис: PowerShell и cmd читают `<` как перенаправление. Писать полный путь.
 - `Building for: Visual Studio 16 2019` → без пресета CMake берёт первый найденный генератор. Пресет задаёт Ninja Multi-Config, а Ninja и MSVC есть в PATH только в **Developer PowerShell / x64 Native Tools Command Prompt for VS 2022**. VS 2019 (MSVC 19.29) не проверялась; если нет VS 2022, бесплатно ставятся Build Tools for Visual Studio 2022 с нагрузкой «Разработка классических приложений на C++».
-- `Conan executable not found! Please install conan.` → `pip install conan==2.12.2 Pillow`, затем `conan profile detect`. Если `conan` всё равно не находится, в PATH нет папки `Scripts` Python: переустановить Python с «Add to PATH» или открыть новую консоль.
+- `Conan executable not found! Please install conan.` / `conan` не распознано → pip поставил `conan.exe` в `%APPDATA%\Python\Python3xx\Scripts`, которой нет в PATH (pip пишет об этом WARNING). `build.bat` добавляет её сам; вручную — `$env:PATH = "$env:APPDATA\Python\Python314\Scripts;$env:PATH"`.
+- `CMake was unable to find a build program corresponding to "Ninja Multi-Config"`, `CMAKE_CXX_COMPILER not set` → обычный PowerShell, не developer shell: нет ни Ninja, ни MSVC в PATH. `build.bat` входит в него сам; вручную — удалить `build\default` и конфигурировать из Developer PowerShell for VS.
 - Пустая папка `engine\` или `src\libs\editor_tools` → клон без `--recursive`: `git submodule update --init --recursive`.
 
 **Логи** на Windows лежат в `Documents\My Games\Sea Dogs\Logs\` (а не в `~/.local/share`).
 
 **Курсор в редакторе.** На Windows курсор прячет и показывает `::ShowCursor` (`sdl_window.cpp`). На Linux, где ввод держит мышь в relative-режиме, то же делает `SDL_SetRelativeMouseMode` (п. 5, строка 37).
 
-Сборка на Windows здесь не проверялась: команды взяты из CI и `conanfile.py`, Linux-изменения ветки под `#ifdef`/`if (WIN32)`.
+Сборка на Windows здесь не проверялась (`build.ps1` проверен только разбором PowerShell 7): команды взяты из CI и `conanfile.py`, Linux-изменения ветки под `#ifdef`/`if (WIN32)`.
