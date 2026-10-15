@@ -41,6 +41,8 @@ class WdmPlayerShip : public WdmShip
   protected:
     // Move the ship
     virtual void Move(float dltTime);
+    // Sail to worldMap.autopilot.x / z, if set
+    void Autopilot(float dltTime);
 
     void Collide() override;
 

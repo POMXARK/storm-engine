@@ -455,3 +455,37 @@ SendMessage(&Pirate, "lsi", MSG_NPCHARACTER_SETTASK, "Fight", &Sailor);
 - Игрок — это `NPCharacter`: пока его задача `"None"`, им управляют контролы (`ChrFightMode`, `ChrAttackFast`, `ChrAttackForce`, `ChrBlock`, `ChrParry`). С задачей `"Fight"` он дерётся сам, как NPC. Так устроены автотест и видео демо — без нажатий.
 - `MSG_CHARACTER_SETFTGLEVEL 30362 "lf"` — мастерство NPC 0..1: чем выше, тем быстрее он отвечает на атаку блоком или парированием.
 - Метки сабли и её модель — в 4.2, события анимации (`Attack`, `Parry start/end`, `Blade to hand`) — в 4.3.
+
+## 6.20 Глобальная карта (`demos/worldmap`)
+Архипелаг из четырёх островов на море 2000×2000. Корабль сам обходит острова, пока клавиша не возьмёт штурвал. Мимо проходят торговцы, гонятся пираты, собираются грозы. Все модели, текстуры и шрифты генерирует `make_worldmap.py` (4.15).
+```c
+#define MSG_WORLDMAP_CREATESTORM 31000
+#define MSG_WORLDMAP_CREATEENC_MER_XZ 31102
+#define MSG_WORLDMAP_CREATEENC_FLW 31110
+#define MSG_WORLDMAP_CREATEENC_WAR 31120
+#define MSG_WORLDMAP_CREATEENC_RELEASE 31200
+
+// до CreateEntity: старт, камера, дата (час игры = 2 с карты), надписи над метками labels.*
+worldMap.playerShipX = 0.0; worldMap.playerShipZ = -60.0; worldMap.playerShipAY = 0.0;
+worldMap.wdmCameraY = 250.0;
+worldMap.date.hour = 9; worldMap.date.day = 15; worldMap.date.month = 6; worldMap.date.year = 1665;
+worldMap.date.hourPerSec = 0.5;
+worldMap.date.font = "WDM_DATE";
+worldMap.labels.gull.id = "gull"; worldMap.labels.gull.locator = "gull";
+worldMap.labels.gull.text = "Gull Island"; worldMap.labels.gull.font = "WDM_LABEL";
+worldMap.labels.gull.heightView = 400.0;   // выше камеры, иначе надпись не видна
+CreateEntity(&worldMap, "worldmap");
+
+// в WorldMap_EncounterCreate (dt, x, z, ay) — встречи:
+SendMessage(&worldMap, "lsffffff", MSG_WORLDMAP_CREATEENC_MER_XZ, "merchant", x1, z1, x2, z2, 1.0, 90.0);
+SendMessage(&worldMap, "lsff", MSG_WORLDMAP_CREATEENC_FLW, "pirate", 0.9, 90.0);   // преследует игрока
+SendMessage(&worldMap, "lssf", MSG_WORLDMAP_CREATEENC_WAR, "pirate", "merchant", 90.0);
+SendMessage(&worldMap, "ll", MSG_WORLDMAP_CREATESTORM, false);
+
+// автопилот: корабль идёт к точке, по прибытии (radius) движок удаляет атрибут
+worldMap.autopilot.x = -250.0; worldMap.autopilot.z = 250.0; worldMap.autopilot.radius = 15.0;
+```
+- `WorldMap_ShipEncounter` (x, z, ay, индекс встречи) — в игре здесь начинается морской бой. Демо убирает встречи (`CREATEENC_RELEASE`) и даёт 10 с тишины, иначе событие приходит каждый кадр.
+- `worldMap.island` — id острова, в чьих водах корабль (диск `_area`, 4.15), или пустая строка.
+- Демо без нажатий: тур по островам на автопилоте, `Demo_Control` отдаёт штурвал игроку на W/S/A/D. Так снято видео.
+- Модели карты рисуются без освещения, а тучи — шейдером `worldmap_main.vso` (07: фиолетовые тучи).

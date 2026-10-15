@@ -10,6 +10,8 @@
 
 #include "wdm_player_ship.h"
 
+#include <algorithm>
+
 #include "core.h"
 #include "math_inlines.h"
 
@@ -386,6 +388,34 @@ void WdmPlayerShip::Move(float dltTime)
         isTurn = true;
     if (isTurn)
         turnspd += WDM_SHIP_INER_ST * WDM_SHIP_TSPEED * dltTime;
+    Autopilot(dltTime);
+}
+
+// worldMap.autopilot.x / z: the ship sails itself to the point, for scripted runs without the
+// keyboard; on arrival (within autopilot.radius, 10 by default) the attribute is deleted
+void WdmPlayerShip::Autopilot(float dltTime)
+{
+    if (!wdmObjects->wm || !wdmObjects->wm->AttributesPointer)
+        return;
+    auto *const root = wdmObjects->wm->AttributesPointer;
+    auto *const ap = root->GetAttributeClass("autopilot");
+    if (!ap)
+        return;
+    const auto dx = ap->GetAttributeAsFloat("x", mtx.Pos().x) - mtx.Pos().x;
+    const auto dz = ap->GetAttributeAsFloat("z", mtx.Pos().z) - mtx.Pos().z;
+    const auto radius = ap->GetAttributeAsFloat("radius", 10.0f);
+    if (dx * dx + dz * dz < radius * radius)
+    {
+        goForward = false;
+        root->DeleteAttributeClassX(ap);
+        return;
+    }
+    goForward = true;
+    // the heading to the point against ours, in -PI..PI; ay grows turning right
+    auto diff = atan2f(dx, dz) - ay;
+    diff = atan2f(sinf(diff), cosf(diff));
+    const auto target = std::clamp(diff * 2.0f, -WDM_SHIP_MAX_TURNSPD, WDM_SHIP_MAX_TURNSPD);
+    turnspd += (target - turnspd) * std::min(1.0f, WDM_SHIP_INER_ST * 2.0f * dltTime);
 }
 
 void WdmPlayerShip::Collide()

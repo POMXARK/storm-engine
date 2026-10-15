@@ -381,6 +381,9 @@ void WdmClouds::LRender(VDX9RENDER *rs)
         clouds.matrix[5] = 0.0f;
         clouds.matrix[6] = (WdmCloudsSizeMax - WdmCloudsSizeMin) * 1.4f;
         clouds.matrix[7] = 0.5f;
+        // the third row is the colour of a lightning flash (wdm_cloud.cpp); ordinary clouds have none,
+        // and a row left unset takes the constants of the last draw and stains the clouds
+        clouds.matrix[8] = clouds.matrix[9] = clouds.matrix[10] = clouds.matrix[11] = 0.0f;
 
 #ifdef _WIN32 // Effects
         Assert(fx_ != nullptr);
@@ -388,7 +391,7 @@ void WdmClouds::LRender(VDX9RENDER *rs)
         fx_->SetMatrix(cloudMatrix_, clouds);
 #else
         rs->SetVertexShaderConstantF(0, prj, 4);
-        rs->SetVertexShaderConstantF(4, clouds, 2);
+        rs->SetVertexShaderConstantF(4, clouds, 3);
 #endif
 
         rs->DrawRects(rects, count, "WdmClouds", 2, 2);
