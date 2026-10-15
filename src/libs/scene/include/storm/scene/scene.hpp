@@ -12,14 +12,24 @@
 namespace storm::scene
 {
 
-// A model of a scene: its .gm and its place
+// A model of a scene: its .gm and its place; or a marker, a named place without a model where the script
+// puts what the scene does not make itself (the player, an NPC with its AI)
 struct SceneObject
 {
     std::string name;
+    // [[marker]] of the file: no model, only the place; GetSceneMarker gives it to the script
+    bool marker = false;
     // the model as MSG_MODEL_LOAD_GEO takes it: resource/models/<geometry>.gm, "demo\crate"
     std::string geometry;
     // the shader technique of its nodes, empty for the one of the model
     std::string technique;
+    // the folder of resource/textures its texture names are in, as a character's are in "characters";
+    // empty when the names carry their folder ("demo\crate.tga")
+    std::string textures;
+    // the skeleton of an animated model as MSG_MODEL_LOAD_ANI takes it: resource/animation/<animation>.ani
+    std::string animation;
+    // the action its player 0 plays from the start, looped when the .ani says so
+    std::string action;
     // the place, D3D layout as MODEL::mtx: the axes x, y, z in the rows 0-2, the position in the row 3
     float matrix[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
     // the editor tells the objects apart by it across undo; not in the file
@@ -58,6 +68,9 @@ void Despawn(SceneObject &object);
 // the matrix of the model to the object, and back
 void ReadPlace(SceneObject &object);
 void WritePlace(const SceneObject &object);
+
+// The marker of the current scene by its name, nullptr when there is none
+const SceneObject *FindMarker(std::string_view name);
 
 // The scene from its file instead of the current one; the number of the models made, nullopt when the file
 // is not there or is broken

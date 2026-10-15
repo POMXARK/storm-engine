@@ -3,7 +3,7 @@
 # Downloads a free font, generates the sea, the ship, the particles, the sounds, the cannonball and
 # the island of the earlier demos and the textures of the navigator and the ship panel, then starts
 # the engine.
-# Usage: run.sh <path to built engine executable>
+# Usage: run.sh <path to built engine executable> [engine options, e.g. --editor]
 set -euo pipefail
 ENGINE="$(realpath "$1")"
 DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -20,4 +20,4 @@ python3 -I "$DIR/make_hud.py" "$DIR/assets" "$DIR/resource"
 ln -sfn "$(dirname "$ENGINE")/resource/techniques" "$DIR/resource/techniques"
 
 cd "$DIR"
-exec "$ENGINE"
+exec "$ENGINE" "${@:2}"

@@ -1,7 +1,7 @@
 #!/bin/bash
 # Dialog demo without game files: downloads a free font, generates the sea and sky of the sea demo,
 # a pier with a sailor, the dialog window and its fonts, and starts the engine on the pier.
-# Usage: run.sh <path to built engine executable>
+# Usage: run.sh <path to built engine executable> [engine options, e.g. --editor]
 set -euo pipefail
 ENGINE="$(realpath "$1")"
 DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -14,4 +14,4 @@ ln -sfn "$(dirname "$ENGINE")/resource/techniques" "$DIR/resource/techniques"
 mkdir -p "$DIR/resource/ini/aliases"
 
 cd "$DIR"
-exec "$ENGINE"
+exec "$ENGINE" "${@:2}"

@@ -3,7 +3,7 @@
 # depth map, the sea and sky of the sea demo, the ship of the ship demo, the particles, the sounds
 # and the cannonball of the particles, sound and battle demos, then starts the engine with two brigs
 # on either side of the island, the second steered round it by SEA_AI.
-# Usage: run.sh <path to built engine executable>
+# Usage: run.sh <path to built engine executable> [engine options, e.g. --editor]
 set -euo pipefail
 ENGINE="$(realpath "$1")"
 DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -19,4 +19,4 @@ python3 -I "$DIR/make_island.py" "$DIR/resource"
 ln -sfn "$(dirname "$ENGINE")/resource/techniques" "$DIR/resource/techniques"
 
 cd "$DIR"
-exec "$ENGINE"
+exec "$ENGINE" "${@:2}"

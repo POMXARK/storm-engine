@@ -1,7 +1,7 @@
 #!/bin/bash
 # Ship demo without game files: generates the sea and sky of the sea demo, the ship model with its
 # textures and the sail parameters, and starts the engine with the ship at sea.
-# Usage: run.sh <path to built engine executable>
+# Usage: run.sh <path to built engine executable> [engine options, e.g. --editor]
 set -euo pipefail
 ENGINE="$(realpath "$1")"
 DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -13,4 +13,4 @@ ln -sfn "$(dirname "$ENGINE")/resource/techniques" "$DIR/resource/techniques"
 mkdir -p "$DIR/resource/sounds" "$DIR/resource/ini/aliases"
 
 cd "$DIR"
-exec "$ENGINE"
+exec "$ENGINE" "${@:2}"

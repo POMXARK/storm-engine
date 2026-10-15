@@ -1,0 +1,25 @@
+# A scene of Storm Engine: the models and their places, made in the window Scene of the editor.
+# A script loads it with LoadScene("<name>"). position is in metres, axes are the rows x, y, z of
+# the turn. A marker is a place the script asks for by name (GetSceneMarker).
+
+[[model]]
+name = 'onlooker'
+geometry = 'characters\pirate'
+textures = 'characters'
+animation = 'fencer'
+action = 'idle_1'
+position = [ 5.0, 0.8, 5.0 ]
+axes = [ -0.814, 0.0, 0.581,
+         0.0, 1.0, 0.0,
+         -0.581, 0.0, -0.814 ]
+
+[[marker]]
+name = 'sailor'
+position = [ 0.0, 0.0, -5.0 ]
+
+[[marker]]
+name = 'pirate'
+position = [ 0.0, 0.0, 1.0 ]
+axes = [ -1.0, 0.0, 0.0,
+         0.0, 1.0, 0.0,
+         0.0, 0.0, -1.0 ]

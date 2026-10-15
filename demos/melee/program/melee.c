@@ -6,6 +6,8 @@
 // W/S walk, A/D or the mouse turn, Shift walks instead of running, E draws or sheathes the saber,
 // F attacks fast, G attacks with force, Space holds a block, Q parries, R starts a new bout,
 // Escape quits.
+// The places of the fencers and the onlooker come from resource/scenes/yard.scene (the editor's
+// window Scene): the fencers stand on its markers, the onlooker is an animated model of the scene.
 
 #define EXECUTE 0
 #define REALIZE 1
@@ -30,6 +32,12 @@
 #define MAX_ENERGY 100.0
 #define ENERGY_REGEN 12.0
 #define TICK_MS 100
+
+// the scene module: declared before its library, which binds only what is declared
+native int LoadScene(string name);
+native int GetSceneMarker(string name, ref place);
+#library "SceneLibrary"
+#library "SceneMarkers"
 
 object Render;
 object Scene;
@@ -98,6 +106,10 @@ void Main()
 		Trace("MELEE: character patch not loaded");
 	}
 	CreateEntity(&Groups, "CharactersGroups");
+	if (LoadScene("yard") < 0)
+	{
+		Trace("MELEE: scene yard not loaded");
+	}
 
 	// the event handlers go first: the characters ask them as soon as they are set up
 	SetEventHandler("EWhr_GetShadowDensity", "Demo_ShadowDensity", 0);
@@ -189,6 +201,19 @@ void SetupFencer(ref chr, string model)
 	SendMessage(chr, "lsfll", MSG_CHARACTER_SETBLADE, "saber", 0.25, argb(64, 255, 255, 255), argb(0, 255, 255, 255));
 }
 
+// Puts a fencer on a marker of the scene; without the scene, on the axis of the yard at z, facing ay
+void PlaceOnMarker(ref chr, string marker, float z, float ay)
+{
+	object place;
+	if (GetSceneMarker(marker, &place))
+	{
+		SendMessage(chr, "lffff", MSG_CHARACTER_TELEPORT_AY, stf(place.x), stf(place.y), stf(place.z), stf(place.ay));
+		return;
+	}
+	Trace("MELEE: no marker " + marker);
+	SendMessage(chr, "lffff", MSG_CHARACTER_TELEPORT_AY, 0.0, 0.0, z, ay);
+}
+
 void NewBout()
 {
 	bout++;
@@ -205,8 +230,8 @@ void NewBout()
 	Pirate.id = "pirate";
 	CreateEntity(&Pirate, "npcharacter");
 	SetupFencer(&Pirate, "pirate");
-	SendMessage(&Sailor, "lffff", MSG_CHARACTER_TELEPORT_AY, 0.0, 0.0, -5.0, 0.0);
-	SendMessage(&Pirate, "lffff", MSG_CHARACTER_TELEPORT_AY, 0.0, 0.0, 1.0, 3.14159);
+	PlaceOnMarker(&Sailor, "sailor", -5.0, 0.0);
+	PlaceOnMarker(&Pirate, "pirate", 1.0, 3.14159);
 
 	// the engine attacks only enemies: the groups hold who is whose
 	SendMessage(&Groups, "sis", "MoveChr", &Sailor, "Player");

@@ -1,7 +1,7 @@
 #!/bin/bash
 # World map demo without game files: downloads a free font, generates the archipelago, the ships,
 # the sea, the clouds and the interface of the WORLDMAP entity, then starts the engine on the map.
-# Usage: run.sh <path to built engine executable>
+# Usage: run.sh <path to built engine executable> [engine options, e.g. --editor]
 set -euo pipefail
 ENGINE="$(realpath "$1")"
 DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -12,4 +12,4 @@ python3 -I "$DIR/make_worldmap.py" "$DIR/assets" "$DIR/resource"
 ln -sfn "$(dirname "$ENGINE")/resource/techniques" "$DIR/resource/techniques"
 
 cd "$DIR"
-exec "$ENGINE"
+exec "$ENGINE" "${@:2}"

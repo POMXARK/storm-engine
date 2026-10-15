@@ -2,3 +2,4 @@ resource/techniques
 engine.out
 *.log
 *.dxvk-cache
+imgui.ini

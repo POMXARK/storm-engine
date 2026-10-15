@@ -1,6 +1,7 @@
 #include "storm/scene/scene.hpp"
 
 #include "core.h"
+#include "geometry.h"
 #include "model.h"
 #include "shared/layers.h"
 #include "shared/messages.h"
@@ -89,7 +90,8 @@ MODEL *Model(entid_t entity)
 
 bool SceneObject::SameAs(const SceneObject &other) const
 {
-    if (name != other.name || geometry != other.geometry || technique != other.technique)
+    if (name != other.name || marker != other.marker || geometry != other.geometry || technique != other.technique ||
+        textures != other.textures || animation != other.animation || action != other.action)
     {
         return false;
     }
@@ -130,43 +132,60 @@ std::optional<std::vector<SceneObject>> ParseScene(std::string_view text, std::s
         return std::nullopt;
     }
     std::vector<SceneObject> objects;
-    const toml::array *models = table["model"].as_array();
-    if (models == nullptr)
+    // the models first, then the markers: the order the file is written in
+    for (const char *kind : {"model", "marker"})
     {
-        return objects;
-    }
-    for (const toml::node &node : *models)
-    {
-        const toml::table *model = node.as_table();
-        if (model == nullptr)
+        const bool marker = std::string_view(kind) == "marker";
+        const toml::array *items = table[kind].as_array();
+        if (items == nullptr)
         {
-            error = "[[model]] is not a table";
-            return std::nullopt;
+            continue;
         }
-        const toml::node_view<const toml::node> view(model);
-        SceneObject object;
-        object.name = view["name"].value_or(std::string());
-        object.geometry = view["geometry"].value_or(std::string());
-        object.technique = view["technique"].value_or(std::string());
-        if (object.geometry.empty())
+        for (const toml::node &node : *items)
         {
-            error = "model \"" + object.name + "\" has no geometry";
-            return std::nullopt;
+            const toml::table *item = node.as_table();
+            if (item == nullptr)
+            {
+                error = fmt::format("[[{}]] is not a table", kind);
+                return std::nullopt;
+            }
+            const toml::node_view<const toml::node> view(item);
+            SceneObject object;
+            object.marker = marker;
+            object.name = view["name"].value_or(std::string());
+            if (marker && object.name.empty())
+            {
+                error = "a marker has no name";
+                return std::nullopt;
+            }
+            if (!marker)
+            {
+                object.geometry = view["geometry"].value_or(std::string());
+                object.technique = view["technique"].value_or(std::string());
+                object.textures = view["textures"].value_or(std::string());
+                object.animation = view["animation"].value_or(std::string());
+                object.action = view["action"].value_or(std::string());
+                if (object.geometry.empty())
+                {
+                    error = "model \"" + object.name + "\" has no geometry";
+                    return std::nullopt;
+                }
+            }
+            float position[3] = {};
+            float axes[9] = {1, 0, 0, 0, 1, 0, 0, 0, 1};
+            if ((view["position"] && !ReadFloats(view["position"], position, 3)) ||
+                (view["axes"] && !ReadFloats(view["axes"], axes, 9)))
+            {
+                error = fmt::format("{} \"{}\": position is 3 numbers, axes 9", kind, object.name);
+                return std::nullopt;
+            }
+            for (size_t row = 0; row < 3; ++row)
+            {
+                std::copy(axes + row * 3, axes + row * 3 + 3, object.matrix + row * 4);
+            }
+            std::copy(position, position + 3, object.matrix + 12);
+            objects.push_back(std::move(object));
         }
-        float position[3] = {};
-        float axes[9] = {1, 0, 0, 0, 1, 0, 0, 0, 1};
-        if ((view["position"] && !ReadFloats(view["position"], position, 3)) ||
-            (view["axes"] && !ReadFloats(view["axes"], axes, 9)))
-        {
-            error = "model \"" + object.name + "\": position is 3 numbers, axes 9";
-            return std::nullopt;
-        }
-        for (size_t row = 0; row < 3; ++row)
-        {
-            std::copy(axes + row * 3, axes + row * 3 + 3, object.matrix + row * 4);
-        }
-        std::copy(position, position + 3, object.matrix + 12);
-        objects.push_back(std::move(object));
     }
     return objects;
 }
@@ -176,21 +195,43 @@ std::string FormatScene(const std::vector<SceneObject> &objects)
     // written by hand, not by toml++: the keys go in the order a reader wants and the floats stay short
     std::string text = "# A scene of Storm Engine: the models and their places, made in the window Scene of the editor.\n"
                        "# A script loads it with LoadScene(\"<name>\"). position is in metres, axes are the rows x, y, z of\n"
-                       "# the turn.\n";
-    for (const SceneObject &object : objects)
+                       "# the turn. A marker is a place the script asks for by name (GetSceneMarker).\n";
+    for (const bool markers : {false, true})
     {
-        const float axes[9] = {object.matrix[0], object.matrix[1], object.matrix[2],
-                               object.matrix[4], object.matrix[5], object.matrix[6],
-                               object.matrix[8], object.matrix[9], object.matrix[10]};
-        text += "\n[[model]]\n";
-        text += "name = " + Quote(object.name) + "\n";
-        text += "geometry = " + Quote(object.geometry) + "\n";
-        if (!object.technique.empty())
+        for (const SceneObject &object : objects)
         {
-            text += "technique = " + Quote(object.technique) + "\n";
+            if (object.marker != markers)
+            {
+                continue;
+            }
+            const float axes[9] = {object.matrix[0], object.matrix[1], object.matrix[2],
+                                   object.matrix[4], object.matrix[5], object.matrix[6],
+                                   object.matrix[8], object.matrix[9], object.matrix[10]};
+            text += markers ? "\n[[marker]]\n" : "\n[[model]]\n";
+            text += "name = " + Quote(object.name) + "\n";
+            if (!markers)
+            {
+                text += "geometry = " + Quote(object.geometry) + "\n";
+                if (!object.technique.empty())
+                {
+                    text += "technique = " + Quote(object.technique) + "\n";
+                }
+                if (!object.textures.empty())
+                {
+                    text += "textures = " + Quote(object.textures) + "\n";
+                }
+                if (!object.animation.empty())
+                {
+                    text += "animation = " + Quote(object.animation) + "\n";
+                }
+                if (!object.action.empty())
+                {
+                    text += "action = " + Quote(object.action) + "\n";
+                }
+            }
+            text += "position = " + Numbers(object.matrix + 12, 3) + "\n";
+            text += "axes = " + Numbers(axes, 9) + "\n";
         }
-        text += "position = " + Numbers(object.matrix + 12, 3) + "\n";
-        text += "axes = " + Numbers(axes, 9) + "\n";
     }
     return text;
 }
@@ -220,13 +261,29 @@ bool WriteScene(std::string_view name, const std::vector<SceneObject> &objects)
 
 bool Spawn(SceneObject &object)
 {
+    if (object.marker)
+    {
+        object.entity = invalid_entity;
+        return false;
+    }
     object.entity = core.CreateEntity("MODELR");
     if (object.entity == invalid_entity)
     {
         return false;
     }
+    // the textures load with the model, from the folder set for that moment (as a character does it)
+    auto *geometry = core.GetServiceX<VGEOMETRY>();
+    if (geometry != nullptr && !object.textures.empty())
+    {
+        geometry->SetTexturePath((object.textures + "\\").c_str());
+    }
     // a model that does not load erases its entity itself
-    if (core.Send_Message(object.entity, "ls", MSG_MODEL_LOAD_GEO, object.geometry.c_str()) == 0)
+    const bool loaded = core.Send_Message(object.entity, "ls", MSG_MODEL_LOAD_GEO, object.geometry.c_str()) != 0;
+    if (geometry != nullptr && !object.textures.empty())
+    {
+        geometry->SetTexturePath("");
+    }
+    if (!loaded)
     {
         core.Trace("Scene: no model %s for \"%s\"", object.geometry.c_str(), object.name.c_str());
         object.entity = invalid_entity;
@@ -235,6 +292,19 @@ bool Spawn(SceneObject &object)
     if (!object.technique.empty())
     {
         core.Send_Message(object.entity, "ls", MSG_MODEL_SET_TECHNIQUE, object.technique.c_str());
+    }
+    if (!object.animation.empty())
+    {
+        // the model keeps going without its skeleton, in its pose of the file
+        if (core.Send_Message(object.entity, "ls", MSG_MODEL_LOAD_ANI, object.animation.c_str()) == 0)
+        {
+            core.Trace("Scene: no animation %s for \"%s\"", object.animation.c_str(), object.name.c_str());
+        }
+        else if (!object.action.empty() &&
+                 core.Send_Message(object.entity, "lls", MSG_MODEL_PLAY_ACTION, 0, object.action.c_str()) == 0)
+        {
+            core.Trace("Scene: no action %s for \"%s\"", object.action.c_str(), object.name.c_str());
+        }
     }
     core.AddToLayer(EXECUTE, object.entity, kPriority);
     core.AddToLayer(REALIZE, object.entity, kPriority);
@@ -267,6 +337,18 @@ void WritePlace(const SceneObject &object)
     }
 }
 
+const SceneObject *FindMarker(std::string_view name)
+{
+    for (const SceneObject &object : CurrentScene().objects)
+    {
+        if (object.marker && object.name == name)
+        {
+            return &object;
+        }
+    }
+    return nullptr;
+}
+
 std::optional<size_t> LoadScene(std::string_view name)
 {
     std::string error;
@@ -281,13 +363,16 @@ std::optional<size_t> LoadScene(std::string_view name)
     scene.name = name;
     scene.objects = std::move(*objects);
     size_t made = 0;
+    size_t markers = 0;
     uint32_t id = 0;
     for (SceneObject &object : scene.objects)
     {
         object.id = ++id;
         made += Spawn(object) ? 1 : 0;
+        markers += object.marker ? 1 : 0;
     }
-    core.Trace("Scene: %s, %zu models of %zu", std::string(name).c_str(), made, scene.objects.size());
+    core.Trace("Scene: %s, %zu models of %zu, %zu markers", std::string(name).c_str(), made,
+               scene.objects.size() - markers, markers);
     return made;
 }
 

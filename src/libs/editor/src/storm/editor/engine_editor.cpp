@@ -319,8 +319,8 @@ void EngineEditor::Impl::Toolbar()
         SetPlaying(!playing);
     }
     ImGui::PopStyleColor();
-    ImGui::SetItemTooltip(playing ? "Back to the edit: the game stands, the scene comes back as it was at Play"
-                                  : "The game goes; the scene is kept and comes back at Stop");
+    ImGui::SetItemTooltip(playing ? "Back to the edit (Ctrl+P): the game stands, the scene comes back as it was at Play"
+                                  : "The game goes (Ctrl+P); the scene is kept and comes back at Stop");
     ImGui::SameLine();
     ImGui::BeginDisabled(!playing);
     if (ImGui::Button(paused_ ? "Resume" : "Pause"))
@@ -605,6 +605,11 @@ void EngineEditor::StartFrame()
     if (ImGui::IsKeyPressed(ImGuiKey_F10, false))
     {
         impl_->gameOnly_ = !impl_->gameOnly_;
+    }
+    // Ctrl+P is Play / Stop, as in Unity
+    if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_P, false) && !io.WantTextInput)
+    {
+        impl_->SetPlaying(!IsPlaying());
     }
     const bool workspace = IsWorkspace() && !impl_->gameOnly_;
     // the gizmo and the like draw over the whole screen unless the workspace shows the game in a window

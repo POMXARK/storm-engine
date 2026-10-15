@@ -1,7 +1,7 @@
 #!/bin/bash
 # Particles demo without game files: generates the sea and sky of the sea demo, the particle
 # sprites and systems and a rock, and starts the engine with a fire burning on the rock.
-# Usage: run.sh <path to built engine executable>
+# Usage: run.sh <path to built engine executable> [engine options, e.g. --editor]
 set -euo pipefail
 ENGINE="$(realpath "$1")"
 DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -13,4 +13,4 @@ ln -sfn "$(dirname "$ENGINE")/resource/techniques" "$DIR/resource/techniques"
 mkdir -p "$DIR/resource/sounds" "$DIR/resource/ini/aliases"
 
 cd "$DIR"
-exec "$ENGINE"
+exec "$ENGINE" "${@:2}"

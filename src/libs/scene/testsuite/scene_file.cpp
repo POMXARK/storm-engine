@@ -61,3 +61,34 @@ TEST_CASE("An empty scene", "[scene]")
     REQUIRE(objects);
     CHECK(objects->empty());
 }
+
+TEST_CASE("Animated models and markers are written and read back", "[scene]")
+{
+    SceneObject sailor;
+    sailor.name = "watch";
+    sailor.geometry = "characters\\sailor";
+    sailor.textures = "characters";
+    sailor.animation = "fencer";
+    sailor.action = "idle_1";
+    SceneObject start;
+    start.name = "player";
+    start.marker = true;
+    // turned to face -z
+    const float matrix[16] = {-1, 0, 0, 0, 0, 1, 0, 0, 0, 0, -1, 0, 2, 0, -5, 1};
+    std::copy(matrix, matrix + 16, start.matrix);
+
+    // the markers go after the models
+    const std::string text = FormatScene({start, sailor});
+    CHECK(text.find("[[marker]]") > text.find("[[model]]"));
+    CHECK(text.find("animation = 'fencer'") != std::string::npos);
+    CHECK(text.find("textures = 'characters'") != std::string::npos);
+    std::string error;
+    const auto objects = ParseScene(text, error);
+    REQUIRE(objects);
+    REQUIRE(objects->size() == 2);
+    CHECK((*objects)[0].SameAs(sailor));
+    CHECK((*objects)[1].SameAs(start));
+    CHECK((*objects)[1].geometry.empty());
+    CHECK(!ParseScene("[[marker]]\nposition = [0.0, 0.0, 0.0]\n", error));
+    CHECK(error.find("name") != std::string::npos);
+}

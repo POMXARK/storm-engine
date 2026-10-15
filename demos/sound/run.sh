@@ -2,7 +2,7 @@
 # Sound demo without game files: downloads a free font, generates the sea and sky of the sea demo,
 # the ship of the ship demo, and the sounds, the music, the buoy and the log font of this demo,
 # then starts the engine with the brig beside a bell buoy.
-# Usage: run.sh <path to built engine executable>
+# Usage: run.sh <path to built engine executable> [engine options, e.g. --editor]
 set -euo pipefail
 ENGINE="$(realpath "$1")"
 DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -15,4 +15,4 @@ python3 -I "$DIR/make_sound.py" "$DIR/assets" "$DIR/resource"
 ln -sfn "$(dirname "$ENGINE")/resource/techniques" "$DIR/resource/techniques"
 
 cd "$DIR"
-exec "$ENGINE"
+exec "$ENGINE" "${@:2}"
