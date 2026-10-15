@@ -63,6 +63,6 @@
 - `WorldMap_PlayerInStorm` — корабль в шторме;
 - `ExitFromWorldMap` — выход в море по Enter.
 
-Мораль и провиант для плашки берутся из ответов на `WorldMap_GetMoral`/`GetFood`/`GetRum`. Атрибут `worldMap.autopilot.x/z` (добавлен для демо) ведёт корабль к точке без клавиатуры.
+Мораль и провиант для плашки берутся из ответов на `WorldMap_GetMoral`/`GetFood`/`GetRum`. Атрибут `worldMap.autopilot.x/z` (добавлен для демо) ведёт корабль к точке без клавиатуры. `worldMap.playerShipTeleport` (тоже добавлен) переносит его в `playerShipX/Z/AY` на ходу.
 
 Для своей игры достаточно `core`, `renderer`, `xinterface`, `sound_service`, `pcs_controls` (это подтверждает `tools/menu-demo`). Морские и сухопутные модули подключаются, только если скрипт создаёт их сущности.

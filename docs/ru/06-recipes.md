@@ -484,8 +484,13 @@ SendMessage(&worldMap, "ll", MSG_WORLDMAP_CREATESTORM, false);
 
 // автопилот: корабль идёт к точке, по прибытии (radius) движок удаляет атрибут
 worldMap.autopilot.x = -250.0; worldMap.autopilot.z = 250.0; worldMap.autopilot.radius = 15.0;
+
+// перенести корабль на ходу: новые playerShipX/Z/AY, затем playerShipTeleport (на суше — к ближайшей воде)
+worldMap.playerShipX = 100.0; worldMap.playerShipZ = 0.0; worldMap.playerShipTeleport = "1";
 ```
 - `WorldMap_ShipEncounter` (x, z, ay, индекс встречи) — в игре здесь начинается морской бой. Демо убирает встречи (`CREATEENC_RELEASE`) и даёт 10 с тишины, иначе событие приходит каждый кадр.
+- `playerShipX/Z/AY` движок пишет каждый кадр: это текущее место корабля. До `CreateEntity` они задают старт, а на ходу корабль переносит только `playerShipTeleport` (добавлен для редактора, окно Map corsairs-remake).
+- Штормы и встречи на ходу: `storm.num`/`encounter.num` — сколько их, присваивание `storm.cur = i` заполняет `storm.x/z/time`, `encounter.cur = i` — `encounter.x/z/ay/time/type/id`.
 - `worldMap.island` — id острова, в чьих водах корабль (диск `_area`, 4.15), или пустая строка.
 - Демо без нажатий: тур по островам на автопилоте, `Demo_Control` отдаёт штурвал игроку на W/S/A/D. Так снято видео.
 - Модели карты рисуются без освещения, а тучи — шейдером `worldmap_main.vso` (07: фиолетовые тучи).
@@ -536,6 +541,7 @@ Gizmo.Operation=translate
 
   Движок собирает её после своих библиотек и линкует вместе с остальными модулями, окна регистрируются так же, как в storm-editor. Переменные скрипта окно читает и пишет через `core.GetScriptVariable("имя")` → `VDATA`: `Get(value, i)`/`Set(value, i)` для элемента массива, `Get(value)` для простой переменной, `GetString()` для строки. Правка видна скрипту сразу, а `#define` скомпилированы в скрипт, их меняет только перезапуск. Пример — окно Market в [corsairs-remake/editor](https://github.com/POMXARK/corsairs-remake/tree/main/editor): таблицы рынков, текущие цены и запись обратно в `market.c`.
 - **Сцена игры из окна.** Окно не вызывает функции скрипта напрямую: оно шлёт событие `core.PostEvent("Editor_DialogNode", 1, "s", name)`, а игра ловит его своим обработчиком (`SetEventHandler("Editor_DialogNode", "Dialog_EditorNode", 0)` в `port.c`) и сама решает, можно ли сейчас. Так окно Dialog corsairs-remake открывает диалог на любом узле. Тот же путь проверяется без нажатий: тест игры шлёт событие из скрипта (`PostEvent("Editor_DialogNode", 0, "s", "shop")`).
+- **Атрибуты сущности из окна.** Сущность, которая отвечает на присваивание (`AttributeChanged`), окно зовёт так же, как скрипт: `attr->SetAttribute(...)`, затем `entity->AttributeChanged(attr->GetAttributeClass(...))`. Окно Map corsairs-remake так переносит корабль (`playerShipTeleport`) и читает штормы и встречи (`storm.cur`, `encounter.cur`, 6.20).
 - **Шрифт редактора.** Встроенный шрифт ImGui — только латиница. Свой задаёт `engine.ini`:
 
   ```ini

@@ -654,6 +654,21 @@ uint32_t WorldMap::AttributeChanged(ATTRIBUTES *apnt)
             AttributesPointer->SetAttributeUseFloat("playerShipAY", ay);
         }
     }
+    else if (storm::iEquals(apnt->GetThisName(), "playerShipTeleport"))
+    {
+        // the script or the editor moves the player's ship to playerShipX, playerShipZ, playerShipAY;
+        // a point on land gives the nearest water
+        if (wdmObjects->playerShip)
+        {
+            auto *playerShip = static_cast<WdmPlayerShip *>(wdmObjects->playerShip);
+            playerShip->GetPosition(x, z, ay);
+            x = AttributesPointer->GetAttributeAsFloat("playerShipX", x);
+            z = AttributesPointer->GetAttributeAsFloat("playerShipZ", z);
+            ay = AttributesPointer->GetAttributeAsFloat("playerShipAY", ay);
+            playerShip->Teleport(x, z, ay);
+            playerShip->PushOutFromIsland();
+        }
+    }
     else if (storm::iEquals(apnt->GetThisName(), "cur"))
     {
         auto *pa = apnt->GetParent();
