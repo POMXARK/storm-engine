@@ -59,6 +59,9 @@ endif()
 add_subdirectory(libs)
 # the modules a game brings, after the libs they depend on and before the engine links them all
 foreach(dir ${STORM_EXTRA_MODULES})
+    # a path from the Windows command line comes with backslashes and often with ..
+    file(TO_CMAKE_PATH "${dir}" dir)
+    get_filename_component(dir "${dir}" ABSOLUTE)
     get_filename_component(name ${dir} NAME)
     add_subdirectory(${dir} ${CMAKE_BINARY_DIR}/extra_modules/${name})
 endforeach()

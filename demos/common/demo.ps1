@@ -1,10 +1,11 @@
 # The steps of run.sh for Windows, shared by the run.ps1 of the demos. A demo dot-sources it:
 #   $Demo = $PSScriptRoot; . "$Demo/../common/demo.ps1" @args
 # The first argument is the engine; when it is left out or is an option (--editor), the Debug build
-# of the default preset is taken: build/default/Debug/engine.exe.
+# of the default preset is taken: build/default/Debug/engine.exe. A game sets $DefaultEngine before.
 $ErrorActionPreference = 'Stop'
 
-$Engine = Join-Path $Demo '../../build/default/Debug/engine.exe'
+if (-not $DefaultEngine) { $DefaultEngine = Join-Path $Demo '../../build/default/Debug/engine.exe' }
+$Engine = $DefaultEngine
 $EngineArgs = @($args)
 if ($EngineArgs.Count -gt 0 -and -not ([string]$EngineArgs[0]).StartsWith('-'))
 {

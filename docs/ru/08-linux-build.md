@@ -257,6 +257,24 @@ demos\scene\run.bat D:\build\engine.exe --editor
 ```
 Общие шаги — в `demos/common/demo.ps1`: Python ищется как `py -3`, `python`, `python3`; шейдеры подключаются junction-ом (не нужны ни права администратора, ни режим разработчика), если не вышло — symlink, затем копия; движок стартует из папки демо, потому что `program\` и `resource\` он ищет от cwd. При ошибке окно `run.bat` не закрывается. Скачивание шрифтов — `fetch_assets.ps1` у dialog и interface (ассеты и так лежат в git). Скрипты проверены через PowerShell 7 на Linux (`run.ps1` запускает scene, trigger, interface, save, sound, gltf); на Windows не проверены. Git Bash с `run.sh` тоже работает, если есть `python3`.
 
+**Игра corsairs-remake.** Движок уже лежит в ней submodule `engine/` (тот коммит, с которым игра проверена), отдельный клон `storm-engine` не нужен:
+```powershell
+git clone --recursive https://github.com/POMXARK/corsairs-remake.git
+cd corsairs-remake\engine
+cmake --preset=default "-DSTORM_EXTRA_MODULES=$PWD\..\editor"
+cmake --build --preset=debug
+cd ..
+.\run.bat --editor
+```
+`STORM_EXTRA_MODULES` — окна редактора игры (Market); без него игра тоже собирается и запускается. `run.bat` (`run.ps1`) собирает ассеты игры генераторами `engine/demos` (первый раз ~1–2 мин) и запускает `engine\build\default\Debug\engine.exe` в `game\`.
+
+**Частые ошибки при первой сборке:**
+- `The source directory "C:/storm-engine" does not exist` → `cmake` запущен не из той папки: путь к исходникам считается от текущей. Конфигурировать из папки движка пресетом (`cmake --preset=default`), а не `cmake ../storm-engine` из папки игры: так CMake пишет `CMakeCache.txt` и `CMakeFiles\` прямо в репозиторий игры, их надо удалить.
+- `-DSTORM_EXTRA_MODULES=<this repo>/editor` → `<this repo>` — подстановка, а не синтаксис: PowerShell и cmd читают `<` как перенаправление. Писать полный путь.
+- `Building for: Visual Studio 16 2019` → без пресета CMake берёт первый найденный генератор. Пресет задаёт Ninja Multi-Config, а Ninja и MSVC есть в PATH только в **Developer PowerShell / x64 Native Tools Command Prompt for VS 2022**. VS 2019 (MSVC 19.29) не проверялась; если нет VS 2022, бесплатно ставятся Build Tools for Visual Studio 2022 с нагрузкой «Разработка классических приложений на C++».
+- `Conan executable not found! Please install conan.` → `pip install conan==2.12.2 Pillow`, затем `conan profile detect`. Если `conan` всё равно не находится, в PATH нет папки `Scripts` Python: переустановить Python с «Add to PATH» или открыть новую консоль.
+- Пустая папка `engine\` или `src\libs\editor_tools` → клон без `--recursive`: `git submodule update --init --recursive`.
+
 **Логи** на Windows лежат в `Documents\My Games\Sea Dogs\Logs\` (а не в `~/.local/share`).
 
 **Курсор в редакторе.** На Windows курсор прячет и показывает `::ShowCursor` (`sdl_window.cpp`). На Linux, где ввод держит мышь в relative-режиме, то же делает `SDL_SetRelativeMouseMode` (п. 5, строка 37).
