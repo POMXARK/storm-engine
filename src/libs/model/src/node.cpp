@@ -624,4 +624,5 @@ void NODER::ShowEditorTree()
             ImGui::TreePop();
         }
     }
+    ImGui::PopID();
 }

@@ -29,13 +29,15 @@ class StormEngine(ConanFile):
         "sentry-native/0.6.5",
         "tomlplusplus/3.3.0",
         "nlohmann_json/3.11.2",
-        "imgui/1.90-docking",
         "cli11/2.3.2",
         "ms-gsl/4.1.0",
     ]
 
     # optional dependencies
     def requirements(self):
+        # imguizmo (gizmos of the editor, storm-editor) asks for imgui 1.90.5: the docking branch stays
+        self.requires("imgui/1.90-docking", force=True)
+        self.requires("imguizmo/cci.20231114")
         if self.settings.os == "Windows":
             # conan-center
             self.requires("7zip/19.00")

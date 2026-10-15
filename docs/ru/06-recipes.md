@@ -506,13 +506,20 @@ demos/model/run.sh build/Debug/engine --editor
   - **Layers** — в каких слоях сущность и её приоритет там;
   - **Attributes** — дерево атрибутов, которые ей дали скрипты. Число тянется мышью (двойной щелчок — ввод), атрибут с `color` в имени — палитра (`argb` скрипта), текст ставится по Enter. Поле **Name** оставляет ветки с совпадающим именем (через запятую — несколько) и раскрывает их.
 - Правка доходит до сущности как присваивание из скрипта: `ATTRIBUTES::SetValue`, затем `Entity::AttributeChanged`. Что сущность делает с изменением — её дело: `WEATHER` применяет солнце по `isDone`, а атрибут, который скрипт пишет каждый кадр, правку сразу перезапишет.
-- Состояние редактора хранит `imgui.ini` в рабочей папке, секция `[Storm][Editor]`: открытые окна (`Open=`), класс выбранной сущности (`Entities.Class=`), фильтр атрибутов (`Entities.Filter=`). Положение окон ImGui хранит там же. Так проверяется редактор без нажатий: тест кладёт `imgui.ini` и снимает окно.
+- **Gizmo** двигает и поворачивает модель (`MODELR`), выбранную в Entities: стрелки и кольца ImGuizmo в кадре, **Position**/**Rotation** — числами, **World axes** — оси мира вместо осей модели, **Snap** — шаг (метры или градусы). Правка меняет матрицу `MODEL::mtx`, движок рисует по ней каждый кадр. Модель, которую скрипт ставит каждый кадр (крутящаяся бочка демо), вернётся на место скрипта.
+- **Copy as script** кладёт в буфер обмена и в `compile.log` строку `SendMessage(&model, "lffffffffffff", MSG_MODEL_SET_POSITION, x, y, z, vx…, vy…, vz…)` — расстановка переносится в скрипт.
+
+![Гизмо на ящике в демо model](media/gizmo.jpg)
+
+- Состояние редактора хранит `imgui.ini` в рабочей папке, секция `[Storm][Editor]`: открытые окна (`Open=`), выбранная сущность — класс и номер среди сущностей класса (`Entities.Class=`, `Entities.Index=`), фильтр атрибутов (`Entities.Filter=`), режим гизмо (`Gizmo.Operation=translate|rotate`, `Gizmo.Space=local|world`, `Gizmo.Snap=`). Положение окон ImGui хранит там же. Так проверяется редактор без нажатий: тест кладёт `imgui.ini` и снимает окно.
 
 ```ini
 [Storm][Editor]
 Open=Entities
-Entities.Class=WEATHER
-Entities.Filter=angle,density,color
+Open=Gizmo
+Entities.Class=MODELR
+Entities.Index=4
+Gizmo.Operation=translate
 ```
 
 - Свой инструмент: `storm::editor::EngineEditor::RegisterEditorTool("Имя", [](bool &active) { if (ImGui::Begin("Имя", &active)) { ... } ImGui::End(); })`. Общие окна — в storm-editor, они регистрируются сами из статического инициализатора (модули линкуются целиком, пример в README репозитория); окно одного модуля — в нём самом, как `Sound Service` в `core_impl.cpp`. Редактору движок отдаёт общий API `core`: `ForEachEntity`, `GetClassCode`, `GetLayerPriority`, атрибуты. Сохранить своё значение между запусками — `EngineEditor::SetSetting/GetSetting`. Свои поля сущности показывает `Entity::ShowEditor()`.

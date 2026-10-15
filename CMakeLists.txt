@@ -73,6 +73,7 @@ else()
 endif()
 find_package(Microsoft.GSL REQUIRED)
 find_package(ImGui REQUIRED)
+find_package(imguizmo REQUIRED)
 find_package(SDL2 REQUIRED)
 
 find_package(Catch2 REQUIRED)

@@ -100,6 +100,7 @@ ninja                # движок
 ```
 Звук: по умолчанию на Linux — **miniaudio** (`-DSTORM_SOUND_BACKEND=miniaudio`), на Windows — FMOD. См. п. 7.
 Первый configure долгий: Conan собирает из исходников openssl, SDL, wayland, sentry и др.
+Гизмо редактора — Conan-пакет `imguizmo/cci.20231114` (MIT). Он требует imgui 1.90.5, движку нужна ветка docking: `conanfile.py` подключает `imgui/1.90-docking` с `force=True`, и Conan собирает imguizmo из исходников под неё.
 
 ## 5. Что сломалось и как исправлено
 
@@ -142,6 +143,8 @@ Linux-порт сделан в 2022 (issue storm-devs/storm-engine#348), но с
 | 31 | `use of undeclared identifier 'ZeroMemory'` в `imgui_impl_dx9.cpp` | макрос Win32, в заголовках dxvk-native его нет; макрос с параметрами через `target_compile_definitions` генератор Ninja молча отбрасывает | `-include src/imgui_dx9_posix.h` (memset) только для `imgui_backend` |
 | 32 | `ImGui_ImplSDL2_InitForD3D: Assertion 'Unsupported'` | SDL-бэкенд ImGui запрещает D3D вне Windows, хотя сам он только принимает ввод | `ImGui_ImplSDL2_InitForOther` вне Windows; `EndFrame` редактора — до `EndScene`, иначе d3d9 отбрасывает его отрисовку |
 | 33 | `cannot find -leditor_tools` после `-DSTORM_EDITOR_TOOLS=OFF` | список модулей `global_modules_list` кэшируется, выключенный модуль остаётся в нём | движок линкует только существующие цели (`cmake/StormSetup.cmake`) |
+| 34 | `imguizmo/cci.20231114` тянет `imgui/1.90.5` — конфликт с `imgui/1.90-docking` | рецепт imguizmo пинует обычную ветку imgui | `self.requires("imgui/1.90-docking", force=True)` в `requirements()` (`conanfile.py`) |
+| 35 | `Assertion 'PushID/PopID or TreeNode/TreePop Mismatch!'` при выборе модели в Entities | `NODER::ShowEditorTree` делал `PushID` без `PopID` | `PopID` в конце (`src/libs/model/src/node.cpp`) |
 
 ## 6. Обход недоступного gnu.org (локальное зеркало для Conan)
 
