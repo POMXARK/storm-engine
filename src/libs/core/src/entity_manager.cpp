@@ -6,6 +6,7 @@
 #include <ranges>
 #include <type_traits>
 
+#include "storm/editor/engine_editor.hpp"
 #include "storm/editor/storm_imgui.hpp"
 #include "storm/layers.hpp"
 #include "string_compare.hpp"
@@ -14,15 +15,120 @@
 #include <spdlog/spdlog.h>
 
 #include <chrono>
+#include <cmath>
+#include <cstdlib>
 #include <functional>
 #include <imgui.h>
+#include <imgui_internal.h>
 
 namespace
 {
 
 using invalid_entity_idx_t = std::integral_constant<size_t, std::numeric_limits<size_t>::max()>;
 
+const char *ClassName(uint32_t hash)
+{
+    for (const auto &c : __STORM_CLASSES_REGISTRY)
+    {
+        if (c->GetHash() == hash)
+        {
+            return c->GetName();
+        }
+    }
+    return nullptr;
 }
+
+// One value of an attribute: a number drags, the rest is text, set on Enter. The entity hears of
+// the change as of a script assignment, through AttributeChanged.
+void ShowAttributeValue(Entity &entity, ATTRIBUTES &attr, const char *label)
+{
+    const std::string &value = attr.GetValue();
+    char *end = nullptr;
+    float number = std::strtof(value.c_str(), &end);
+    const bool numeric = !value.empty() && end != nullptr && *end == '\0';
+    bool changed = false;
+    const bool integral_value = numeric && value.find_first_of(".eE") == std::string::npos;
+    if (integral_value && ImStristr(label, nullptr, "color", nullptr) != nullptr)
+    {
+        // a colour of the scripts is argb() packed into an int
+        const auto argb = static_cast<uint32_t>(std::strtoll(value.c_str(), nullptr, 10));
+        float rgba[4] = {((argb >> 16) & 0xFF) / 255.0f, ((argb >> 8) & 0xFF) / 255.0f, (argb & 0xFF) / 255.0f,
+                         (argb >> 24) / 255.0f};
+        if (ImGui::ColorEdit4(label, rgba, ImGuiColorEditFlags_AlphaPreviewHalf))
+        {
+            const auto channel = [&](int i) { return static_cast<uint32_t>(std::lround(rgba[i] * 255.0f)); };
+            const uint32_t packed = channel(3) << 24 | channel(0) << 16 | channel(1) << 8 | channel(2);
+            attr.SetValue(std::to_string(static_cast<int32_t>(packed)));
+            changed = true;
+        }
+    }
+    else if (numeric)
+    {
+        const bool integral = value.find_first_of(".eE") == std::string::npos;
+        const float speed = integral ? 1.0f : std::max(0.001f, std::abs(number) * 0.01f);
+        if (ImGui::DragFloat(label, &number, speed, 0.0f, 0.0f, integral ? "%.0f" : "%.3f"))
+        {
+            attr.SetValue(integral ? std::to_string(std::lround(number)) : fmt::format("{}", number));
+            changed = true;
+        }
+    }
+    else
+    {
+        std::string text = value;
+        if (ImGui::InputText(label, &text, ImGuiInputTextFlags_EnterReturnsTrue))
+        {
+            attr.SetValue(text);
+            changed = true;
+        }
+    }
+    if (changed)
+    {
+        entity.AttributeChanged(&attr);
+    }
+}
+
+// The attributes of an entity as a tree; a filter keeps the branches with a matching name
+void ShowAttributes(Entity &entity, ATTRIBUTES &attr, const ImGuiTextFilter &filter)
+{
+    for (uint32_t i = 0; i < attr.GetAttributesNum(); ++i)
+    {
+        ATTRIBUTES *child = attr.GetAttributeClass(i);
+        if (child == nullptr)
+        {
+            continue;
+        }
+        ImGui::PushID(child);
+        const char *name = child->GetThisName();
+        if (child->GetAttributesNum() > 0)
+        {
+            const ImGuiTreeNodeFlags flags = filter.IsActive() ? ImGuiTreeNodeFlags_DefaultOpen : 0;
+            if (ImGui::TreeNodeEx("##node", flags, "%s", name))
+            {
+                // a branch made by a script assignment to its leaves keeps an empty value
+                if (child->HasValue() && !child->GetValue().empty())
+                {
+                    ShowAttributeValue(entity, *child, "value");
+                }
+                ShowAttributes(entity, *child, filter);
+                ImGui::TreePop();
+            }
+        }
+        else if (filter.PassFilter(name))
+        {
+            if (child->HasValue())
+            {
+                ShowAttributeValue(entity, *child, name);
+            }
+            else
+            {
+                ImGui::TextDisabled("%s", name);
+            }
+        }
+        ImGui::PopID();
+    }
+}
+
+} // namespace
 
 void EntityManager::EraseAndFree(EntityInternalData &data)
 {
@@ -497,6 +603,22 @@ void EntityManager::ShowEditor(bool &active)
         ImGui::TextFmt("There are currently {} entities", entities_.size() - freeIndices_.size());
 
         static entid_t selected_entity = invalid_entity;
+        static ImGuiTextFilter class_filter;
+        class_filter.Draw("Class");
+        // the selection outlives the run by its class: the first entity of it is picked again
+        const std::string selected_class = storm::editor::EngineEditor::GetSetting("Entities.Class");
+        if (GetEntityPointer(selected_entity) == nullptr && !selected_class.empty())
+        {
+            for (const auto &data : entities_)
+            {
+                const char *name = data.state == kValid ? ClassName(data.hash) : nullptr;
+                if (name != nullptr && selected_class == name)
+                {
+                    selected_entity = data.id;
+                    break;
+                }
+            }
+        }
 
         if (ImGui::BeginTable("Entities", 2, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable) )
         {
@@ -506,7 +628,8 @@ void EntityManager::ShowEditor(bool &active)
             ImGui::TableHeadersRow();
 
             std::ranges::for_each(entities_, [&](const EntityInternalData &data) {
-                if (data.state == kValid)
+                const char *class_name = data.state == kValid ? ClassName(data.hash) : nullptr;
+                if (data.state == kValid && class_filter.PassFilter(class_name != nullptr ? class_name : ""))
                 {
                     ImGui::TableNextRow();
                     ImGui::TableNextColumn();
@@ -515,21 +638,13 @@ void EntityManager::ShowEditor(bool &active)
                     if (ImGui::Selectable(label.c_str(), data.id == selected_entity, ImGuiSelectableFlags_SpanAllColumns) )
                     {
                         selected_entity = data.id;
+                        storm::editor::EngineEditor::SetSetting("Entities.Class", class_name != nullptr ? class_name : "");
                     }
                     ImGui::TableNextColumn();
 
-                    VMA *pClass = nullptr;
-                    for (const auto &c : __STORM_CLASSES_REGISTRY)
+                    if (class_name != nullptr)
                     {
-                        if (c->GetHash() == data.hash)
-                        {
-                            pClass = c;
-                            break;
-                        }
-                    }
-                    if (pClass != nullptr)
-                    {
-                        ImGui::Text("%s", pClass->GetName());
+                        ImGui::Text("%s", class_name);
                     }
                 }
             });
@@ -568,12 +683,28 @@ void EntityManager::ShowEditor(bool &active)
                         ImGui::EndTable();
                     }
                 }
+                if (const char *class_name = ClassName(data.hash))
+                {
+                    ImGui::TextFmt("{} {}", class_name, entity->GetId());
+                }
+                // the attributes scripts give the entity, edited live
+                if (entity->AttributesPointer != nullptr && ImGui::TreeNodeEx("Attributes", ImGuiTreeNodeFlags_DefaultOpen))
+                {
+                    // the filter is kept between runs too, it opens the branches it matches
+                    static ImGuiTextFilter attribute_filter(storm::editor::EngineEditor::GetSetting("Entities.Filter").c_str());
+                    if (attribute_filter.Draw("Name"))
+                    {
+                        storm::editor::EngineEditor::SetSetting("Entities.Filter", attribute_filter.InputBuf);
+                    }
+                    ShowAttributes(*entity, *entity->AttributesPointer, attribute_filter);
+                    ImGui::TreePop();
+                }
                 // Show custom editor
                 entity->ShowEditor();
             }
-            ImGui::End();
         }
-
         ImGui::End();
     }
+    // End goes with every Begin, also when the window is collapsed and Begin is false
+    ImGui::End();
 }

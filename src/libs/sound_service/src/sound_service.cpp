@@ -1194,9 +1194,9 @@ void SoundService::ShowEditor(bool &active)
 
             ImGui::EndTable();
         }
-
-        ImGui::End();
     }
+    // End goes with every Begin, also when the window is collapsed and Begin is false
+    ImGui::End();
 }
 
 void SoundService::DebugDraw()

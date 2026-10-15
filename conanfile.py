@@ -82,9 +82,9 @@ class StormEngine(ConanFile):
         self.__copy_imgui_binding("imgui_impl_sdl2.h")
         self.__copy_imgui_misc("imgui_stdlib.cpp")
         self.__copy_imgui_misc("imgui_stdlib.h")
-        if self.settings.os == "Windows":
-            self.__copy_imgui_binding("imgui_impl_dx9.cpp")
-            self.__copy_imgui_binding("imgui_impl_dx9.h")
+        # d3d9 is native on Windows and dxvk-native elsewhere: the editor draws through it everywhere
+        self.__copy_imgui_binding("imgui_impl_dx9.cpp")
+        self.__copy_imgui_binding("imgui_impl_dx9.h")
 
         with_fmod = self.options.sound_backend == "fmod"
         if self.settings.os == "Windows":

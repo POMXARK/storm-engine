@@ -1266,12 +1266,13 @@ bool DX9RENDER::DX9EndScene()
         DrawPrimitive(D3DPT_LINELIST, 0, 1);
     }
 
-    if (CHECKD3DERR(EndScene()))
-        return false;
-
+    // ImGui draws through the device like the rest of the frame: inside the scene, or d3d9 drops it
     if (auto *editor = core.GetEditor(); editor != nullptr) {
         editor->EndFrame();
     }
+
+    if (CHECKD3DERR(EndScene()))
+        return false;
 
     if (bMakeShoot)
         MakeScreenShot();

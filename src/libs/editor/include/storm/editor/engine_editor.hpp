@@ -2,6 +2,7 @@
 
 #include <functional>
 #include <memory>
+#include <string>
 #include <string_view>
 
 struct SDL_Window;
@@ -38,6 +39,10 @@ class EngineEditor final
     bool IsDebugFlagEnabled(DebugFlag flag) const;
 
     static void RegisterEditorTool(const std::string_view &title, EditorToolCallback callback);
+
+    // A value a tool keeps between runs, in imgui.ini next to the open tools and the windows
+    static std::string GetSetting(const std::string_view &key);
+    static void SetSetting(const std::string_view &key, const std::string_view &value);
 
   private:
     class Impl;

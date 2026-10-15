@@ -138,6 +138,9 @@ Linux-порт сделан в 2022 (issue storm-devs/storm-engine#348), но с
 | 27 | море ярко-зелёное, `SetWeather` в демо моря не доходит до конца | `Sky.isDone` вызывает событие `WhrCalcFogColor` посреди функции; `ProcessEvent` не сохранял указатель исполнения (`BC_CallFunction` сохраняет), и функция обрывалась — `Sea2.WaterColor` оставался дефолтным `(0,255,0)` | `ProcessEvent` сохраняет и восстанавливает функцию, код и IP, если событие пришло во время работы скрипта (`compiler.cpp`, e1c878b) |
 | 28 | `process event stack error` при `ExitProgram()` из обработчика клавиши | причина не разобрана; проверка стоит внутри цикла обработчиков, фикс 27 её не трогает (то же в демо локации) | безвредно, процесс завершается; не исправлено |
 | 29 | `not set force attack action: "attack_force_3"` / `not set block(parry) action: "parry_3"` в system.log, выпад или парирование иногда не начинается | `Attack` (force) и `Parry` выбирали зону из четырёх независимо от того, сколько действий задано в `actions` | зоны дальше `numAttackForce`/`numParry` отключаются (`character.cpp`, f701891) |
+| 30 | редактор (`--editor`) на Linux ничего не рисует | бэкенд ImGui `imgui_impl_dx9` собирался только на Windows | dx9-бэкенд на всех ОС (`conanfile.py`, `src/libs/editor/CMakeLists.txt`): d3d9 на Linux даёт dxvk-native |
+| 31 | `use of undeclared identifier 'ZeroMemory'` в `imgui_impl_dx9.cpp` | макрос Win32, в заголовках dxvk-native его нет; макрос с параметрами через `target_compile_definitions` генератор Ninja молча отбрасывает | `-include src/imgui_dx9_posix.h` (memset) только для `imgui_backend` |
+| 32 | `ImGui_ImplSDL2_InitForD3D: Assertion 'Unsupported'` | SDL-бэкенд ImGui запрещает D3D вне Windows, хотя сам он только принимает ввод | `ImGui_ImplSDL2_InitForOther` вне Windows; `EndFrame` редактора — до `EndScene`, иначе d3d9 отбрасывает его отрисовку |
 
 ## 6. Обход недоступного gnu.org (локальное зеркало для Conan)
 
