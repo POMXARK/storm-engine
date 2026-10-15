@@ -104,6 +104,7 @@ void SHIP_CAMERA::Move(float fDeltaTime)
         fKInert = 1.0f;
     fAngleYDlt += (fValue - fAngleYDlt) * fKInert;
     vAng.y += fSpeed * fAngleYDlt;
+    FollowTarget(fSpeed);
 
     core.Controls->GetControlState("ShipCamera_Turn_V", cs);
 
@@ -182,6 +183,44 @@ void SHIP_CAMERA::Move(float fDeltaTime)
     pRS->SetPerspective(GetPerspective());
 }
 
+VAI_OBJBASE *SHIP_CAMERA::FindTargetShip() const
+{
+    if (iTargetIndex < 0)
+        return nullptr;
+    for (const auto ent : core.GetEntityIds("ship"))
+    {
+        auto *ship = static_cast<VAI_OBJBASE *>(core.GetEntityPointer(ent));
+        if (!ship || ship == GetAIObj() || !ship->GetACharacter())
+            continue;
+        if (static_cast<int32_t>(ship->GetACharacter()->GetAttributeAsDword("index", -1)) == iTargetIndex)
+            return ship;
+    }
+    return nullptr;
+}
+
+// With a target the camera swings round behind its own ship, on the far side from the target, so the
+// target is seen past the ship, a little aside. While the mouse turns the camera the swing waits.
+void SHIP_CAMERA::FollowTarget(float fDeltaTime)
+{
+    if (fabsf(fAngleYDlt) > 0.01f)
+        return;
+    auto *target = FindTargetShip();
+    if (!target || !target->GetMatrix() || !GetAIObj()->GetMatrix())
+        return;
+    const auto d = GetAIObj()->GetMatrix()->Pos() - target->GetMatrix()->Pos();
+    // the camera sits at the angle vAng.y + fModelAy around the ship (see Move). Right on the line the
+    // ship hides the target, so the camera stands fTargetOffset aside, on the side it is nearer to.
+    const auto wrap = [](float a) {
+        a = fmodf(a + PI, 2.0f * PI);
+        return (a < 0.0f ? a + 2.0f * PI : a) - PI;
+    };
+    const auto behind = atan2f(d.x, d.z) - fModelAy - vAng.y;
+    const auto left = wrap(behind + fTargetOffset);
+    const auto right = wrap(behind - fTargetOffset);
+    const auto diff = fabsf(left) < fabsf(right) ? left : right;
+    vAng.y += diff * std::min(1.0f, fTargetInertia * fDeltaTime);
+}
+
 void SHIP_CAMERA::SetCharacter(ATTRIBUTES *_pACharacter)
 {
     pACharacter = _pACharacter;
@@ -189,6 +228,12 @@ void SHIP_CAMERA::SetCharacter(ATTRIBUTES *_pACharacter)
 
 uint32_t SHIP_CAMERA::AttributeChanged(ATTRIBUTES *pAttr)
 {
+    if (*pAttr == "Target")
+        iTargetIndex = static_cast<int32_t>(pAttr->GetAttributeAsFloat());
+    if (*pAttr == "TargetInertia")
+        fTargetInertia = pAttr->GetAttributeAsFloat();
+    if (*pAttr == "TargetOffset")
+        fTargetOffset = pAttr->GetAttributeAsFloat();
     if (*pAttr == "SensivityDistance")
         fSensivityDistance = pAttr->GetAttributeAsFloat();
     if (*pAttr == "SensivityAzimuthAngle")

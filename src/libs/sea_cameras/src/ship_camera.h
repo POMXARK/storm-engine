@@ -26,6 +26,10 @@ class SHIP_CAMERA : public COMMON_CAMERA
     float fInvertMouseX, fInvertMouseY;
     CVECTOR vCenter, vAng = {};
     float fModelAy;
+    // "Target": the index of a character whose ship the camera keeps in view past its own, -1 for none
+    int32_t iTargetIndex = -1;
+    float fTargetInertia = 1.5f;
+    float fTargetOffset = 0.3f;
 
     // camera ellipsoid parameters
     float a = 1e-10f;
@@ -49,6 +53,8 @@ class SHIP_CAMERA : public COMMON_CAMERA
 
     uint32_t AttributeChanged(ATTRIBUTES *) override;
     void ShipsCollision(CVECTOR &pos);
+    VAI_OBJBASE *FindTargetShip() const;
+    void FollowTarget(float fDeltaTime);
     bool IslandCollision(CVECTOR &pos);
 
   public:

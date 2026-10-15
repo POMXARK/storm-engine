@@ -131,6 +131,7 @@ class AIShipCannonController
     // execute/realize section
     void Execute(float fDeltaTime);
     void Realize(float fDeltaTime);
+    void DrawAimZone();
 
     // init section
     bool Init(ATTRIBUTES *_pAShip);

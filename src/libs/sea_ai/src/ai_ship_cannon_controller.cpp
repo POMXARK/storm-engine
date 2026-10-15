@@ -2,6 +2,7 @@
 
 #include "ai_balls.h"
 #include "ai_ship.h"
+#include "sea_base.h"
 #include "math_inlines.h"
 
 float AIShipCannonController::fMaxCannonDamageDistance = 1.0f;
@@ -551,9 +552,105 @@ float AIShipCannonController::GetSpeedV0() const
     return pACannons->GetAttributeAsFloat("SpeedV0");
 }
 
+// The aim zone: while Ship.Cannons.Aim is set, the water where the balls of the side the camera looks
+// past can fall is tinted, from the shortest to the longest range across the fire zone of the side.
+// Gold: the side is loaded and an enemy is in the zone; white: loaded; red: still loading.
+void AIShipCannonController::DrawAimZone()
+{
+    auto *pACharacter = GetAIShip()->GetACharacter();
+    auto *pAAim = pACharacter ? pACharacter->FindAClass(pACharacter, "Ship.Cannons.Aim") : nullptr;
+    if (!pAAim || pAAim->GetAttributeAsDword() == 0 || GetAIShip()->isDead())
+        return;
+
+    // the side that faces away from the camera
+    CVECTOR vCamPos, vCamAng;
+    float fFov;
+    AIHelper::pRS->GetCamera(vCamPos, vCamAng, fFov);
+    const auto vOurPos = GetAIShip()->GetPos();
+    const auto vLook = !CVECTOR(vOurPos.x - vCamPos.x, 0.0f, vOurPos.z - vCamPos.z);
+    const AISHIP_BORT *pBort = nullptr;
+    for (const auto &bort : aShipBorts)
+    {
+        if (bort.aCannons.empty() || bort.isBortDamaged())
+            continue;
+        if (!pBort || (bort.vDirection | vLook) > (pBort->vDirection | vLook))
+            pBort = &bort;
+    }
+    if (!pBort)
+        return;
+    const auto &bort = *pBort;
+
+    auto bTarget = false;
+    for (auto *pShip : AIShip::AIShips)
+    {
+        if (pShip != GetAIShip() && !pShip->isDead() && GetAIShip()->isEnemy(*pShip) &&
+            isCanFireBort(bort, pShip->GetPos(), nullptr))
+            bTarget = true;
+    }
+    const uint32_t dwRGB = !bort.isCharged() ? 0xE04030 : bTarget ? 0xFFC840 : 0xF0F0E8;
+
+    // the range without the roll of the ship: the guns reach farther on the up-roll, but an edge that
+    // breathes with every wave reads badly
+    const auto fFar = AICannon::CalcMaxFireDistance(bort.fOurBortFireHeight + vOurPos.y, GetSpeedV0(), bort.fFireAngMax);
+    // from the side of the ship, fading out to the far edge where the longest shots fall
+    constexpr auto kNear = 3.0f;
+    const auto fEdge = std::min(8.0f, fFar * 0.04f);
+
+    struct AimVertex
+    {
+        CVECTOR vPos;
+        uint32_t dwColor;
+    };
+    static std::vector<AimVertex> Verts;
+    Verts.clear();
+
+    auto *pSea = static_cast<SEA_BASE *>(core.GetEntityPointer(core.GetEntityId("sea")));
+    const auto vZ = !(GetAIShip()->GetMatrix()->Vz());
+    const auto point = [&](float fAng, float fR) {
+        auto v = CVECTOR(fR * sinf(fAng), 0.0f, fR * cosf(fAng));
+        RotateAroundY(v.x, v.z, vZ.z, vZ.x);
+        // on the waves, a little over them: the zone is tested against the depth of the sea
+        const auto x = vOurPos.x + v.x;
+        const auto z = vOurPos.z + v.z;
+        return CVECTOR(x, (pSea ? pSea->WaveXZ(x, z) : 0.0f) + 0.5f, z);
+    };
+    const auto quad = [&](float a0, float a1, float r0, float r1, uint32_t dwAlpha0, uint32_t dwAlpha1) {
+        const auto c0 = (dwAlpha0 << 24) | dwRGB;
+        const auto c1 = (dwAlpha1 << 24) | dwRGB;
+        const AimVertex v[4] = {{point(a0, r0), c0}, {point(a0, r1), c1}, {point(a1, r1), c1}, {point(a1, r0), c0}};
+        for (const auto i : {0, 1, 2, 0, 2, 3})
+            Verts.push_back(v[i]);
+    };
+
+    constexpr auto kSteps = 24;
+    const auto fA0 = bort.fFireDir - bort.fFireZone / 2.0f;
+    const auto fDA = bort.fFireZone / kSteps;
+    for (auto i = 0; i < kSteps; i++)
+    {
+        const auto a0 = fA0 + fDA * static_cast<float>(i);
+        // rings, so that the zone follows the waves
+        constexpr auto kRings = 16;
+        for (auto r = 0; r < kRings; r++)
+        {
+            const auto k0 = static_cast<float>(r) / kRings;
+            const auto k1 = static_cast<float>(r + 1) / kRings;
+            const auto alpha = [](float k) { return static_cast<uint32_t>(0x70 + (0x18 - 0x70) * k); };
+            quad(a0, a0 + fDA, kNear + (fFar - fEdge - kNear) * k0, kNear + (fFar - fEdge - kNear) * k1, alpha(k0),
+                 alpha(k1));
+        }
+        quad(a0, a0 + fDA, fFar - fEdge, fFar, 0xB0, 0xB0);
+    }
+
+    AIHelper::pRS->SetTransform(D3DTS_WORLD, CMatrix());
+    AIHelper::pRS->DrawPrimitiveUP(D3DPT_TRIANGLELIST, D3DFVF_XYZ | D3DFVF_DIFFUSE, Verts.size() / 3, Verts.data(),
+                                   sizeof(AimVertex), "AimZone");
+}
+
 void AIShipCannonController::Realize(float fDeltaTime)
 {
     using namespace std::chrono_literals;
+
+    DrawAimZone();
 
     const auto *editor = core.GetEditor();
     debugDrawToggle = editor != nullptr && editor->IsDebugFlagEnabled(storm::editor::DebugFlag::CannonDebug);
