@@ -1512,6 +1512,9 @@ void Character::Attack(Character *enemy, FightAction type)
         zone[3].x = 0.f;
         zone[3].z = 1.f;
         zone[3].dw = 0.001f;
+        // a model may have fewer lunges than the four zones: the missing ones are not picked
+        for (int32_t i = numAttackForce; i < 4; i++)
+            zone[i].use = false;
         fgtSetIndex = GetRandomIndexByObstacle(zone, 4);
         // if the attack on the spade is behind the patch, then we make a quick blow, not a lunge
         if (fgtSetIndex < 0)
@@ -1631,6 +1634,9 @@ void Character::Parry()
     zone[3].x = 0.f;
     zone[3].z = 0.f;
     zone[3].dw = 0.5f;
+    // a model may have fewer parries than the four zones: the missing ones are not picked
+    for (int32_t i = numParry; i < 4; i++)
+        zone[i].use = false;
     fgtSetIndex = GetRandomIndexByObstacle(zone, 4);
     // core.Trace ("Selection result: \"%i\"", fgtSetIndex);
     if (fgtSetIndex < 0)
