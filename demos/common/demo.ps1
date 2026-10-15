@@ -59,8 +59,10 @@ function Start-Demo([string[]]$Folders = @())
 {
     Set-Techniques
     foreach ($folder in $Folders) { New-Item -ItemType Directory -Force -Path (Join-Path $Demo $folder) | Out-Null }
-    Push-Location $Demo
-    try { & $Engine @EngineArgs }
-    finally { Pop-Location }
-    exit $LASTEXITCODE
+    # engine.exe is a GUI program on Windows: PowerShell does not wait for one started by &, so the exit
+    # code was lost and run.bat returned at once
+    $start = @{ FilePath = $Engine; WorkingDirectory = $Demo; Wait = $true; PassThru = $true; NoNewWindow = $true }
+    if ($EngineArgs.Count -gt 0) { $start.ArgumentList = $EngineArgs }
+    $process = Start-Process @start
+    exit $process.ExitCode
 }
