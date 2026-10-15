@@ -289,6 +289,7 @@ cd ..
 - `ModuleNotFoundError: No module named 'numpy'` в `run.bat` → `build.bat` ставит numpy pip-ом `--user`, а `run.ps1` запускал генераторы с `python -I`: изолированный режим не видит пользовательских пакетов. `demo.ps1` теперь зовёт Python без `-I`; иначе — `pip install numpy` без `--user`.
 - `run.bat` прогнал генераторы и сразу вернулся, окна нет → `engine.exe` — GUI-программа (`WIN32` в `StormSetup.cmake`), PowerShell не ждёт её после `&`, код выхода теряется. `Start-Demo` теперь запускает движок через `Start-Process -Wait -PassThru` и возвращает его код. Если движок упал — логи в `Документы\My Games\Sea Dogs\Logs\{error,system,compile}.log`.
 - `engine exited with -1073741515 (0xC0000135)`, свежих логов нет → Windows не нашла DLL движка, обычно `d3dx9_43.dll`: поставить DirectX End-User Runtime June 2010 (`dxwebsetup.exe` с microsoft.com). `run.ps1` при этом коде называет, какой DLL нет в `System32` и рядом с движком. Старые логи в той же папке могут остаться от другой игры на Storm — смотреть на дату.
+- `not next to the engine: mimalloc.dll (or mimalloc-debug.dll)` → `conanfile.py` копировал DLL mimalloc по точному имени `mimalloc-debug.dll`, а prebuilt-пакет Debug называет её иначе. Теперь копируется по маске `mimalloc*.dll`; `build.bat` заново, он переконфигурирует и докопирует.
 - Пустая папка `engine\` или `src\libs\editor_tools` → клон без `--recursive`: `git submodule update --init --recursive`.
 
 **Логи** на Windows лежат в `Documents\My Games\Sea Dogs\Logs\` (а не в `~/.local/share`).

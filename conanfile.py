@@ -101,11 +101,10 @@ class StormEngine(ConanFile):
             if self.options.steam:
                 self.__install_lib("steam_api64.dll", self.dependencies["steamworks"])
 
-            self.__install_bin("mimalloc-redirect.dll", self.dependencies["mimalloc"])
-            if self.settings.build_type == "Debug":
-                self.__install_bin("mimalloc-debug.dll", self.dependencies["mimalloc"])
-            else:
-                self.__install_bin("mimalloc.dll", self.dependencies["mimalloc"])
+            # by a mask: the prebuilt Debug package of mimalloc may name its DLL mimalloc.dll, not
+            # mimalloc-debug.dll, and engine.exe then did not start (0xC0000135); the redirect DLL comes too
+            self.__install_bin("mimalloc*.dll", self.dependencies["mimalloc"])
+            self.__install_lib("mimalloc*.dll", self.dependencies["mimalloc"])
 
         else: # not Windows
             if with_fmod and self.settings.build_type == "Debug":

@@ -82,10 +82,11 @@ function Start-Demo([string[]]$Folders = @())
                 Write-Host 'missing d3dx9_43.dll: install DirectX End-User Runtime (dxwebsetup.exe, June 2010) from microsoft.com'
             }
             $folder = Split-Path $Engine
-            foreach ($dll in 'mimalloc-redirect.dll', 'mimalloc-debug.dll', 'mimalloc.dll', 'fmodL.dll', 'fmod.dll')
-            {
-                if (-not (Test-Path (Join-Path $folder $dll))) { Write-Host "not next to the engine: $dll" }
-            }
+            # the names depend on the configuration and the package: mimalloc.dll or mimalloc-debug.dll, fmod or fmodL
+            $dlls = @(Get-ChildItem -Path $folder -Filter '*.dll' | ForEach-Object Name)
+            if ($dlls -notcontains 'mimalloc-redirect.dll') { Write-Host 'not next to the engine: mimalloc-redirect.dll' }
+            if (-not ($dlls | Where-Object { $_ -like 'mimalloc*' -and $_ -ne 'mimalloc-redirect.dll' })) { Write-Host 'not next to the engine: mimalloc.dll (or mimalloc-debug.dll)' }
+            if (-not ($dlls | Where-Object { $_ -like 'fmod*' })) { Write-Host 'not next to the engine: fmod.dll (or fmodL.dll)' }
         }
     }
     exit $code
