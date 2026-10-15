@@ -6,7 +6,7 @@ Usage: make_hud.py <assets dir with PT_Serif-Web-Bold.ttf> <output resource dir>
   textures/hud/cannons.tga.tx  a band round the minimap: the navigator cuts the arcs of the
                                broadsides out of it and tints them by the reload state
   textures/hud/wind.tga.tx     the wind arrow on the rim, turned to where the wind comes from
-  textures/hud/icons.tga.tx    a 4 x 2 atlas: the charge, three sail states, three wind strengths
+  textures/hud/icons.tga.tx    a 4 x 3 atlas: round shot, three sail states, three wind strengths, chain shot, grape shot
   textures/hud/panel.tga.tx    the frame of the ship panel
   textures/hud/state.tga.tx    the hull (left half) and sails (right half) gauges of the panel
   textures/hud/ship.tga.tx     the ship picture of the panel
@@ -131,7 +131,7 @@ def wind(width=32, height=256):
 
 
 def icons(font_path, cell=64):
-    image = canvas(cell * 4, cell * 2)
+    image = canvas(cell * 4, cell * 3)
     draw = ImageDraw.Draw(image)
     s = cell * SS
 
@@ -190,7 +190,29 @@ def icons(font_path, cell=64):
             pts_top.append((x, y))
             pts_bottom.append((x - math.sin(a) * w, y + math.cos(a) * w))
         draw.polygon(pts_top + pts_bottom[::-1], fill=RED, outline=(0, 0, 0, 255))
-    # 7: unused
+    def ball(n, bx, by, r):
+        x, y = at(n, bx, by)
+        r *= s
+        draw.ellipse([x - r, y - r, x + r, y + r], fill=(70, 70, 76, 255), outline=PAPER, width=SS)
+        draw.ellipse([x - r * 0.5, y - r * 0.6, x - r * 0.1, y - r * 0.2], fill=(160, 160, 170, 255))
+
+    # 7: chain shot, two half balls on a chain
+    plate(7)
+    links = 6
+    for i in range(links):
+        t = (i + 0.5) / links
+        x, y = at(7, 0.3 + 0.4 * t, 0.66 - 0.32 * t + 0.1 * math.sin(t * math.pi))
+        r = 0.045 * s
+        draw.ellipse([x - r * 1.3, y - r, x + r * 1.3, y + r], outline=PAPER, width=int(1.2 * SS))
+    ball(7, 0.27, 0.7, 0.14)
+    ball(7, 0.73, 0.3, 0.14)
+
+    # 8: grape shot, a heap of small balls
+    plate(8)
+    for bx, by in ((0.3, 0.7), (0.5, 0.7), (0.7, 0.7), (0.4, 0.52), (0.6, 0.52), (0.5, 0.34),
+                   (0.3, 0.4), (0.7, 0.4)):
+        ball(8, bx, by, 0.085)
+    # 9-11: unused
     return done(image)
 
 

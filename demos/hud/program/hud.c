@@ -798,7 +798,7 @@ void CreateHud()
 	nav.emptyTexture = "hud\frame.tga";
 	nav.windTexture = "hud\wind.tga";
 	nav.chargeTexture = "hud\icons.tga";
-	nav.chargeTextureGreed = "4,2";
+	nav.chargeTextureGreed = "4,3";
 	nav.chargePos = "-58,128";
 	nav.chargePictureSize = "36,36";
 	nav.sailstateTexture = "hud\icons.tga";

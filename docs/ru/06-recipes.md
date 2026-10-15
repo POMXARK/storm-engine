@@ -350,7 +350,7 @@ BattleInterface.navigation.horizontRadius = 400; // сколько метров 
 BattleInterface.navigation.leftChargeBegAngle = 220;  // дуга борта, градусы по часовой от носа
 BattleInterface.navigation.leftChargeEndAngle = 320;
 BattleInterface.navigation.chargeTexture = "hud\icons.tga";
-BattleInterface.navigation.chargeTextureGreed = "4,2";  // сетка картинок в текстуре
+BattleInterface.navigation.chargeTextureGreed = "4,3";  // сетка картинок в текстуре: столбцы, строки
 BattleInterface.navigation.chargePos = "-58,128";       // смещение от центра навигатора
 BattleInterface.ShipIcon.iconoffset1 = "84,512";        // центр панели первого корабля
 BattleInterface.ShipIcon.shipclassiconsize = "0,0";     // не рисовать класс
@@ -384,4 +384,22 @@ SetEventHandler("GetCurrentCharge", "Hud_GetCurrentCharge", 0);
 - Z/X — контролы `MiniMapZoomIn/Out`: масштаб карты меняется, пока клавиша нажата (`scaleStep` за кадр, от `minScale` до `maxScale`).
 - Скорость печатается только числом (`%.1f`), подпись к ней — забота текстуры. Debug-клавиша K прячет HUD.
 - Лог (6.15) стоит сузить: навигатор занимает правый верхний угол.
+- `hudIcons[i]` — номер ячейки атласа, слева направо и сверху вниз. В атласе демо 4×3: ядро, три состояния парусов, три силы ветра, книппель (7), картечь (8).
+
+### Типы зарядов
+`AIBalls` знает несколько типов ядер. Тип выбирается перед выстрелом, а при попадании видно, какой тип прилетел:
+```c
+AIBalls.Balls.Knippels.SubTexIndex = 0;      // кадр текстуры ядра
+AIBalls.Balls.Knippels.GoodIndex = 1;        // число, которое вернёт CurrentBallType
+AIBalls.Balls.Knippels.Size = 0.65;
+AIBalls.Balls.Knippels.Weight = 1.0;
+
+// в обработчике события CannFire, до AIBalls.add = ""
+AIBalls.Type = "Knippels";
+
+// в Shp_HullHit и ShpSailDamage: AIBalls::Execute ставит тип перед трассировкой ядер этого типа
+int charge = sti(AIBalls.CurrentBallType);
+```
+- Скорость ядра и дальность борта задаёт `character.Ship.Cannons.SpeedV0` (м/с). Дальность растёт с квадратом скорости, по ней же рисуется зона прицела. Лёгкому заряду — меньшую скорость.
+- Высоту, в которую целят пушки, возвращает обработчик `Sea_FireHeight` (метры над ватерлинией цели). На 1.5 м ядра почти не задевают паруса: книппелям нужно 6 м и выше, а попадание книппелем в корпус стоит тоже засчитать парусам.
 
