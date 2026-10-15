@@ -28,7 +28,8 @@ if ($null -eq $Python) { throw 'no Python 3: install it from python.org, then pi
 function Invoke-Python
 {
     $exe = $Python[0]
-    $options = @($Python | Select-Object -Skip 1) + @('-I') + $args
+    # not -I: the isolated mode skips the user site, where pip install --user puts numpy and Pillow
+    $options = @($Python | Select-Object -Skip 1) + $args
     & $exe @options
     if ($LASTEXITCODE -ne 0) { throw "python $($args[0]) failed: $LASTEXITCODE" }
 }
