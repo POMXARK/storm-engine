@@ -41,3 +41,12 @@ STORM_SETUP(
 )
 
 add_dependencies(engine engine_techniques)
+
+# the glTF converter goes next to the engine: the window Assets of the editor runs it (button Import)
+add_custom_command(TARGET engine POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:engine>/tools/gltf2gm
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${PROJECT_SOURCE_DIR}/tools/gltf2gm/gltf2gm.py
+            ${PROJECT_SOURCE_DIR}/demos/common/storm_formats.py
+            $<TARGET_FILE_DIR:engine>/tools/gltf2gm/
+)

@@ -600,6 +600,7 @@ python3 tools/gltf2gm/gltf2gm.py ship.glb props/ --out game/resource --folder ha
 
 - Папка на входе — все `.glb`/`.gltf` в ней. Общие картинки (атлас Kenney) пишутся один раз.
 - `--scale` — если модель не в метрах; `--single-sided` — не дублировать грани `doubleSided`; `--no-bsp` — без BSP (быстрее и меньше, но мимо трассировки).
+- В редакторе то же делает кнопка **Import** окна Assets у выбранного `.glb`/`.gltf` (`source/` или `resource/`). Сборка кладёт конвертер рядом с движком (`build/<config>/tools/gltf2gm`, POST_BUILD цели `engine`), окно зовёт его через `popen` в отдельном потоке и по готовности выбирает новый `.gm`.
 - Дальше модель грузится как любая: `SendMessage(&model, "ls", MSG_MODEL_LOAD_GEO, "harbour\ship")`, бросается из Assets на Viewport редактора или пишется в `.scene`.
 
 Демо `demos/gltf` — бухта из 15 моделей Kenney Pirate Kit (CC0): корабль у причала, пальмы, башня, скалы, пушка и бочки на песке. `make_assets.py` конвертирует `source/*.glb` при каждом запуске (15 файлов за 5 с) и добавляет воду — плоскость с шумовой текстурой. Расстановка — `resource/scenes/cove.scene` (4.16), её правят в окне Scene:

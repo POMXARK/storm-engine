@@ -29,8 +29,10 @@ from pathlib import Path
 
 from PIL import Image
 
-# the .tx/.gm writers are shared with the demo generators
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "demos" / "common"))
+# the .tx/.gm writers are shared with the demo generators; the build copies them next to this file
+# (build/<config>/tools/gltf2gm, run by the button Import of the editor)
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE if (HERE / "storm_formats.py").exists() else HERE.parents[1] / "demos" / "common"))
 from storm_formats import Mesh, write_gm, write_tx  # noqa: E402
 
 COMPONENTS = {"SCALAR": 1, "VEC2": 2, "VEC3": 3, "VEC4": 4, "MAT4": 16}
