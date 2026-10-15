@@ -587,3 +587,25 @@ Gizmo.Operation=translate
 
   Шрифт грузится с кириллицей (`GetGlyphRangesCyrillic`). Нет файла — в `system.log` строка `Editor: no font …`, остаётся встроенный.
 
+
+## 6.22 Модели из Blender и glTF (`demos/gltf`)
+
+Готовые модели не нужно переделывать под формат движка: любой редактор пишет glTF 2.0, а `tools/gltf2gm` переводит его в `.gm` и `.tx` (сопоставление — 4.17). Нужен только Python 3 с Pillow.
+
+```bash
+# Blender: File → Export → glTF 2.0 (.glb), «+Y Up» оставить включённым
+python3 tools/gltf2gm/gltf2gm.py ship.glb props/ --out game/resource --folder harbour
+# resource/models/harbour/ship.gm: 6 objects, 6584 vertices, 3858 triangles, bsp -> load as "harbour\ship"
+```
+
+- Папка на входе — все `.glb`/`.gltf` в ней. Общие картинки (атлас Kenney) пишутся один раз.
+- `--scale` — если модель не в метрах; `--single-sided` — не дублировать грани `doubleSided`; `--no-bsp` — без BSP (быстрее и меньше, но мимо трассировки).
+- Дальше модель грузится как любая: `SendMessage(&model, "ls", MSG_MODEL_LOAD_GEO, "harbour\ship")`, бросается из Assets на Viewport редактора или пишется в `.scene`.
+
+Демо `demos/gltf` — бухта из 15 моделей Kenney Pirate Kit (CC0): корабль у причала, пальмы, башня, скалы, пушка и бочки на песке. `make_assets.py` конвертирует `source/*.glb` при каждом запуске (15 файлов за 5 с) и добавляет воду — плоскость с шумовой текстурой. Расстановка — `resource/scenes/cove.scene` (4.16), её правят в окне Scene:
+
+```bash
+demos/gltf/run.sh build/Debug/engine --editor
+```
+
+![Бухта из моделей glTF в редакторе](media/gltf.jpg)

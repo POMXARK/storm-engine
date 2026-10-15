@@ -1,0 +1,136 @@
+[[model]]
+name = 'water'
+geometry = 'pirate\water'
+technique = 'DLightModel'
+position = [ 0.0, 0.0, 0.0 ]
+
+[[model]]
+name = 'sand'
+geometry = 'pirate\patch-sand'
+technique = 'DLightModel'
+position = [ -5.0, 0.0, 5.0 ]
+
+[[model]]
+name = 'sand2'
+geometry = 'pirate\patch-sand'
+technique = 'DLightModel'
+position = [ -9.0, 0.0, 1.0 ]
+axes = [ 0.9063, 0.0, -0.4226, 0.0, 1.0, 0.0, 0.4226, 0.0, 0.9063 ]
+
+[[model]]
+name = 'sand3'
+geometry = 'pirate\patch-sand-foliage'
+technique = 'DLightModel'
+position = [ -9.0, 0.0, 9.0 ]
+axes = [ 0.766, 0.0, -0.6428, 0.0, 1.0, 0.0, 0.6428, 0.0, 0.766 ]
+
+[[model]]
+name = 'rocks'
+geometry = 'pirate\rocks-sand-a'
+technique = 'DLightModel'
+position = [ -14.0, 0.0, 4.0 ]
+
+[[model]]
+name = 'rocks2'
+geometry = 'pirate\rocks-b'
+technique = 'DLightModel'
+position = [ 5.0, 0.0, 16.0 ]
+axes = [ 0.866, 0.0, -0.5, 0.0, 1.0, 0.0, 0.5, 0.0, 0.866 ]
+
+[[model]]
+name = 'palm'
+geometry = 'pirate\palm-straight'
+technique = 'DLightModel'
+position = [ -6.5, 0.2, 7.0 ]
+
+[[model]]
+name = 'palm2'
+geometry = 'pirate\palm-bend'
+technique = 'DLightModel'
+position = [ -3.0, 0.2, 6.5 ]
+axes = [ 0.5, 0.0, 0.866, 0.0, 1.0, 0.0, -0.866, 0.0, 0.5 ]
+
+[[model]]
+name = 'palm3'
+geometry = 'pirate\palm-bend'
+technique = 'DLightModel'
+position = [ -10.0, 0.2, 2.0 ]
+axes = [ -0.5, 0.0, -0.866, 0.0, 1.0, 0.0, 0.866, 0.0, -0.5 ]
+
+[[model]]
+name = 'dock'
+geometry = 'pirate\structure-platform-dock'
+technique = 'DLightModel'
+position = [ 0.0, 0.0, 1.5 ]
+
+[[model]]
+name = 'dock2'
+geometry = 'pirate\structure-platform-dock'
+technique = 'DLightModel'
+position = [ 2.5, 0.0, 1.5 ]
+
+[[model]]
+name = 'dock3'
+geometry = 'pirate\structure-platform-dock'
+technique = 'DLightModel'
+position = [ 5.0, 0.0, 1.5 ]
+
+[[model]]
+name = 'ship'
+geometry = 'pirate\ship-pirate-large'
+technique = 'DLightModel'
+position = [ 11.0, 0.0, 9.0 ]
+axes = [ 0.9397, 0.0, 0.342, 0.0, 1.0, 0.0, -0.342, 0.0, 0.9397 ]
+
+[[model]]
+name = 'boat'
+geometry = 'pirate\boat-row-small'
+technique = 'DLightModel'
+position = [ 3.0, 0.0, -2.0 ]
+axes = [ 0.342, 0.0, -0.9397, 0.0, 1.0, 0.0, 0.9397, 0.0, 0.342 ]
+
+[[model]]
+name = 'barrel'
+geometry = 'pirate\barrel'
+technique = 'DLightModel'
+position = [ -3.5, 0.2, 3.0 ]
+
+[[model]]
+name = 'barrel2'
+geometry = 'pirate\barrel'
+technique = 'DLightModel'
+position = [ -2.9, 0.2, 3.6 ]
+
+[[model]]
+name = 'crate'
+geometry = 'pirate\crate'
+technique = 'DLightModel'
+position = [ -2.4, 0.2, 2.4 ]
+axes = [ 0.9397, 0.0, -0.342, 0.0, 1.0, 0.0, 0.342, 0.0, 0.9397 ]
+
+[[model]]
+name = 'chest'
+geometry = 'pirate\chest'
+technique = 'DLightModel'
+position = [ -5.0, 0.2, 2.6 ]
+axes = [ 0.9659, 0.0, 0.2588, 0.0, 1.0, 0.0, -0.2588, 0.0, 0.9659 ]
+
+[[model]]
+name = 'cannon'
+geometry = 'pirate\cannon'
+technique = 'DLightModel'
+position = [ -7.5, 0.2, 1.5 ]
+axes = [ -0.9397, 0.0, -0.342, 0.0, 1.0, 0.0, 0.342, 0.0, -0.9397 ]
+
+[[model]]
+name = 'flag'
+geometry = 'pirate\flag-pirate'
+technique = 'DLightModel'
+position = [ -7.5, 0.2, 6.0 ]
+
+[[model]]
+name = 'tower'
+geometry = 'pirate\tower-complete-small'
+technique = 'DLightModel'
+position = [ -12.0, 0.0, 12.0 ]
+
