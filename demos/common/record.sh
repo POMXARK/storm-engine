@@ -32,7 +32,9 @@ if [ "${RECORD_AUDIO:-0}" = 1 ]; then
         latency_msec=40)")
     # libpulse (also under the ALSA pulse plugin) plays to this sink instead of the default one
     export PULSE_SINK=storm_record
-    AUDIO_ARGS=(-f pulse -i storm_record.monitor -c:a aac -b:a 160k)
+    # small fragments and deep input queues: with the defaults ffmpeg waits on second-long pulse
+    # fragments and grabs a frame of the window between them, the video freezes for a second at a time
+    AUDIO_ARGS=(-thread_queue_size 1024 -f pulse -fragment_size 3840 -i storm_record.monitor -c:a aac -b:a 160k)
 fi
 
 
@@ -69,7 +71,7 @@ eval "$(xdotool getwindowgeometry --shell "$WID")"
 # x264 needs even sizes
 WIDTH=$((WIDTH / 2 * 2))
 HEIGHT=$((HEIGHT / 2 * 2))
-ffmpeg -loglevel error -y -f x11grab -draw_mouse 0 -framerate "$FPS" -window_id "$WID" \
+ffmpeg -loglevel error -y -thread_queue_size 1024 -f x11grab -draw_mouse 0 -framerate "$FPS" -window_id "$WID" \
     -video_size "${WIDTH}x${HEIGHT}" -i "$DISPLAY" "${AUDIO_ARGS[@]}" \
     -c:v libx264 -preset veryfast -crf 23 -pix_fmt yuv420p -movflags +faststart "$OUT" &
 FFMPEG_PID=$!
