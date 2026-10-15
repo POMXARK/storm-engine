@@ -307,7 +307,7 @@ ch_loop = demo\waves.wav     ; зациклен с момента установ
 
 ## 4.16 Сцена `.scene` (scene/src/storm/scene/scene.cpp)
 
-Расстановка моделей, которую сохраняет окно Scene редактора (6.21) и грузит скрипт через `LoadScene` (3.5). Лежит в `resource/scenes/<имя>.scene`, формат — TOML: массив таблиц `[[model]]` в порядке создания, за ним `[[marker]]` и `[[sound]]`.
+Расстановка моделей, которую сохраняет окно Scene редактора (6.21) и грузит скрипт через `LoadScene` (3.5). Лежит в `resource/scenes/<имя>.scene`, формат — TOML: массив таблиц `[[model]]` в порядке создания, за ним `[[marker]]`, `[[sound]]` и `[[trigger]]`.
 
 | Ключ | Тип | Что |
 |---|---|---|
@@ -362,6 +362,25 @@ position = [ 0.0, 0.5, 7.0 ]
 ```
 
 Звук играется через `SoundPlay` с `PCM_3D`, `looped = true`, `minDistance`/`maxDistance` из `distance`, и останавливается `SoundStop`, когда сцена выгружается. Нет файла — источник пропускается: `Scene: no sound …`. Без `sound` — ошибка разбора `sound "x" has no sound`.
+
+`[[trigger]]` — зона: вертикальный цилиндр от `position` вверх (проверено в `demos/trigger`).
+
+| Ключ | Тип | Что |
+|---|---|---|
+| `name` | строка | имя зоны, оно приходит в событиях |
+| `radius` | число | радиус в метрах по x и z, больше 0 |
+| `height` | число, необязательно | высота над `position`; нет — 2.0 |
+| `position` | 3 числа, необязательно | центр нижнего круга; `axes` у зоны не пишутся |
+
+```toml
+[[trigger]]
+name = 'gate'
+radius = 1.5
+height = 2.5
+position = [ 0.0, 0.0, 0.0 ]
+```
+
+Зона ничего не создаёт и сама никого не видит: скрипт передаёт место персонажа в `CheckSceneTriggers` (3.5), модуль сравнивает его с прошлым и шлёт `SceneTriggerEnter`/`SceneTriggerExit`. Без `radius` или с нулём — ошибка разбора `trigger "x" has no radius or height`.
 
 ## 4.17 glTF 2.0 → `.gm` и `.tx` (tools/gltf2gm/gltf2gm.py)
 

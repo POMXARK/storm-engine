@@ -69,6 +69,10 @@ for _ in $(seq 120); do
 done
 [ -n "$WID" ] || { echo "record.sh: no engine window" >&2; exit 1; }
 xdotool windowactivate --sync "$WID" 2>/dev/null || true
+# the engine keeps the mouse relative: where the pointer is as it takes it, the game's cursor starts.
+# The centre of the window, so that move: steps from it reach the same place every take
+eval "$(xdotool getwindowgeometry --shell "$WID")"
+xdotool mousemove --window "$WID" $((WIDTH / 2)) $((HEIGHT / 2))
 # the first frames are spent loading the scene
 sleep 3
 

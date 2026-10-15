@@ -131,3 +131,48 @@ TEST_CASE("Sound sources are written and read back", "[scene]")
     CHECK(error.find("no sound") != std::string::npos);
     CHECK(!ParseScene("[[sound]]\nname = \"x\"\nsound = \"a\"\ndistance = [1.0]\n", error));
 }
+
+TEST_CASE("Trigger zones are written, read back and hold points", "[scene]")
+{
+    SceneObject gate;
+    gate.name = "gate";
+    gate.marker = true;
+    gate.radius = 1.5f;
+    gate.height = 3.f;
+    gate.matrix[12] = 2.f;
+    gate.matrix[13] = 1.f;
+    SceneObject bell;
+    bell.name = "bell";
+    bell.marker = true;
+    bell.sound = "bell";
+
+    // the triggers go last, with no turn
+    const std::string text = FormatScene({gate, bell});
+    CHECK(text.find("[[trigger]]") > text.find("[[sound]]"));
+    CHECK(text.find("radius = 1.5") != std::string::npos);
+    std::string error;
+    const auto objects = ParseScene(text, error);
+    REQUIRE(objects);
+    REQUIRE(objects->size() == 2);
+    CHECK((*objects)[1].SameAs(gate));
+    CHECK((*objects)[1].IsTrigger());
+    CHECK(!(*objects)[1].IsPlainMarker());
+    CHECK(!(*objects)[0].IsTrigger());
+    CHECK(FormatScene(*objects) == text);
+
+    // a cylinder from the place up
+    CHECK(gate.Contains(3.f, 1.f, 1.f));
+    CHECK(gate.Contains(2.f, 4.f, 0.f));
+    CHECK(!gate.Contains(2.f, 0.5f, 0.f));
+    CHECK(!gate.Contains(2.f, 4.5f, 0.f));
+    CHECK(!gate.Contains(3.2f, 1.f, 1.f));
+    // only a trigger holds points
+    CHECK(!bell.Contains(0.f, 0.f, 0.f));
+
+    // the height may be left out, the radius not
+    const auto plain = ParseScene("[[trigger]]\nname = \"door\"\nradius = 1.0\n", error);
+    REQUIRE(plain);
+    CHECK((*plain)[0].height == 2.f);
+    CHECK(!ParseScene("[[trigger]]\nname = \"x\"\n", error));
+    CHECK(error.find("no radius") != std::string::npos);
+}

@@ -13,6 +13,8 @@
 #include <algorithm>
 #include <cmath>
 #include <fstream>
+#include <map>
+#include <set>
 #include <sstream>
 
 namespace storm::scene
@@ -92,19 +94,88 @@ VSoundService *Sounds()
     return core.GetServiceX<VSoundService>();
 }
 
+// the zones each who of CheckTriggers was in at its last call, by the names of the triggers
+std::map<std::string, std::set<std::string>> &Inside()
+{
+    static std::map<std::string, std::set<std::string>> inside;
+    return inside;
+}
+
+// what an object is in the file: [[model]], [[marker]], [[sound]], [[trigger]]
+enum Kind
+{
+    kModel,
+    kMarker,
+    kSound,
+    kTrigger,
+};
+
+Kind KindOf(const SceneObject &object)
+{
+    return !object.marker ? kModel : object.IsSound() ? kSound : object.IsTrigger() ? kTrigger : kMarker;
+}
+
+void PlaySound(SceneObject &object)
+{
+    VSoundService *sounds = Sounds();
+    if (sounds == nullptr)
+    {
+        return;
+    }
+    VSoundService::SoundPlayOptions options;
+    options.type = PCM_3D;
+    options.startPosition = CVECTOR(object.matrix[12], object.matrix[13], object.matrix[14]);
+    options.minDistance = object.distance[0];
+    options.maxDistance = object.distance[1];
+    options.volume = object.volume;
+    options.looped = true;
+    object.voice = sounds->SoundPlay(object.sound, options);
+    if (object.voice == 0)
+    {
+        core.Trace("Scene: no sound %s for \"%s\"", object.sound.c_str(), object.name.c_str());
+    }
+}
+
+void StopSound(SceneObject &object)
+{
+    if (object.voice != 0)
+    {
+        if (VSoundService *sounds = Sounds())
+        {
+            sounds->SoundStop(object.voice);
+        }
+        object.voice = 0;
+    }
+}
+
+// what the file keeps of an object but the name and the place
+bool SameKeys(const SceneObject &a, const SceneObject &b)
+{
+    return a.marker == b.marker && a.geometry == b.geometry && a.technique == b.technique && a.textures == b.textures &&
+           a.animation == b.animation && a.action == b.action && a.sound == b.sound &&
+           Round(a.volume) == Round(b.volume) && Round(a.distance[0]) == Round(b.distance[0]) &&
+           Round(a.distance[1]) == Round(b.distance[1]) && Round(a.radius) == Round(b.radius) &&
+           Round(a.height) == Round(b.height);
+}
+
 } // namespace
 
 bool SceneObject::MadeAs(const SceneObject &other) const
 {
-    return marker == other.marker && geometry == other.geometry && technique == other.technique &&
-           textures == other.textures && animation == other.animation && action == other.action &&
-           sound == other.sound && Round(volume) == Round(other.volume) &&
-           Round(distance[0]) == Round(other.distance[0]) && Round(distance[1]) == Round(other.distance[1]);
+    return SameKeys(*this, other) && hidden == other.hidden;
+}
+
+bool SceneObject::Contains(float x, float y, float z) const
+{
+    const float dx = x - matrix[12];
+    const float dz = z - matrix[14];
+    return IsTrigger() && dx * dx + dz * dz <= radius * radius && y >= matrix[13] && y <= matrix[13] + height;
 }
 
 bool SceneObject::SameAs(const SceneObject &other) const
 {
-    if (name != other.name || !MadeAs(other))
+    // hidden is the script's, not the file's
+    if (name != other.name || !SameKeys(*this, other))
     {
         return false;
     }
@@ -145,11 +216,12 @@ std::optional<std::vector<SceneObject>> ParseScene(std::string_view text, std::s
         return std::nullopt;
     }
     std::vector<SceneObject> objects;
-    // the models first, then the markers, then the sounds: the order the file is written in
-    for (const char *kind : {"model", "marker", "sound"})
+    // the models first, then the markers, the sounds, the triggers: the order the file is written in
+    for (const char *kind : {"model", "marker", "sound", "trigger"})
     {
         const bool marker = std::string_view(kind) != "model";
         const bool sound = std::string_view(kind) == "sound";
+        const bool trigger = std::string_view(kind) == "trigger";
         const toml::array *items = table[kind].as_array();
         if (items == nullptr)
         {
@@ -184,6 +256,16 @@ std::optional<std::vector<SceneObject>> ParseScene(std::string_view text, std::s
                 if (view["distance"] && !ReadFloats(view["distance"], object.distance, 2))
                 {
                     error = "sound \"" + object.name + "\": distance is 2 numbers";
+                    return std::nullopt;
+                }
+            }
+            if (trigger)
+            {
+                object.radius = static_cast<float>(view["radius"].value_or(0.0));
+                object.height = static_cast<float>(view["height"].value_or(2.0));
+                if (object.radius <= 0.f || object.height <= 0.f)
+                {
+                    error = "trigger \"" + object.name + "\" has no radius or height";
                     return std::nullopt;
                 }
             }
@@ -226,22 +308,33 @@ std::string FormatScene(const std::vector<SceneObject> &objects)
                        "# A script loads it with LoadScene(\"<name>\"). position is in metres, axes are the rows x, y, z of\n"
                        "# the turn. A marker is a place the script asks for by name (GetSceneMarker). A sound plays\n"
                        "# looped where it is: a file of resource/sounds or an alias, full up to the first distance, silent\n"
-                       "# from the second.\n";
-    for (const int kind : {0, 1, 2})
+                       "# from the second. A trigger is a zone, a cylinder from its place up: the script tells who is\n"
+                       "# where (CheckSceneTriggers) and gets SceneTriggerEnter and SceneTriggerExit.\n";
+    for (const Kind kind : {kModel, kMarker, kSound, kTrigger})
     {
         for (const SceneObject &object : objects)
         {
-            const bool markers = kind > 0;
-            if ((object.marker ? (object.IsSound() ? 2 : 1) : 0) != kind)
+            const bool markers = kind != kModel;
+            if (KindOf(object) != kind)
             {
                 continue;
             }
             const float axes[9] = {object.matrix[0], object.matrix[1], object.matrix[2],
                                    object.matrix[4], object.matrix[5], object.matrix[6],
                                    object.matrix[8], object.matrix[9], object.matrix[10]};
-            text += kind == 2 ? "\n[[sound]]\n" : markers ? "\n[[marker]]\n" : "\n[[model]]\n";
+            text += kind == kTrigger ? "\n[[trigger]]\n"
+                    : kind == kSound ? "\n[[sound]]\n"
+                    : markers        ? "\n[[marker]]\n"
+                                     : "\n[[model]]\n";
             text += "name = " + Quote(object.name) + "\n";
-            if (kind == 2)
+            if (kind == kTrigger)
+            {
+                text += "radius = " + Number(object.radius) + "\n";
+                text += "height = " + Number(object.height) + "\n";
+                text += "position = " + Numbers(object.matrix + 12, 3) + "\n";
+                continue;
+            }
+            if (kind == kSound)
             {
                 text += "sound = " + Quote(object.sound) + "\n";
                 text += "volume = " + Number(object.volume) + "\n";
@@ -305,22 +398,9 @@ bool Spawn(SceneObject &object)
     object.voice = 0;
     if (object.IsSound())
     {
-        VSoundService *sounds = Sounds();
-        if (sounds == nullptr)
+        if (!object.hidden)
         {
-            return false;
-        }
-        VSoundService::SoundPlayOptions options;
-        options.type = PCM_3D;
-        options.startPosition = CVECTOR(object.matrix[12], object.matrix[13], object.matrix[14]);
-        options.minDistance = object.distance[0];
-        options.maxDistance = object.distance[1];
-        options.volume = object.volume;
-        options.looped = true;
-        object.voice = sounds->SoundPlay(object.sound, options);
-        if (object.voice == 0)
-        {
-            core.Trace("Scene: no sound %s for \"%s\"", object.sound.c_str(), object.name.c_str());
+            PlaySound(object);
         }
         return object.voice != 0;
     }
@@ -369,21 +449,17 @@ bool Spawn(SceneObject &object)
         }
     }
     core.AddToLayer(EXECUTE, object.entity, kPriority);
-    core.AddToLayer(REALIZE, object.entity, kPriority);
+    if (!object.hidden)
+    {
+        core.AddToLayer(REALIZE, object.entity, kPriority);
+    }
     WritePlace(object);
     return true;
 }
 
 void Despawn(SceneObject &object)
 {
-    if (object.voice != 0)
-    {
-        if (VSoundService *sounds = Sounds())
-        {
-            sounds->SoundStop(object.voice);
-        }
-        object.voice = 0;
-    }
+    StopSound(object);
     if (core.GetEntityPointerSafe(object.entity) != nullptr)
     {
         core.EraseEntity(object.entity);
@@ -419,12 +495,108 @@ const SceneObject *FindMarker(std::string_view name)
 {
     for (const SceneObject &object : CurrentScene().objects)
     {
-        if (object.marker && !object.IsSound() && object.name == name)
+        if (object.IsPlainMarker() && object.name == name)
         {
             return &object;
         }
     }
     return nullptr;
+}
+
+SceneObject *FindObject(std::string_view name)
+{
+    for (SceneObject &object : CurrentScene().objects)
+    {
+        if (object.name == name)
+        {
+            return &object;
+        }
+    }
+    return nullptr;
+}
+
+bool PlayAction(SceneObject &object, const std::string &action)
+{
+    if (Model(object.entity) == nullptr || object.animation.empty() ||
+        core.Send_Message(object.entity, "lls", MSG_MODEL_PLAY_ACTION, 0, action.c_str()) == 0)
+    {
+        return false;
+    }
+    // the editor sees a changed object and makes it anew on Stop, with the action of the file
+    object.action = action;
+    return true;
+}
+
+bool Show(SceneObject &object, bool show)
+{
+    if (object.IsSound())
+    {
+        if (show && object.voice == 0)
+        {
+            PlaySound(object);
+        }
+        else if (!show)
+        {
+            StopSound(object);
+        }
+    }
+    else if (Model(object.entity) != nullptr)
+    {
+        if (show && object.hidden)
+        {
+            core.AddToLayer(REALIZE, object.entity, kPriority);
+        }
+        else if (!show && !object.hidden)
+        {
+            core.RemoveFromLayer(REALIZE, object.entity);
+        }
+    }
+    else
+    {
+        return false;
+    }
+    object.hidden = !show;
+    return true;
+}
+
+void Move(SceneObject &object, float x, float y, float z, float ay)
+{
+    // the axis z looks along (sin ay, 0, cos ay), as GetSceneMarker gives it
+    const float s = std::sin(ay);
+    const float c = std::cos(ay);
+    const float matrix[16] = {c, 0, -s, 0, 0, 1, 0, 0, s, 0, c, 0, x, y, z, 1};
+    std::copy(matrix, matrix + 16, object.matrix);
+    WritePlace(object);
+}
+
+size_t CheckTriggers(const std::string &who, float x, float y, float z)
+{
+    std::set<std::string> &was = Inside()[who];
+    std::set<std::string> now;
+    for (const SceneObject &object : CurrentScene().objects)
+    {
+        if (object.Contains(x, y, z))
+        {
+            now.insert(object.name);
+        }
+    }
+    // posted, not sent: the handlers run after the script that asked, not inside its call
+    for (const std::string &name : was)
+    {
+        if (now.count(name) == 0)
+        {
+            core.PostEvent("SceneTriggerExit", 0, "ss", name.c_str(), who.c_str());
+        }
+    }
+    for (const std::string &name : now)
+    {
+        if (was.count(name) == 0)
+        {
+            core.PostEvent("SceneTriggerEnter", 0, "ss", name.c_str(), who.c_str());
+        }
+    }
+    was = std::move(now);
+    return was.size();
 }
 
 std::optional<size_t> LoadScene(std::string_view name)
@@ -444,6 +616,7 @@ std::optional<size_t> LoadScene(std::string_view name)
     size_t markers = 0;
     size_t sounds = 0;
     size_t playing = 0;
+    size_t triggers = 0;
     uint32_t id = 0;
     for (SceneObject &object : scene.objects)
     {
@@ -452,10 +625,12 @@ std::optional<size_t> LoadScene(std::string_view name)
         made += spawned && !object.marker ? 1 : 0;
         playing += spawned && object.IsSound() ? 1 : 0;
         sounds += object.IsSound() ? 1 : 0;
-        markers += object.marker && !object.IsSound() ? 1 : 0;
+        markers += object.IsPlainMarker() ? 1 : 0;
+        triggers += object.IsTrigger() ? 1 : 0;
     }
-    core.Trace("Scene: %s, %zu models of %zu, %zu markers, %zu sounds of %zu", std::string(name).c_str(), made,
-               scene.objects.size() - markers - sounds, markers, playing, sounds);
+    scene.loaded = scene.objects;
+    core.Trace("Scene: %s, %zu models of %zu, %zu markers, %zu sounds of %zu, %zu triggers", std::string(name).c_str(),
+               made, scene.objects.size() - markers - sounds - triggers, markers, playing, sounds, triggers);
     return made;
 }
 
@@ -467,6 +642,7 @@ void ClearScene()
         Despawn(object);
     }
     scene = {};
+    Inside().clear();
 }
 
 } // namespace storm::scene

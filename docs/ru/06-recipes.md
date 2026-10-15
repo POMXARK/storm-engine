@@ -644,3 +644,49 @@ demos/scene/run.sh build/Debug/engine --editor
 - Для 3D файл должен быть моно: стерео играется без панорамы. Генератор демо — `demos/scene/make_sounds.py` (берёт синтез из `demos/sound/make_sound.py`).
 
 ![Звуки сцены в редакторе](../../demos/scene/media/scene-sound.jpg)
+
+## 6.25 Триггеры и объекты сцены из скрипта (`demos/trigger`)
+
+```bash
+demos/trigger/run.sh build/Debug/engine            # просто посмотреть
+demos/trigger/run.sh build/Debug/engine --editor   # с зоной на Viewport
+```
+
+Сцена `gate` (`resource/scenes/gate.scene`) собрана в редакторе: стражник `guard` (анимированный пират), ящик `crate`, маркеры `a` и `b`, колокол `bell` и зона `gate` (радиус 1,5 м, высота 2,5 м) между маркерами. Матрос — NPC скрипта — сам ходит от `a` к `b` и обратно. На входе в зону стражник встаёт в стойку, ящик пропадает, звенит колокол; на выходе всё возвращается. В `compile.log` чередуются `TRIGGER: sailor enters gate` / `leaves gate`.
+
+1. Объявить функции и подключить библиотеки (все функции библиотеки — до `#library`, 03):
+   ```c
+   native int LoadScene(string name);
+   native int GetSceneMarker(string name, ref place);
+   native int SceneObjectAction(string name, string action);
+   native int SceneObjectShow(string name, int show);
+   native int SceneObjectMove(string name, float x, float y, float z, float ay);
+   native int CheckSceneTriggers(string who, float x, float y, float z);
+   #library "SceneLibrary"
+   #library "SceneMarkers"
+   #library "SceneObjects"
+   ```
+2. Зона в редакторе: окно Scene → **Add trigger**, **Radius** и **Height** в свойствах, место — гизмо. Save пишет `[[trigger]]` (04 §4.16).
+3. Из тика скрипта сообщать позицию:
+   ```c
+   SendMessage(&Sailor, "leee", MSG_CHARACTER_GETPOS, &x, &y, &z);
+   CheckSceneTriggers("sailor", x, y, z);
+   PostEvent("Demo_Tick", 100);
+   ```
+4. Обработчики получают имя зоны и того, кто вошёл:
+   ```c
+   SetEventHandler("SceneTriggerEnter", "Gate_Enter", 0);
+   void Gate_Enter()
+   {
+   	string trigger = GetEventData();
+   	string who = GetEventData();
+   	SceneObjectAction("guard", "fight stand");
+   	SceneObjectShow("crate", 0);
+   	SceneObjectShow("bell", 1);
+   }
+   ```
+5. NPC идёт к маркеру: `GetSceneMarker("b", &Target)` и `SendMessage(&Sailor, "lsfff", MSG_NPCHARACTER_SETTASK, "Goto point", x, y, z)`; он останавливается примерно в 0,5 м от точки, поэтому «дошёл» — ближе 1 м.
+
+Позицию даёт скрипт, поэтому те же зоны годятся для игрока, NPC и кораблей (у корабля — его атрибуты `Ship.Pos`). В редакторе (`--editor`) зона — зелёный цилиндр, клавиши **W**/**E** — перенос/поворот, **F** — подлететь к выбранному, **Esc** — снять выделение (09).
+
+![Триггер сцены в редакторе](../../demos/trigger/media/trigger.jpg)

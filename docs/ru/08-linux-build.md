@@ -149,6 +149,7 @@ Linux-порт сделан в 2022 (issue storm-devs/storm-engine#348), но с
 | 34 | `imguizmo/cci.20231114` тянет `imgui/1.90.5` — конфликт с `imgui/1.90-docking` | рецепт imguizmo пинует обычную ветку imgui | `self.requires("imgui/1.90-docking", force=True)` в `requirements()` (`conanfile.py`) |
 | 35 | `Assertion 'PushID/PopID or TreeNode/TreePop Mismatch!'` при выборе модели в Entities | `NODER::ShowEditorTree` делал `PushID` без `PopID` | `PopID` в конце (`src/libs/model/src/node.cpp`) |
 | 36 | `RUNTIME ERROR in <файл>(<строка>): Incorrect usage of index on single variable` каждый кадр, хотя скрипт верный | окно редактора читало простую переменную (`gold`) через `VDATA::Get(value, 0)`; ошибку движок приписывает строке, которую скрипт исполнял последней | для простой переменной `Get(value)`, индекс — только если `IsArray()` (`corsairs-remake/editor/src/market_tool.cpp`) |
+| 37 | в редакторе на Linux не видно курсора мыши, клики уходят не туда | `sdl_input.cpp` держит мышь в relative-режиме всегда, а `SDLWindow::ShowCursor` вне Windows ничего не делал | `ShowCursor` переключает `SDL_SetRelativeMouseMode` (`src/libs/window/src/sdl_window.cpp`); редактор показывает курсор везде, кроме игры во вьюпорте и полёта камеры (`engine_editor.cpp`) |
 
 ## 6. Обход недоступного gnu.org (локальное зеркало для Conan)
 
@@ -219,3 +220,34 @@ storm-engine/tools/smoke-test/run.sh build/Debug/engine   # → "smoke test pass
 - [ ] Запуск оригинальной игры (нужны файлы ККС/TEHO — в Steam на этой машине не найдена)
 - [ ] Починить `.github/workflows/ci_linux.yml` (там команды Conan 1 при Conan 2.12)
 - [ ] Влить `miniaudio-sound` в основную ветку своего форка POMXARK (PR в PiratesAhoy не делаем)
+
+## 11. Сборка на Windows 11
+
+Windows — родная платформа движка: CI (`.github/workflows/ci_windows.yml`) собирает его на `windows-latest` с MSVC. Отличия от Linux: рендер — настоящий Direct3D 9 (D3DX из пакета `directx`), звук по умолчанию — FMOD (`STORM_SOUND_BACKEND=fmod`, пакет с remote piratesahoy), `.fx`-техники компилирует D3DX.
+
+1. **Visual Studio 2022** (Community), нагрузка «Разработка классических приложений на C++». В ней уже есть «C++ CMake tools for Windows» (CMake и Ninja) и Windows SDK. Clang не нужен. Нужна CMake ≥ 3.24 (`conan_add_remote`), в VS 2022 она новее.
+2. **Python 3** (python.org, галочка «Add to PATH»), затем `pip install conan==2.12.2 Pillow`. Pillow нужен генераторам ассетов демо и импорту моделей в редакторе.
+3. **Git** с submodule:
+   ```bat
+   git clone --recursive -b miniaudio-sound https://github.com/POMXARK/storm-engine.git
+   ```
+   Без `--recursive` не будет `src/libs/editor_tools`. Тогда либо `git submodule update --init`, либо `-DSTORM_EDITOR_TOOLS=OFF`.
+4. Сборка — в **x64 Native Tools Command Prompt for VS 2022** (там MSVC в PATH):
+   ```bat
+   conan profile detect
+   cd storm-engine
+   cmake --preset=default
+   cmake --build --preset=debug
+   ```
+   При первой конфигурации Conan скачает зависимости (несколько ГБ в `%USERPROFILE%\.conan2`). Remote piratesahoy CMake добавит сам. Бинарник лежит в `build\default\Debug\engine.exe`, рядом — `fmodL.dll` и `resource\techniques`.
+   Можно и без консоли: открыть папку `storm-engine` в VS 2022 (File → Open → Folder), выбрать пресет `default`/`debug` и startup item `engine.exe`.
+5. Звук без FMOD (как на Linux): `cmake --preset=default -DSTORM_SOUND_BACKEND=miniaudio`.
+6. Для запуска нужен DirectX 9 runtime (June 2010, `dxwebsetup`): в Windows 11 нет `d3dx9_43.dll`.
+
+**Демо.** `run.sh` — bash-скрипты. Проще всего запускать их из **Git Bash**: `demos/trigger/run.sh build/default/Debug/engine.exe --editor`. Если ссылку `ln -sfn` нельзя создать (нет режима разработчика), скопируйте `build\default\Debug\resource\techniques` в `demos\<демо>\resource\techniques`. Python там вызывается как `python3`: в Windows это `python`, поэтому нужен alias или правка строки. Движок запускается из папки демо: он ищет `program\` и `resource\` от cwd.
+
+**Логи** на Windows лежат в `Documents\My Games\Sea Dogs\Logs\` (а не в `~/.local/share`).
+
+**Курсор в редакторе.** На Windows курсор прячет и показывает `::ShowCursor` (`sdl_window.cpp`). На Linux, где ввод держит мышь в relative-режиме, то же делает `SDL_SetRelativeMouseMode` (п. 5, строка 37).
+
+Сборка на Windows здесь не проверялась: команды взяты из CI и `conanfile.py`, Linux-изменения ветки под `#ifdef`/`if (WIN32)`.

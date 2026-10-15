@@ -1,0 +1,45 @@
+# A scene of Storm Engine: the models and their places, made in the window Scene of the editor.
+# A script loads it with LoadScene("<name>"). position is in metres, axes are the rows x, y, z of
+# the turn. A marker is a place the script asks for by name (GetSceneMarker). A sound plays
+# looped where it is: a file of resource/sounds or an alias, full up to the first distance, silent
+# from the second. A trigger is an upright cylinder from its position up: CheckSceneTriggers
+# sends SceneTriggerEnter and SceneTriggerExit as the script's characters cross it.
+
+[[model]]
+name = 'guard'
+geometry = 'characters\pirate'
+textures = 'characters'
+animation = 'fencer'
+action = 'idle_1'
+position = [ 2.5, 0.0, 0.0 ]
+axes = [ 0.0, 0.0, 1.0,
+         0.0, 1.0, 0.0,
+         -1.0, 0.0, 0.0 ]
+
+[[model]]
+name = 'crate'
+geometry = 'demo\crate'
+technique = 'DLightModel'
+position = [ -2.0, 0.0, 0.5 ]
+axes = [ 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0 ]
+
+[[marker]]
+name = 'a'
+position = [ 0.0, 0.0, -5.0 ]
+
+[[marker]]
+name = 'b'
+position = [ 0.0, 0.0, 4.0 ]
+
+[[sound]]
+name = 'bell'
+sound = 'demo\bell.wav'
+volume = 0.9
+distance = [ 2.0, 16.0 ]
+position = [ 0.0, 2.5, 0.0 ]
+
+[[trigger]]
+name = 'gate'
+radius = 1.5
+height = 2.5
+position = [ 0.0, 0.0, 0.0 ]

@@ -632,6 +632,11 @@ void EngineEditor::StartFrame()
         {
             Impl::Playing() = false;
             Impl::Camera().active = true;
+            // the scripts have run till now: the tools give back what they changed, as at Stop
+            for (const auto &callback : Impl::PlayCallbacks())
+            {
+                callback(false);
+            }
         }
     }
 
@@ -683,7 +688,9 @@ void EngineEditor::StartFrame()
     // the game takes the keys and the mouse when its frame has the focus and the scene camera is not flown;
     // over the whole screen it takes them unless a window wants them
     impl_->isFocused_ = workspace ? !impl_->viewportFocused_ || impl_->flying_ : io.WantCaptureKeyboard;
-    core.GetWindow()->ShowCursor(workspace || impl_->isFocused_);
+    // the pointer is the editor's: the game in its frame and the flight of the scene camera take the mouse
+    // hidden (on Linux relative: only its moves count)
+    core.GetWindow()->ShowCursor(workspace ? !impl_->viewportFocused_ && !impl_->flying_ : impl_->isFocused_);
 }
 
 void EngineEditor::EndFrame()

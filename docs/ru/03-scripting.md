@@ -95,7 +95,7 @@
 | `SteamApiScriptLib` | steam_api | `GetSteamEnabled`, `DLC*`, `SetAchievement`… |
 | location | location/src/location_script_lib.cpp:316 | `NativeFindCharacter`, `NativeFindLocation`, `NativeFindLoadCharacter`, `ReloadProgressStart/Update/End`, `SetReloadProgress*`, `SystemDelay`, `ExecuteTechnique`, `GetNextLineString` |
 | rigging | rigging | `funcGetSailSpeed`, `RandomHole2Sail`, `DeleteOneSailHole`, `GetAssembledString`, `ShipSailState` |
-| `SceneLibrary` | scene/src/storm/scene/scene_library.cpp | `LoadScene(name)` — сцена из `resource/scenes/<name>.scene` (4.16, 6.21); библиотека `SceneMarkers`: `GetSceneMarker(name, &place)` — маркер загруженной сцены: `place.x/y/z/ay`, 1 или 0, если маркера нет |
+| `SceneLibrary` | scene/src/storm/scene/scene_library.cpp | `LoadScene(name)` — сцена из `resource/scenes/<name>.scene` (4.16, 6.21); библиотека `SceneMarkers`: `GetSceneMarker(name, &place)` — маркер загруженной сцены: `place.x/y/z/ay`, 1 или 0, если маркера нет; библиотека `SceneObjects` (6.25): `SceneObjectAction(name, action)`, `SceneObjectShow(name, show)`, `SceneObjectMove(name, x, y, z, ay)` — 1, если объект сцены есть; `CheckSceneTriggers(who, x, y, z)` — в скольких зонах `who`, переходы границ — события `SceneTriggerEnter`/`SceneTriggerExit` с `(string trigger, string who)` |
 | xinterface (SCRIPT_INTERFACE_FUNCTIONS) | xinterface/src/str_service.cpp:1574 | `LanguageOpenFile`, `LanguageConvertString`, `LanguageCloseFile`, `LanguageGetLanguage`, `LanguageSetLanguage`, `XI_ConvertString`, `XI_MakeNode`, `XI_DeleteNode`, `XI_WindowShow/Disable/IsWindowEnable/AddNode`, `XI_IsKeyPressed`, `XI_CreateFolder`…, `DialogAssembleStr`, `AddControlTreeNode` |
 
 **Порядок важен: `native` до `#library`.** На `#library` (или `#libriary`) компилятор сразу создаёт библиотеку и зовёт её `Init()` (`compiler.cpp`, `INCLUDE_LIBRIARY`), а `SetScriptFunction` привязывает только функции, уже объявленные в скрипте. Объявление после `#library` даёт `native function 'X' not declared` в `error.log` и затем `Undeclared identifier: X` на вызове. Библиотека грузится один раз за компиляцию: повторный `#library` в другом файле пропускается, поэтому все её `native` объявляют до первого подключения.
@@ -107,4 +107,6 @@ native int GetSceneMarker(string name, ref place);
 #library "SceneMarkers"
 ```
 
-Библиотека требует объявить **все** свои функции: `SetScriptFunction` на необъявленную тоже пишет `native function 'X' not declared`. Поэтому функцию, которую добавили в уже используемый модуль, выносят в отдельную библиотеку (так `GetSceneMarker` живёт в `SceneMarkers`, а скрипты только с `LoadScene` работают как раньше).
+Библиотека требует объявить **все** свои функции: `SetScriptFunction` на необъявленную тоже пишет `native function 'X' not declared`. Поэтому функцию, которую добавили в уже используемый модуль, выносят в отдельную библиотеку (так `GetSceneMarker` живёт в `SceneMarkers`, а скрипты только с `LoadScene` работают как раньше, а функции объектов и зон — в `SceneObjects`).
+
+Имена в скрипте не различают регистр, и с ключевыми словами тоже: функция `GoTo` — это `goto`, переменная `target` рядом с объектом `Target` — повтор (`Duplicate variable name`). Ошибка ключевого слова видна не сразу: скрипт компилируется, а при запуске падает `stack 'read' error` (07).

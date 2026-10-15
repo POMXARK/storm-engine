@@ -100,13 +100,22 @@ void SDLWindow::SetGamma(const uint16_t (&red)[256], const uint16_t (&green)[256
 
 void SDLWindow::ShowCursor(bool show_cursor)
 {
+#ifdef _WIN32
     if (show_cursor != isCursorShown_)
     {
         isCursorShown_ = show_cursor;
-#ifdef _WIN32 // FIX_LINUX Cursor
         ::ShowCursor(show_cursor);
-#endif
     }
+#else
+    // the input keeps the mouse relative (sdl_input.cpp): hidden, held in the window, only its moves count.
+    // A pointer is shown by letting the mouse go; the mode is asked of SDL, the input set it on its own
+    isCursorShown_ = show_cursor;
+    const SDL_bool relative = show_cursor ? SDL_FALSE : SDL_TRUE;
+    if (SDL_GetRelativeMouseMode() != relative)
+    {
+        SDL_SetRelativeMouseMode(relative);
+    }
+#endif
 }
 
 int SDLWindow::Subscribe(const EventHandler &handler)
