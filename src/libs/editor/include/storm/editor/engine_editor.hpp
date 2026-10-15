@@ -26,6 +26,8 @@ enum class DebugFlag
 using EditorToolCallback = std::function<void(bool &active)>;
 // the model that shows an entity which is no model itself (a character), 0 when the entity is not its kind
 using ModelOfCallback = std::function<uint64_t(uint64_t entity)>;
+// Play and Stop of the toolbar: true when the game starts to go, false when it stops back to the edit
+using PlayCallback = std::function<void(bool playing)>;
 
 // What the window Gizmo moves besides a model: a matrix a module hands out, a locator of a location.
 // The functions find their object anew every time, so they stay safe when it is gone.
@@ -102,6 +104,18 @@ class EngineEditor final
     static uint64_t ModelOf(uint64_t entity);
 
     static SceneCamera &GetSceneCamera();
+
+    // Edit or Play, as in the toolbar: in the edit the game stands still and the scene camera is on; Play lets
+    // the game go, Stop brings the edit back. The tools that change the scene keep it at Play, give it back
+    // at Stop.
+    static bool IsPlaying();
+    static void RegisterPlayCallback(PlayCallback callback);
+
+    // What happened in the window Viewport this frame, for the tools that work in the scene: a file dropped
+    // there from Assets (its path) and a left click, at a point of the screen; false when there was none.
+    // Taken once.
+    static bool TakeViewportDrop(std::string &asset, float &x, float &y);
+    static bool TakeViewportClick(float &x, float &y);
 
     // The frame of the game on the screen and the draw list over it, for what is drawn in the scene (the gizmo)
     static ViewportRect GetViewportRect();

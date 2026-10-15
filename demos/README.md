@@ -33,6 +33,7 @@ Each demo is started with `run.sh <path to built engine executable>` from its fo
 | HUD: `battle_interface` navigator (island minimap, ships, fire arcs, compass, wind, broadside charge, speeds, icons) and the ship panel (picture, name, crew, hull and sails) | [`hud`](hud) | done |
 | Melee: sabers as `BLADE` models on hand and belt labels, draw/sheathe, fast and force attacks, block, parry, hit reactions, death; the NPC `Fight` task, life and energy in scripts, the enemy bars | [`melee`](melee) | done |
 | World map: the `worldmap` entity over a generated archipelago — island names, the player's ship on autopilot or the helm, merchants, pursuing pirates and fighting pairs, storms with lightning, the clock with the sky of the day, wind, morale | [`worldmap`](worldmap) | done |
+| Scene authoring: models put into a scene in the editor (`--editor`, window Scene), saved to `resource/scenes/*.scene` and loaded by the script with `LoadScene`; Edit/Play, undo, picking in the viewport | [`scene`](scene) | done |
 
 ## Videos
 
@@ -43,4 +44,4 @@ A recorded run of every demo (`common/record.sh`); click a frame to open the vid
 | [![Interface](interface/media/interface.jpg)](interface/media/interface.mp4)<br>Interface | [![Models](model/media/model.jpg)](model/media/model.mp4)<br>Models | [![Character](character/media/character.jpg)](character/media/character.mp4)<br>Character | [![Location](location/media/location.jpg)](location/media/location.mp4)<br>Location | [![Sea](sea/media/sea.jpg)](sea/media/sea.mp4)<br>Sea |
 | [![Ship](ship/media/ship.jpg)](ship/media/ship.mp4)<br>Ship | [![Particles](particles/media/particles.jpg)](particles/media/particles.mp4)<br>Particles | [![Dialog](dialog/media/dialog.jpg)](dialog/media/dialog.mp4)<br>Dialog | [![Save / load](save/media/save.jpg)](save/media/save.mp4)<br>Save / load | [![Sound](sound/media/sound.jpg)](sound/media/sound.mp4)<br>Sound |
 | [![Battle](battle/media/battle.jpg)](battle/media/battle.mp4)<br>Battle | [![Enemy ship](ai-ship/media/ai-ship.jpg)](ai-ship/media/ai-ship.mp4)<br>Enemy ship | [![Island](island/media/island.jpg)](island/media/island.mp4)<br>Island | [![HUD](hud/media/hud.jpg)](hud/media/hud.mp4)<br>HUD | [![Melee](melee/media/melee.jpg)](melee/media/melee.mp4)<br>Melee |
-| [![World map](worldmap/media/worldmap.jpg)](worldmap/media/worldmap.mp4)<br>World map |   |   |   |   |
+| [![World map](worldmap/media/worldmap.jpg)](worldmap/media/worldmap.mp4)<br>World map | [![Scene](scene/media/scene.jpg)](scene/media/scene.mp4)<br>Scene |   |   |   |

@@ -59,6 +59,31 @@ public:
         return camera;
     }
 
+    static std::vector<PlayCallback> &PlayCallbacks()
+    {
+        static std::vector<PlayCallback> callbacks;
+        return callbacks;
+    }
+
+    // a file dropped in Viewport or a click there, until a tool takes it; the frame after it is gone
+    struct ViewportEvent
+    {
+        bool valid = false;
+        std::string asset;
+        float x = 0.f;
+        float y = 0.f;
+    };
+    static ViewportEvent &Drop()
+    {
+        static ViewportEvent event;
+        return event;
+    }
+    static ViewportEvent &Click()
+    {
+        static ViewportEvent event;
+        return event;
+    }
+
     static ViewportRect &Viewport()
     {
         static ViewportRect rect;
@@ -77,6 +102,7 @@ public:
     void ViewportWindow();
     void FlyCamera();
     void CopyFrame();
+    void SetPlaying(bool playing);
 
     std::array<bool, 5> debugFlags_{};
 
@@ -89,7 +115,13 @@ public:
     IDirect3DTexture9 *frame_ = nullptr;
     bool frameShown_ = false;
 
-    // the game holds (Pause) and goes one frame (Step) at the speed of the toolbar
+    // the edit (false) or the game going (Play); in the game it holds (Pause) and goes one frame (Step) at
+    // the speed of the toolbar
+    static bool &Playing()
+    {
+        static bool playing = true;
+        return playing;
+    }
     bool paused_ = false;
     bool step_ = false;
     float speed_ = 1.f;
@@ -280,7 +312,18 @@ void EngineEditor::Impl::Menus(bool workspace)
 void EngineEditor::Impl::Toolbar()
 {
     ImGui::Separator();
-    if (ImGui::Button(paused_ ? "Play" : "Pause"))
+    const bool playing = Playing();
+    ImGui::PushStyleColor(ImGuiCol_Button, playing ? ImVec4(0.6f, 0.2f, 0.2f, 1.f) : ImVec4(0.2f, 0.45f, 0.2f, 1.f));
+    if (ImGui::Button(playing ? "Stop" : "Play"))
+    {
+        SetPlaying(!playing);
+    }
+    ImGui::PopStyleColor();
+    ImGui::SetItemTooltip(playing ? "Back to the edit: the game stands, the scene comes back as it was at Play"
+                                  : "The game goes; the scene is kept and comes back at Stop");
+    ImGui::SameLine();
+    ImGui::BeginDisabled(!playing);
+    if (ImGui::Button(paused_ ? "Resume" : "Pause"))
     {
         paused_ = !paused_;
     }
@@ -291,6 +334,7 @@ void EngineEditor::Impl::Toolbar()
     {
         step_ = true;
     }
+    ImGui::EndDisabled();
     ImGui::EndDisabled();
     ImGui::SetItemTooltip("One frame of the game");
     ImGui::SameLine();
@@ -325,10 +369,10 @@ void EngineEditor::Impl::Toolbar()
                           "the wheel the speed");
     ImGui::SameLine();
     ImGui::TextDisabled("%.0f fps", ImGui::GetIO().Framerate);
-    if (paused_)
+    if (!Playing() || paused_)
     {
         ImGui::SameLine();
-        ImGui::TextColored(ImVec4(1.f, 0.8f, 0.3f, 1.f), "paused");
+        ImGui::TextColored(ImVec4(1.f, 0.8f, 0.3f, 1.f), Playing() ? "paused" : "edit");
     }
 }
 
@@ -393,10 +437,26 @@ void EngineEditor::Impl::ViewportWindow()
     ImGui::SetCursorPos(ImVec2(cursor.x + (avail.x - size.x) / 2.f, cursor.y + (avail.y - size.y) / 2.f));
     const ImVec2 origin = ImGui::GetCursorScreenPos();
     ImGui::Image(frame_, size);
+    // a file of Assets dropped on the frame, for the tools that put it into the scene
+    if (ImGui::BeginDragDropTarget())
+    {
+        if (const ImGuiPayload *payload = ImGui::AcceptDragDropPayload("STORM_ASSET"))
+        {
+            const ImVec2 mouse = ImGui::GetMousePos();
+            Drop() = {true, std::string(static_cast<const char *>(payload->Data), payload->DataSize - 1), mouse.x, mouse.y};
+        }
+        ImGui::EndDragDropTarget();
+    }
+    if (ImGui::IsItemClicked(ImGuiMouseButton_Left))
+    {
+        const ImVec2 mouse = ImGui::GetMousePos();
+        Click() = {true, {}, mouse.x, mouse.y};
+    }
     Viewport() = {origin.x, origin.y, size.x, size.y};
     ViewportDrawList() = ImGui::GetWindowDrawList();
 
-    viewportFocused_ = ImGui::IsWindowFocused();
+    // in the edit the clicks pick in the scene, the game gets no input
+    viewportFocused_ = ImGui::IsWindowFocused() && Playing();
     if (viewportFocused_ && ImGui::IsKeyPressed(ImGuiKey_F1, false))
     {
         ImGui::SetWindowFocus(nullptr);
@@ -407,7 +467,11 @@ void EngineEditor::Impl::ViewportWindow()
     // what holds the game now, in the corner of the frame
     std::string hint;
     auto add = [&hint](const char *text) { hint += hint.empty() ? text : std::string(" | ") + text; };
-    if (paused_)
+    if (!Playing())
+    {
+        add("Edit");
+    }
+    else if (paused_)
     {
         add("Paused");
     }
@@ -480,6 +544,21 @@ void EngineEditor::Impl::FlyCamera()
     }
 }
 
+void EngineEditor::Impl::SetPlaying(bool playing)
+{
+    Playing() = playing;
+    paused_ = false;
+    SetSetting("Editor.Mode", playing ? "play" : "edit");
+    // the edit looks through the scene camera, the game through its own
+    SceneCamera &camera = Camera();
+    camera.active = !playing || GetSetting("Editor.SceneCamera") == "1";
+    camera.placed = camera.placed && camera.active;
+    for (const auto &callback : PlayCallbacks())
+    {
+        callback(playing);
+    }
+}
+
 // the back buffer holds the frame of the game before the windows are drawn over it
 void EngineEditor::Impl::CopyFrame()
 {
@@ -532,6 +611,9 @@ void EngineEditor::StartFrame()
     Impl::Viewport() = {0.f, 0.f, io.DisplaySize.x, io.DisplaySize.y};
     Impl::ViewportDrawList() = ImGui::GetBackgroundDrawList();
     impl_->frameShown_ = false;
+    // what a tool has not taken in its frame is gone
+    Impl::Drop().valid = false;
+    Impl::Click().valid = false;
     impl_->flying_ = impl_->flying_ && workspace;
     // the scene camera of the last run is on again, from the camera of the game
     static bool restored = false;
@@ -539,6 +621,12 @@ void EngineEditor::StartFrame()
     {
         restored = true;
         Impl::Camera().active = GetSetting("Editor.SceneCamera") == "1";
+        // the editor starts in the edit when it was left there
+        if (GetSetting("Editor.Mode") == "edit")
+        {
+            Impl::Playing() = false;
+            Impl::Camera().active = true;
+        }
     }
 
     if (impl_->gameOnly_)
@@ -619,6 +707,10 @@ bool EngineEditor::IsDebugFlagEnabled(DebugFlag flag) const
 
 float EngineEditor::TimeScale()
 {
+    if (!Impl::Playing())
+    {
+        return 0.f;
+    }
     if (!impl_->paused_)
     {
         return impl_->speed_;
@@ -686,6 +778,43 @@ uint64_t EngineEditor::ModelOf(uint64_t entity)
 SceneCamera &EngineEditor::GetSceneCamera()
 {
     return Impl::Camera();
+}
+
+bool EngineEditor::IsPlaying()
+{
+    return Impl::Playing();
+}
+
+void EngineEditor::RegisterPlayCallback(PlayCallback callback)
+{
+    Impl::PlayCallbacks().push_back(std::move(callback));
+}
+
+bool EngineEditor::TakeViewportDrop(std::string &asset, float &x, float &y)
+{
+    Impl::ViewportEvent &drop = Impl::Drop();
+    if (!drop.valid)
+    {
+        return false;
+    }
+    drop.valid = false;
+    asset = drop.asset;
+    x = drop.x;
+    y = drop.y;
+    return true;
+}
+
+bool EngineEditor::TakeViewportClick(float &x, float &y)
+{
+    Impl::ViewportEvent &click = Impl::Click();
+    if (!click.valid)
+    {
+        return false;
+    }
+    click.valid = false;
+    x = click.x;
+    y = click.y;
+    return true;
 }
 
 ViewportRect EngineEditor::GetViewportRect()

@@ -510,7 +510,8 @@ demos/model/run.sh build/Debug/engine --editor
   - Ввод: щелчок по Viewport отдаёт клавиатуру и мышь игре, F1 возвращает их редактору. Пока фокус на панели, игра ввода не получает.
   - **View → Workspace** выключает рабочее место: окна снова плавают поверх кадра на весь экран (`Editor.Layout=overlay`). **Game only** (F10) прячет редактор целиком.
 - **Панель инструментов** в строке меню:
-  - **Pause/Play** держит время игры: `CoreImpl` умножает dt кадра на `EngineEditor::TimeScale()`, при паузе это 0. Сущности и скрипты получают нулевое время, кадр рисуется, камера и окна работают.
+  - **Play/Stop** — режимы Edit и Play, как в Unity. В Edit `EngineEditor::TimeScale()` равен 0 (сущности и скрипты стоят, кадр рисуется), свободная камера включена, щелчок в Viewport выбирает модель. Режим хранится в `Editor.Mode=edit|play`, модули узнают о смене через `EngineEditor::RegisterPlayCallback(fn)`, спросить можно `EngineEditor::IsPlaying()`.
+  - **Pause** держит время игры в Play: `CoreImpl` умножает dt кадра на `EngineEditor::TimeScale()`, при паузе это 0. Сущности и скрипты получают нулевое время, кадр рисуется, камера и окна работают.
   - **Step** пропускает один кадр.
   - Скорость 0.1x–4x.
   - **Scene camera** — свободная камера: правая кнопка мыши во Viewport — обзор, WASD и Q/E — движение, Shift — быстрее, колесо — скорость. Она стартует там, где камера игры, и подменяет её в `DX9RENDER::SetCamera`, поэтому работает с любой камерой (локация, корабль, карта). Летает и на паузе. Включённая камера запоминается (`Editor.SceneCamera=1`).
@@ -546,7 +547,16 @@ demos/model/run.sh build/Debug/engine --editor
 
 ![Ветка Actions персонажа](media/character-actions.jpg)
 
-- Состояние редактора хранит `imgui.ini` в рабочей папке, секция `[Storm][Editor]`: открытые окна (`Open=`), выбранная сущность — класс и номер среди сущностей класса (`Entities.Class=`, `Entities.Index=`), фильтр атрибутов (`Entities.Filter=`), режим гизмо (`Gizmo.Operation=translate|rotate`, `Gizmo.Space=local|world`, `Gizmo.Snap=`), выбранный локатор и показанные группы (`Location.Locator=item/crate2`, `Location.Show=goto,item`), фильтр действий (`Animation.Filter=`), раскладка (`Editor.Layout=workspace|overlay`), свободная камера (`Editor.SceneCamera=`), файл в Assets (`Assets.File=`), «Errors only» консоли (`Console.ErrorsOnly=`). Положение окон ImGui хранит там же. Так проверяется редактор без нажатий: тест кладёт `imgui.ini` и снимает окно.
+- **Scene** — сцена с нуля: модели, их места и файл `.scene` (4.16), который игра грузит `LoadScene` (руководство — [09-editor.md](09-editor.md)).
+  - Модель добавляется броском файла `.gm` из Assets на Viewport (полезная нагрузка ImGui `STORM_ASSET` — путь файла) или списком **Add model**. Viewport отдаёт окнам бросок и щелчок через `EngineEditor::TakeViewportDrop(asset, x, y)` и `TakeViewportClick(x, y)`, каждое событие забирает одно окно за кадр.
+  - Точка броска и выбор щелчком — луч из камеры: обратная видовая матрица и `_11/_22` проекции рендера, затем `MODEL::Trace` по всем `MODEL`. `Trace` работает только по BSP (`GEOM::Trace` без `FLAGS_BSP_PRESENT` всегда промах), поэтому для моделей без BSP окно режет луч боксами узлов (`GEOS::INFO::boxcenter/boxsize` в осях узла). Бросок ставит модель на попавшую модель, иначе на y = 0, иначе в 8 м перед камерой.
+  - Undo/Redo — снимки всей сцены (до 200). Снимок пишется, когда правка закончена: ни одно поле не активно, кнопка мыши отпущена, гизмо не тянут. Откат пересоздаёт только модели, у которых сменились файл или техника, остальные просто переставляются, выделение сохраняется по id.
+  - **Play** запоминает сцену, **Stop** возвращает её. Переменные скриптов и чужие сущности не откатываются.
+  - Последний файл — `Scene.File=`, техника новых моделей — `Scene.Technique=`. Если игра сама загрузила сцену, окно правит её.
+
+![Сцена в редакторе, режим Edit](media/scene.jpg)
+
+- Состояние редактора хранит `imgui.ini` в рабочей папке, секция `[Storm][Editor]`: открытые окна (`Open=`), выбранная сущность — класс и номер среди сущностей класса (`Entities.Class=`, `Entities.Index=`), фильтр атрибутов (`Entities.Filter=`), режим гизмо (`Gizmo.Operation=translate|rotate`, `Gizmo.Space=local|world`, `Gizmo.Snap=`), выбранный локатор и показанные группы (`Location.Locator=item/crate2`, `Location.Show=goto,item`), фильтр действий (`Animation.Filter=`), раскладка (`Editor.Layout=workspace|overlay`), режим (`Editor.Mode=edit|play`), свободная камера (`Editor.SceneCamera=`), сцена окна Scene и техника новых моделей (`Scene.File=`, `Scene.Technique=`), файл в Assets (`Assets.File=`), «Errors only» консоли (`Console.ErrorsOnly=`). Положение окон ImGui хранит там же. Так проверяется редактор без нажатий: тест кладёт `imgui.ini` и снимает окно.
 
 ```ini
 [Storm][Editor]

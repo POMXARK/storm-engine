@@ -10,6 +10,7 @@
 #   move:DX:DY:S     move the mouse by DX, DY pixels evenly over S seconds
 # The engine is stopped after the last step, so end with the time the result should stay in view.
 # Each recording is listed in index.tsv next to the video: date, demo, engine commit, file.
+# ENGINE_ARGS are passed to the engine after run.sh (ENGINE_ARGS=--editor records the editor).
 # PREVIEW=S also writes the frame at S seconds next to the video as a .jpg. The take shown on GitHub
 # goes to demos/<demo>/media/<demo>.{mp4,jpg}, the gallery in demos/README.md links it.
 # RECORD_AUDIO=1 records the sound of the engine too: it plays into a null PulseAudio sink of its own,
@@ -38,7 +39,8 @@ if [ "${RECORD_AUDIO:-0}" = 1 ]; then
 fi
 
 
-"$DEMO/run.sh" "$ENGINE" > "$DEMO/engine.out" 2>&1 &
+# shellcheck disable=SC2086 # the options are split into words on purpose
+"$DEMO/run.sh" "$ENGINE" ${ENGINE_ARGS:-} > "$DEMO/engine.out" 2>&1 &
 ENGINE_PID=$!
 FFMPEG_PID=
 cleanup() {
