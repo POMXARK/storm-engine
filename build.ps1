@@ -2,7 +2,7 @@
 # - enters the x64 developer shell of the newest Visual Studio (2022 or 2019, Build Tools too): the
 #   compiler and the Windows SDK are in PATH only there;
 # - puts the Scripts folders of Python in PATH (pip puts conan.exe there and often does not add it);
-# - installs by pip what is missing: Conan 2.12.2, Ninja (the preset builds with it), CMake >= 3.24
+# - installs by pip what is missing: Conan 2.12.2, Ninja >= 1.10 (the preset builds with Ninja Multi-Config), CMake >= 3.24
 #   (Visual Studio 2019 brings 3.20), Pillow (the generators of the demos);
 # - makes the Conan profile and runs the preset default; the engine is build/default/<Config>/engine.exe.
 # Usage: build.ps1 [-Config Debug|Release] [-ExtraModules <folder of an engine module of a game>]
@@ -37,17 +37,19 @@ $scripts = "import os, sysconfig`nprint(sysconfig.get_path('scripts'))`nprint(sy
 Assert-Exit 'python'
 foreach ($dir in $scripts) { $env:PATH = "$dir;$env:PATH" }
 
-function Test-CMake
+# true when the program is in PATH and its version is at least Major.Minor
+function Test-Version([string]$Program, [int]$Major, [int]$Minor)
 {
-    if (-not (Get-Command cmake -ErrorAction SilentlyContinue)) { return $false }
-    $line = (& cmake --version | Select-Object -First 1)
+    if (-not (Get-Command $Program -ErrorAction SilentlyContinue)) { return $false }
+    $line = (& $Program --version | Select-Object -First 1)
     if ($line -notmatch '(\d+)\.(\d+)') { return $false }
-    return ([int]$Matches[1] -gt 3) -or ([int]$Matches[1] -eq 3 -and [int]$Matches[2] -ge 24)
+    return ([int]$Matches[1] -gt $Major) -or ([int]$Matches[1] -eq $Major -and [int]$Matches[2] -ge $Minor)
 }
 $missing = @()
 if (-not (Get-Command conan -ErrorAction SilentlyContinue)) { $missing += 'conan==2.12.2' }
-if (-not (Get-Command ninja -ErrorAction SilentlyContinue)) { $missing += 'ninja' }
-if (-not (Test-CMake)) { $missing += 'cmake>=3.24' }
+# Ninja Multi-Config needs ninja 1.10 (include in its files); Visual Studio 2019 brings an older one
+if (-not (Test-Version ninja 1 10)) { $missing += 'ninja>=1.10' }
+if (-not (Test-Version cmake 3 24)) { $missing += 'cmake>=3.24' }
 # Windows PowerShell 5.1 turns redirected stderr of a program into an error, which Stop would throw
 $ErrorActionPreference = 'Continue'
 & $pyExe @pyArgs -c 'import PIL' 2>$null
@@ -60,6 +62,7 @@ if ($missing.Count -gt 0)
     Assert-Exit 'pip install'
 }
 Write-Host "cmake: $((Get-Command cmake).Source)"
+Write-Host "ninja: $((Get-Command ninja).Source) $(& ninja --version)"
 
 # conan profile path fails while there is no profile; cmd keeps its error text off the PowerShell errors
 cmd /c 'conan profile path default >nul 2>&1'
