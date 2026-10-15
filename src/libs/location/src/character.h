@@ -229,6 +229,8 @@ class Character : public Entity
   public:
     // Get a character model
     MODEL *Model() const;
+    // Entity Properties of the editor: which action of the animation plays each role of the character
+    void ShowEditor() override;
 
     // Move model to point x, y, z
     bool Teleport(float x, float y, float z);

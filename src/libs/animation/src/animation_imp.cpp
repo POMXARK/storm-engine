@@ -201,6 +201,26 @@ void AnimationImp::RotateHead(float x, float y)
     customHeadAY = y;
 }
 
+const char *AnimationImp::GetName() const
+{
+    return aniInfo->GetName();
+}
+
+int32_t AnimationImp::GetNumFrames() const
+{
+    return aniInfo->GetAniNumFrames();
+}
+
+std::vector<AnimationActionDesc> AnimationImp::GetActions() const
+{
+    std::vector<AnimationActionDesc> actions;
+    for (const ActionInfo &action : aniInfo->GetActions())
+    {
+        actions.push_back(action.Describe());
+    }
+    return actions;
+}
+
 //--------------------------------------------------------------------------------------------
 // AnimationImp
 //--------------------------------------------------------------------------------------------

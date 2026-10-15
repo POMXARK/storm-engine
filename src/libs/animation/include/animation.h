@@ -15,6 +15,10 @@
 #include "matrix.h"
 #include "service.h"
 
+#include <string>
+#include <utility>
+#include <vector>
+
 //============================================================================================
 
 class AnimationPlayer;        // Action player
@@ -73,6 +77,21 @@ enum AnimationEvent
 
 #define ANI_MAX_ACTIONS 8 // Number of ActionPlayers and AnimationTimers for one model
 #define ANI_MAX_EVENTS 8 // Number of events per action
+
+// An action of the .ani file as the tools show it (the editor window Animation)
+struct AnimationActionDesc
+{
+    std::string name;
+    int32_t startFrame = 0;
+    int32_t endFrame = 0;
+    bool loop = false;
+    AnimationType type = at_normal;
+    float rate = 1.0f;
+    // the events: name and relative time 0..1 of the action
+    std::vector<std::pair<std::string, float>> events;
+    // data = "name", "value"
+    std::vector<std::pair<std::string, std::string>> data;
+};
 
 // ============================================================================================
 // The class that plays the action
@@ -204,6 +223,10 @@ class Animation
     virtual bool HeadControl(bool isControllable) = 0;
     virtual bool IsControllableHead() = 0;
     virtual void RotateHead(float x, float y) = 0;
+    // The animation as loaded, for the tools: the name of its .ani, the frames of its .an, the actions
+    virtual const char *GetName() const = 0;
+    virtual int32_t GetNumFrames() const = 0;
+    virtual std::vector<AnimationActionDesc> GetActions() const = 0;
 };
 
 // ============================================================================================

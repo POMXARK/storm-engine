@@ -11,6 +11,7 @@
 #include <filesystem>
 #include <map>
 #include <optional>
+#include <vector>
 
 #include <imgui_impl_dx9.h>
 
@@ -42,6 +43,12 @@ public:
     {
         static std::optional<GizmoTarget> target;
         return target;
+    }
+
+    static std::vector<ModelOfCallback> &ModelsOf()
+    {
+        static std::vector<ModelOfCallback> callbacks;
+        return callbacks;
     }
 
     std::array<bool, 5> debugFlags_{};
@@ -253,6 +260,23 @@ const GizmoTarget *EngineEditor::GetGizmoTarget()
 {
     const auto &target = Impl::Gizmo();
     return target ? &*target : nullptr;
+}
+
+void EngineEditor::RegisterModelOf(ModelOfCallback callback)
+{
+    Impl::ModelsOf().push_back(std::move(callback));
+}
+
+uint64_t EngineEditor::ModelOf(uint64_t entity)
+{
+    for (const auto &callback : Impl::ModelsOf())
+    {
+        if (const uint64_t model = callback(entity))
+        {
+            return model;
+        }
+    }
+    return 0;
 }
 
 } // namespace storm::editor

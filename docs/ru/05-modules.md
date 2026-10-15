@@ -65,4 +65,6 @@
 
 Мораль и провиант для плашки берутся из ответов на `WorldMap_GetMoral`/`GetFood`/`GetRum`. Атрибут `worldMap.autopilot.x/z` (добавлен для демо) ведёт корабль к точке без клавиатуры. `worldMap.playerShipTeleport` (тоже добавлен) переносит его в `playerShipX/Z/AY` на ходу.
 
+Анимация (проверено в `demos/melee` окном Animation, 6.21): `animation` грузит `.ani` и `.an` (4.3) и отдаёт модели `Animation` с восемью проигрывателями (`Player(i)`: `SetAction`, `Play`, `Pause`, `Stop`, `SetPosition` 0..1, `SetSpeed`, `GetBlend`) и таймерами смешивания (`Timer(i)`). Модель берёт её через `MODEL::GetAnimation()`. Для инструментов добавлено описание файла: `GetName()` (имя .ani), `GetNumFrames()` (кадры .an) и `GetActions()` — список `AnimationActionDesc`: имя, кадры начала и конца, `loop`, тип проигрывания, скорость, события (`event = "Attack", 50%` — время 0..1) и данные (`data = "Walk speed", "1.312"`). Персонаж (`Character`) выбирает действие проигрывателя 0 сам по своему состоянию, его роли (`walk`, `fight idle`, `attack fast`…) задаёт скрипт атрибутами `actions.*`.
+
 Для своей игры достаточно `core`, `renderer`, `xinterface`, `sound_service`, `pcs_controls` (это подтверждает `tools/menu-demo`). Морские и сухопутные модули подключаются, только если скрипт создаёт их сущности.

@@ -61,6 +61,8 @@ class AnimationInfo final
     std::unordered_map<std::string, std::string> &GetUserData();
     // Get animation speed
     float GetFPS();
+    // All the actions, in the order of the file
+    const std::vector<ActionInfo> &GetActions() const;
 
     // --------------------------------------------------------------------------------------------
     // Encapsulation
@@ -173,4 +175,10 @@ inline std::unordered_map<std::string, std::string> &AnimationInfo::GetUserData(
 inline float AnimationInfo::GetFPS()
 {
     return fps;
+}
+
+// All the actions, in the order of the file
+inline const std::vector<ActionInfo> &AnimationInfo::GetActions() const
+{
+    return actions;
 }

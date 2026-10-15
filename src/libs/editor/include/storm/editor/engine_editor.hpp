@@ -23,6 +23,8 @@ enum class DebugFlag
 };
 
 using EditorToolCallback = std::function<void(bool &active)>;
+// the model that shows an entity which is no model itself (a character), 0 when the entity is not its kind
+using ModelOfCallback = std::function<uint64_t(uint64_t entity)>;
 
 // What the window Gizmo moves besides a model: a matrix a module hands out, a locator of a location.
 // The functions find their object anew every time, so they stay safe when it is gone.
@@ -65,6 +67,11 @@ class EngineEditor final
     // the target of the gizmo, nullptr when no module gave one
     static void SetGizmoTarget(GizmoTarget target);
     static const GizmoTarget *GetGizmoTarget();
+
+    // A module tells how its entities are shown by a model (Character: its MODELR), so the windows that
+    // work on a model (Animation) take the entity as well; ModelOf is 0 when no module knows the entity
+    static void RegisterModelOf(ModelOfCallback callback);
+    static uint64_t ModelOf(uint64_t entity);
 
   private:
     class Impl;

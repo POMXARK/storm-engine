@@ -25,6 +25,12 @@
 #include "math_inlines.h"
 #include "string_compare.hpp"
 #include "v_data.h"
+#include "storm/editor/engine_editor.hpp"
+#include "storm/editor/storm_imgui.hpp"
+
+#include <fmt/format.h>
+
+#include <set>
 
 //============================================================================================
 
@@ -5568,4 +5574,123 @@ bool Character::CheckShotOnlyEnemyTest() const
         vd->Get(tmpBool);
     }
     return tmpBool != 0;
+}
+
+//============================================================================================
+// Editor
+//============================================================================================
+
+namespace
+{
+
+// the window Animation of the editor shows the model of a picked character
+[[maybe_unused]] const bool modelOfRegistered = [] {
+    storm::editor::EngineEditor::RegisterModelOf([](uint64_t entity) -> uint64_t {
+        auto *character = dynamic_cast<Character *>(core.GetEntityPointer(entity));
+        MODEL *model = character != nullptr ? character->Model() : nullptr;
+        return model != nullptr ? model->GetId() : 0;
+    });
+    return true;
+}();
+
+} // namespace
+
+void Character::ShowEditor()
+{
+    MODEL *model = Model();
+    Animation *animation = model != nullptr ? model->GetAnimation() : nullptr;
+    if (animation == nullptr || !ImGui::TreeNodeEx("Actions", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        return;
+    }
+    std::set<std::string> known;
+    for (const auto &action : animation->GetActions())
+    {
+        known.insert(action.name);
+    }
+    const char *playing = animation->Player(0).GetAction();
+    ImGui::Text("%s, playing: %s, fight: %s", animation->GetName(), playing != nullptr ? playing : "-",
+                fightNamesTbl[fgtCurType]);
+
+    // the roles the character plays, as its attributes named them (actions.*); red is no such action
+    constexpr ImGuiTableFlags flags = ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp;
+    if (!ImGui::BeginTable("roles", 2, flags))
+    {
+        ImGui::TreePop();
+        return;
+    }
+    ImGui::TableSetupColumn("role");
+    ImGui::TableSetupColumn("action");
+    ImGui::TableHeadersRow();
+    auto row = [&](const std::string &role, const ActionCharacter &action) {
+        if (action.name == nullptr || action.name[0] == '\0')
+        {
+            return;
+        }
+        ImGui::TableNextColumn();
+        ImGui::TextUnformatted(role.c_str());
+        ImGui::TableNextColumn();
+        const bool here = playing != nullptr && storm::iEquals(playing, action.name);
+        if (known.count(action.name) == 0)
+        {
+            ImGui::TextColored(ImVec4(1.f, 0.4f, 0.4f, 1.f), "%s", action.name);
+            ImGui::SetItemTooltip("No such action in %s", animation->GetName());
+        }
+        else if (here)
+        {
+            ImGui::TextColored(ImVec4(0.4f, 1.f, 0.4f, 1.f), "> %s", action.name);
+        }
+        else
+        {
+            ImGui::TextUnformatted(action.name);
+        }
+    };
+    // generic: the arrays are of ActionIdle and ActionDead too, whose stride is not the base one
+    auto rows = [&](const char *role, const auto *actions, int32_t count) {
+        for (int32_t i = 0; i < count; i++)
+        {
+            row(count > 1 ? fmt::format("{} {}", role, i + 1) : role, actions[i]);
+        }
+    };
+    row("walk", walk);
+    row("back walk", backwalk);
+    row("run", run);
+    row("back run", backrun);
+    row("turn left", actionTurnL);
+    row("turn right", actionTurnR);
+    row("stairs up", stsUp);
+    row("stairs down", stsDown);
+    row("swim", swim);
+    row("fall", fall);
+    row("jump", jump);
+    row("hit", nfhit);
+    rows("idle", actionIdle, numActionIdles);
+    rows("dead", actionDead, numActionDead);
+    row("fight walk", fightwalk);
+    row("fight back walk", fightbackwalk);
+    row("fight run", fightrun);
+    row("fight back run", fightbackrun);
+    rows("fight idle", actionFightIdle, numFightActionIdles);
+    rows("attack fast", attackFast, numAttackFast);
+    rows("attack force", attackForce, numAttackForce);
+    rows("attack round", attackRound, numAttackRound);
+    rows("attack break", attackBreak, numAttackBreak);
+    rows("feint", attackFeint, numAttackFeint);
+    rows("feint continue", attackFeintC, numAttackFeint);
+    rows("parry", parry, numParry);
+    rows("hit in fight", hit, numHits);
+    row("hit by feint", hitFeint);
+    row("hit by parry", hitParry);
+    row("hit round", hitRound);
+    row("hit by shot", hitFire);
+    row("shot", shot);
+    row("block", block);
+    row("block hit", blockhit);
+    row("block break", blockbreak);
+    row("recoil", recoil);
+    row("strafe left", strafe_l);
+    row("strafe right", strafe_r);
+    rows("fight dead", actionFightDead, numActionFightDead);
+    ImGui::EndTable();
+    ImGui::TreePop();
 }

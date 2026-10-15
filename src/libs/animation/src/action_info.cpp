@@ -99,3 +99,24 @@ const char *ActionInfo::EventName(int32_t index)
     Assert(index >= 0 && index < numEvents);
     return event[index].name;
 }
+
+// The action for the tools
+AnimationActionDesc ActionInfo::Describe() const
+{
+    AnimationActionDesc desc;
+    desc.name = name;
+    desc.startFrame = startFrame;
+    desc.endFrame = endFrame;
+    desc.loop = isLoop;
+    desc.type = type;
+    desc.rate = kRate;
+    for (int32_t i = 0; i < numEvents; i++)
+    {
+        desc.events.emplace_back(event[i].name, event[i].time);
+    }
+    for (const auto &[key, value] : userData)
+    {
+        desc.data.emplace_back(key, value);
+    }
+    return desc;
+}

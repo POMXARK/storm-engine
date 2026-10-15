@@ -70,6 +70,8 @@ class ActionInfo final
     int32_t GetFrames();
     // Access to user data
     std::unordered_map<std::string, std::string> &GetUserData();
+    // The action for the tools
+    AnimationActionDesc Describe() const;
 
     // --------------------------------------------------------------------------------------------
     // Encapsulation

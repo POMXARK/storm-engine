@@ -69,6 +69,9 @@ class AnimationImp final : public Animation
     bool HeadControl(bool isControllable) override;
     bool IsControllableHead() override;
     void RotateHead(float x, float y) override;
+    const char *GetName() const override;
+    int32_t GetNumFrames() const override;
+    std::vector<AnimationActionDesc> GetActions() const override;
 
     //--------------------------------------------------------------------------------------------
     // AnimationImp
