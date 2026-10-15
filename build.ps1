@@ -22,6 +22,11 @@ if (-not (Get-Command cl.exe -ErrorAction SilentlyContinue))
     Enter-VsDevShell -VsInstallPath $vs -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64' | Out-Null
 }
 
+# English messages of cl: a localized /showIncludes prefix (non-ASCII on a Russian MSVC) goes into
+# msvc_deps_prefix of rules.ninja, and the try_compile of the compiler check fails on a Russian Windows
+# with "loading 'CMakeFiles\rules.ninja': The system cannot find the file specified"
+$env:VSLANG = '1033'
+
 $python = $null
 foreach ($candidate in @(@('py', '-3'), @('python'), @('python3')))
 {
@@ -83,8 +88,10 @@ try
     if ($LASTEXITCODE -ne 0)
     {
         # the reason of a failed compiler check is in the log, not on the screen
-        $log = 'build/default/CMakeFiles/CMakeError.log'
-        if (Test-Path $log) { Write-Host "--- $log"; Get-Content $log -Tail 40 | Write-Host }
+        foreach ($log in 'build/default/CMakeFiles/CMakeError.log', 'build/default/CMakeFiles/CMakeConfigureLog.yaml')
+        {
+            if (Test-Path $log) { Write-Host "--- $log"; Get-Content $log -Tail 40 | Write-Host }
+        }
     }
     Assert-Exit 'cmake configure'
     & cmake --build --preset=$($Config.ToLower())
