@@ -100,6 +100,45 @@ void VarTable::InvalidateBySegmentID(uint32_t segment_id)
     }
 }
 
+std::vector<std::pair<size_t, VarInfo>> VarTable::Detach(uint32_t segment_id)
+{
+    std::vector<std::pair<size_t, VarInfo>> detached;
+    for (size_t n = 0; n < vars_.size(); n++)
+    {
+        if (vars_[n].segment_id == segment_id)
+        {
+            VarInfo vi = vars_[n];
+            vi.value = std::move(vars_[n].value);
+            detached.emplace_back(n, std::move(vi));
+        }
+    }
+    return detached;
+}
+
+void VarTable::Attach(std::vector<std::pair<size_t, VarInfo>> &detached, bool restore)
+{
+    for (auto &[index, vi] : detached)
+    {
+        auto &var = vars_[index];
+        if (restore)
+        {
+            var = vi;
+            var.value = std::move(vi.value);
+        }
+        // an array keeps its runtime size, SetArraySize may have changed it
+        else if (var.segment_id != INVALID_SEGMENT_ID && var.type == vi.type && var.IsArray() == vi.IsArray())
+        {
+            var.elements = vi.elements;
+            var.value = std::move(vi.value);
+        }
+        else
+        {
+            retired_.push_back(std::move(vi.value));
+        }
+    }
+    detached.clear();
+}
+
 size_t VarTable::FindVar(const std::string &var_name) const
 {
     auto result = hash_table_.find(var_name);
@@ -132,4 +171,5 @@ void VarTable::Release()
 {
     vars_.clear();
     hash_table_.clear();
+    retired_.clear();
 }

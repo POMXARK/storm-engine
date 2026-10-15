@@ -248,6 +248,23 @@ void S_EVENTTAB::InvalidateBySegmentID(uint32_t segment_id)
     }
 }
 
+void S_EVENTTAB::ChangeSegmentID(uint32_t from, uint32_t to)
+{
+    for (uint32_t ti = 0; ti < HASHTABLE_SIZE; ti++)
+    {
+        for (uint32_t n = 0; n < Event_num[ti]; n++)
+        {
+            for (uint32_t i = 0; i < pTable[ti][n].elements; i++)
+            {
+                if (pTable[ti][n].pFuncInfo[i].segment_id == from)
+                {
+                    pTable[ti][n].pFuncInfo[i].segment_id = to;
+                }
+            }
+        }
+    }
+}
+
 uint32_t S_EVENTTAB::FindEvent(const char *event_name)
 {
     if (event_name == nullptr)

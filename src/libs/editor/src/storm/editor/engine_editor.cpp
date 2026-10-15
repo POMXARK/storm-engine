@@ -5,6 +5,7 @@
 #include <imgui.h>
 #include <imgui_impl_sdl2.h>
 #include <imgui_internal.h>
+#include <SDL2/SDL_events.h>
 
 #include <algorithm>
 #include <array>
@@ -697,6 +698,24 @@ void EngineEditor::EndFrame()
 
 void EngineEditor::ProcessEvent(SDL_Event &event)
 {
+    // the backend takes keys by the layout: with a Russian one S comes as a Cyrillic letter, unknown to ImGui,
+    // and Ctrl+S, Ctrl+P, WASD do nothing. Letters and digits go by their place on the keyboard instead
+    if ((event.type == SDL_KEYDOWN || event.type == SDL_KEYUP) && event.key.keysym.sym >= 0x80)
+    {
+        const SDL_Scancode code = event.key.keysym.scancode;
+        if (code >= SDL_SCANCODE_A && code <= SDL_SCANCODE_Z)
+        {
+            event.key.keysym.sym = SDLK_a + (code - SDL_SCANCODE_A);
+        }
+        else if (code >= SDL_SCANCODE_1 && code <= SDL_SCANCODE_9)
+        {
+            event.key.keysym.sym = SDLK_1 + (code - SDL_SCANCODE_1);
+        }
+        else if (code == SDL_SCANCODE_0)
+        {
+            event.key.keysym.sym = SDLK_0;
+        }
+    }
     ImGui_ImplSDL2_ProcessEvent(&event);
 }
 

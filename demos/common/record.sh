@@ -8,6 +8,8 @@
 #   hold:K:S         hold key K for S seconds
 #   type:TEXT        type TEXT as a player would, a letter at a time (no colons in it)
 #   move:DX:DY:S     move the mouse by DX, DY pixels evenly over S seconds
+#   click[:X:Y]      left click at X, Y pixels of the window, or where the mouse is. The engine keeps the
+#                    mouse relative on Linux: once the window has the focus only move: steps move it
 # The engine is stopped after the last step, so end with the time the result should stay in view.
 # Each recording is listed in index.tsv next to the video: date, demo, engine commit, file.
 # ENGINE_ARGS are passed to the engine after run.sh (ENGINE_ARGS=--editor records the editor).
@@ -86,6 +88,10 @@ for step in "$@"; do
         key) xdotool keydown "$a"; sleep 0.15; xdotool keyup "$a" ;;
         type) xdotool type --delay 150 "$a" ;;
         hold) xdotool keydown "$a"; sleep "$b"; xdotool keyup "$a" ;;
+        # the press is held over a few frames, like the keys
+        click)
+            [ -z "$a" ] || { xdotool mousemove --window "$WID" "$a" "$b"; sleep 0.15; }
+            xdotool mousedown 1; sleep 0.15; xdotool mouseup 1 ;;
         move)
             n=$(awk -v s="$c" 'BEGIN { n = int(s * 30 + 0.5); print (n < 1 ? 1 : n) }')
             for i in $(seq "$n"); do

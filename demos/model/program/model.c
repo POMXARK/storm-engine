@@ -102,7 +102,7 @@ void Demo_Frame()
 {
 	float dt = GetDeltaTime() * 0.001;
 
-	spinAngle = spinAngle + dt * 0.8;
+	spinAngle = spinAngle + dt * SpinSpeed();
 	PlaceModel(&Barrel1, 0.0, 0.0, 0.0, spinAngle);
 
 	// the sun circles the scene, so the shading visibly follows it
@@ -119,4 +119,11 @@ void Demo_Control()
 		Trace("MODEL: quit");
 		ExitProgram();
 	}
+}
+
+// how fast Barrel1 turns, radians a second. Edit it in the editor (window Assets): Ctrl+S saves the
+// script and compiles it again, the barrel goes on turning from spinAngle at the new speed
+float SpinSpeed()
+{
+	return 0.8;
 }

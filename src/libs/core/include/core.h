@@ -2,6 +2,8 @@
 
 #include <functional>
 #include <optional>
+#include <string>
+#include <vector>
 
 #include <spdlog/spdlog.h>
 
@@ -117,6 +119,10 @@ class Core
     virtual bool SetSaveData(const char *file_name, void *data_ptr, int32_t data_size) = 0;
 
     virtual uint32_t SetScriptFunction(IFUNCINFO *pFuncInfo) = 0;
+
+    // recompiles the loaded script segments from disk, keeping global variables and event handlers;
+    // a segment that fails to compile keeps its old code, its errors go to `errors`
+    virtual bool ReloadScripts(std::vector<std::string> &errors) = 0;
 
     virtual const char *EngineIniFileName() = 0;
 

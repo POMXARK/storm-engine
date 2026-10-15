@@ -49,6 +49,11 @@ class VarTable
     const VarInfo *GetVarX(size_t var_index) const;
     // invalidate all segment's vars
     void InvalidateBySegmentID(uint32_t segment_id);
+    // takes the values of a segment's vars out of the table, so that a recompile does not free them
+    std::vector<std::pair<size_t, VarInfo>> Detach(uint32_t segment_id);
+    // gives the detached values back: after a successful recompile to the vars still declared with the same
+    // type (`restore` false), after a failed one to all of them, together with their declaration (`restore` true)
+    void Attach(std::vector<std::pair<size_t, VarInfo>> &detached, bool restore);
     // get var index by name
     size_t FindVar(const std::string &var_name) const;
     // set var's array size, returns true if successful
@@ -63,6 +68,8 @@ class VarTable
 
   private:
     std::vector<VarInfo> vars_;
+    // values of the vars a recompile dropped: entities may still point to their attributes
+    std::vector<std::unique_ptr<DATA>> retired_;
     std::unordered_map<std::string, size_t, storm::iStrHasher, storm::iStrComparator>
         hash_table_; // name to index mapping
     VIRTUAL_COMPILER *vc_;

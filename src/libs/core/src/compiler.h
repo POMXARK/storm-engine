@@ -119,6 +119,8 @@ class COMPILER : public VIRTUAL_COMPILER
     bool AddProgramFile(const char *file_name);
 
     void UnloadSegment(const char *segment_name);
+    // recompiles the loaded segments, see Core::ReloadScripts
+    bool ReloadScripts(std::vector<std::string> &errors);
     uint32_t GetSegmentIndex(uint32_t segment_id);
 
     void ProcessFrame(uint32_t DeltaTime);
@@ -151,6 +153,8 @@ class COMPILER : public VIRTUAL_COMPILER
     void CompileToken(SEGMENT_DESC &Segment, S_TOKEN_TYPE Token_type, uint32_t data_blocks_num = 0, ...);
     void ResizeBCodeBuffer(SEGMENT_DESC &Segment, uint32_t add_size);
     bool BC_LoadSegment(const char *file_name);
+    uint32_t UnusedSegmentID() const;
+    bool ReloadSegment(const std::string &name);
     bool BC_SegmentIsLoaded(const char *file_name);
     bool BC_Execute(uint32_t function_code, DATA *&pVReturnResult, const char *pDbgExpSource = nullptr);
     bool BC_CallFunction(uint32_t func_code, uint32_t &ip, DATA *&pVResult);
@@ -367,5 +371,8 @@ private:
 
     // attempt to read/write script cache?
     int script_cache_mode_;
+
+    // while not null, SetError also collects errors here (script reload)
+    std::vector<std::string> *errors_ = nullptr;
     storm::ScriptCache script_cache_;
 };

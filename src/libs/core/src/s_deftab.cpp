@@ -153,6 +153,15 @@ void S_DEFTAB::InvalidateBySegmentID(uint32_t segment_id)
     }
 }
 
+void S_DEFTAB::ChangeSegmentID(uint32_t from, uint32_t to)
+{
+    for (uint32_t n = 0; n < Def_num; n++)
+    {
+        if (pTable[n].segment_id == from)
+            pTable[n].segment_id = to;
+    }
+}
+
 uint32_t S_DEFTAB::FindDef(const char *def_name)
 {
     if (def_name == nullptr)

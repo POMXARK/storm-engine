@@ -399,6 +399,8 @@ void COMPILER::SetError(const char *data_PTR, ...)
     va_end(args);
 
     logError_->error(ErrorBuffer);
+    if (errors_)
+        errors_->emplace_back(ErrorBuffer);
 
 #ifdef _WIN32 // S_DEBUG
     if (bBreakOnError)
@@ -973,6 +975,107 @@ bool COMPILER::BC_LoadSegment(const char *file_name)
         DefTab.InvalidateBySegmentID(id);
     }
     return result;
+}
+
+uint32_t COMPILER::UnusedSegmentID() const
+{
+    uint32_t id = 0;
+    for (uint32_t n = 0; n < SegmentsNum; n++)
+    {
+        if (SegmentTable[n].id == id)
+        {
+            id++;
+            n = static_cast<uint32_t>(-1);
+        }
+    }
+    return id;
+}
+
+bool COMPILER::ReloadScripts(std::vector<std::string> &errors)
+{
+    // must not run inside script code: the old byte code is freed here
+    const auto stage = CompilerStage;
+    const auto running = RunningSegmentID;
+    errors_ = &errors;
+
+    std::vector<std::string> names;
+    for (uint32_t n = 0; n < SegmentsNum; n++)
+    {
+        if (!SegmentTable[n].bUnload)
+            names.push_back(SegmentTable[n].name);
+    }
+    bool result = true;
+    for (const auto &name : names)
+    {
+        result = ReloadSegment(name) && result;
+    }
+
+    errors_ = nullptr;
+    CompilerStage = stage;
+    RunningSegmentID = running;
+    return result;
+}
+
+// Recompiles a segment under a new id. Function, variable and define codes are kept by name, so the byte code
+// of other segments and the event handlers stay valid; the old values of global variables are put back, since
+// entities point to their attributes. On a compile error everything is rolled back to the old segment.
+bool COMPILER::ReloadSegment(const std::string &name)
+{
+    uint32_t old_id = INVALID_SEGMENT_ID;
+    for (uint32_t n = 0; n < SegmentsNum; n++)
+    {
+        if (SegmentTable[n].name == name && !SegmentTable[n].bUnload)
+            old_id = SegmentTable[n].id;
+    }
+    if (old_id == INVALID_SEGMENT_ID)
+        return false;
+
+    const auto errors_before = errors_->size();
+    const FuncTable saved_funcs = FuncTab;
+    auto saved_vars = VarTab.Detach(old_id);
+    FuncTab.InvalidateBySegmentID(old_id);
+    VarTab.InvalidateBySegmentID(old_id);
+    DefTab.InvalidateBySegmentID(old_id);
+    LabelUpdateTable.Release();
+
+    SEGMENT_DESC segment{};
+    segment.name = name;
+    segment.id = UnusedSegmentID();
+    segment.Files_list = new STRINGS_LIST;
+    segment.Files_list->SetStringDataSize(sizeof(OFFSET_INFO));
+    SegmentTable.push_back(segment);
+    SegmentsNum++;
+
+    const uint32_t new_id = segment.id;
+    const bool compiled = Compile(SegmentTable.back()) && errors_->size() == errors_before;
+    const auto drop = compiled ? old_id : new_id;
+    for (uint32_t n = 0; n < SegmentsNum; n++)
+    {
+        if (SegmentTable[n].id != drop)
+            continue;
+        delete[] SegmentTable[n].pData;
+        delete[] SegmentTable[n].pCode;
+        delete SegmentTable[n].Files_list;
+        SegmentTable.erase(SegmentTable.begin() + n);
+        SegmentsNum--;
+        break;
+    }
+
+    if (!compiled)
+    {
+        FuncTab = saved_funcs;
+        VarTab.InvalidateBySegmentID(new_id);
+        VarTab.Attach(saved_vars, true);
+        // defines declared after the error are lost: they only matter to segments compiled later
+        DefTab.ChangeSegmentID(new_id, old_id);
+        return false;
+    }
+
+    // native declarations of the segment overwrite the library functions registered once by #library
+    FuncTab.RestoreImported(saved_funcs);
+    VarTab.Attach(saved_vars, false);
+    EventTab.ChangeSegmentID(old_id, new_id);
+    return true;
 }
 
 bool COMPILER::ProcessDebugExpression(const char *pExpression, DATA &Result)

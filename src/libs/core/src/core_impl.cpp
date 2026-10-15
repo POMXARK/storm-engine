@@ -937,6 +937,11 @@ uint32_t CoreImpl::SetScriptFunction(IFUNCINFO *pFuncInfo)
     return Compiler->SetScriptFunction(pFuncInfo);
 }
 
+bool CoreImpl::ReloadScripts(std::vector<std::string> &errors)
+{
+    return Compiler->ReloadScripts(errors);
+}
+
 const char *CoreImpl::EngineIniFileName()
 {
     return fs::ENGINE_INI_FILE_NAME;

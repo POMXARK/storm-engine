@@ -112,6 +112,17 @@ void FuncTable::InvalidateBySegmentID(uint32_t segment_id)
     }
 }
 
+void FuncTable::RestoreImported(const FuncTable &saved)
+{
+    for (size_t n = 0; n < saved.funcs_.size() && n < funcs_.size(); n++)
+    {
+        if (saved.funcs_[n].segment_id == IMPORTED_SEGMENT_ID)
+        {
+            funcs_[n] = saved.funcs_[n];
+        }
+    }
+}
+
 bool FuncTable::SetFuncOffset(const std::string &func_name, uint32_t offset)
 {
     const auto func_index = FindFunc(func_name);

@@ -77,6 +77,8 @@ class FuncTable
     bool GetFuncX(FuncInfo &fi, size_t func_index) const;
     // invalidate all segment's functions
     void InvalidateBySegmentID(uint32_t segment_id);
+    // gives back the library (native) functions of `saved` that a recompile redeclared
+    void RestoreImported(const FuncTable &saved);
 
     // set func's compiler offset
     bool SetFuncOffset(const std::string &func_name, uint32_t offset);

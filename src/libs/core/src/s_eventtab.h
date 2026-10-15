@@ -49,6 +49,8 @@ class S_EVENTTAB
     void Release();
     void Clear();
     void InvalidateBySegmentID(uint32_t segment_id);
+    // moves the handlers of a recompiled segment to its new id
+    void ChangeSegmentID(uint32_t from, uint32_t to);
     uint32_t FindEvent(const char *event_name);
     void ProcessFrame();
 };

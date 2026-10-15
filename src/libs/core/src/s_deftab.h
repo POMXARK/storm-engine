@@ -55,6 +55,8 @@ class S_DEFTAB
     //    void  KeepNameMode(bool on){bKeepName = on;};
     void Release();
     void InvalidateBySegmentID(uint32_t segment_id);
+    // gives the defines of a failed recompile back to the old segment
+    void ChangeSegmentID(uint32_t from, uint32_t to);
     uint32_t FindDef(const char *def_name);
     void UpdateHashTable(uint32_t code, uint32_t hash, bool in);
 };
