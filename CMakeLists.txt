@@ -37,6 +37,13 @@ normalize_booleans(STORM_ENABLE_CRASH_REPORTS STORM_ENABLE_STEAM STORM_USE_CONAN
 
 set(STORM_WATERMARK_FILE ${CMAKE_CURRENT_BINARY_DIR}/watermark.hpp CACHE FILEPATH "Include file containing build revision, etc." FORCE)
 
+# Conan puts this cmake into a cmd command line without quotes when it builds a package from sources:
+# "C:/Program Files/CMake/bin/cmake.exe" breaks at the space ('C:/Program' is not recognized)
+set(STORM_CONAN_CMAKE "${CMAKE_COMMAND}")
+if (WIN32 AND STORM_CONAN_CMAKE MATCHES " ")
+    set(STORM_CONAN_CMAKE "\"${STORM_CONAN_CMAKE}\"")
+endif()
+
 set(CONAN_INSTALL_ARGS ${CONAN_INSTALL_ARGS}
         "-o output_directory=${CMAKE_RUNTIME_OUTPUT_DIRECTORY}"
         "-o watermark_file=${STORM_WATERMARK_FILE}"
@@ -44,7 +51,7 @@ set(CONAN_INSTALL_ARGS ${CONAN_INSTALL_ARGS}
         "-o steam=${STORM_ENABLE_STEAM}"
         "-o conan_sdl=${STORM_USE_CONAN_SDL}"
         "-o sound_backend=${STORM_SOUND_BACKEND}"
-        "-c tools.cmake:cmake_program=${CMAKE_COMMAND}"
+        "-c tools.cmake:cmake_program=${STORM_CONAN_CMAKE}"
 )
 
 conan_add_remote(NAME piratesahoy
