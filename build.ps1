@@ -2,8 +2,8 @@
 # - enters the x64 developer shell of the newest Visual Studio (2022 or 2019, Build Tools too): the
 #   compiler and the Windows SDK are in PATH only there;
 # - puts the Scripts folders of Python in PATH (pip puts conan.exe there and often does not add it);
-# - installs by pip what is missing: Conan 2.12.2, Ninja >= 1.11 (the preset builds with Ninja Multi-Config), CMake 3.31
-#   (Visual Studio 2019 brings 3.20 and ninja 1.10), Pillow (the generators of the demos);
+# - installs by pip what is missing: Conan 2.12.2, Ninja >= 1.11 and CMake 3.31 (Visual Studio 2019
+#   brings ninja 1.10 and CMake 3.20), Pillow and numpy (the generators of the demos and of the game);
 # - makes the Conan profile and runs the preset default; the engine is build/default/<Config>/engine.exe.
 # Usage: build.ps1 [-Config Debug|Release] [-ExtraModules <folder of an engine module of a game>]
 param([ValidateSet('Debug', 'Release')][string]$Config = 'Debug', [string]$ExtraModules = '')
@@ -58,8 +58,12 @@ if (-not (Test-Version ninja 1 11)) { $missing += 'ninja>=1.11' }
 if (-not (Test-Version cmake 3 28)) { $missing += 'cmake==3.31.10' }
 # Windows PowerShell 5.1 turns redirected stderr of a program into an error, which Stop would throw
 $ErrorActionPreference = 'Continue'
-& $pyExe @pyArgs -c 'import PIL' 2>$null
-if ($LASTEXITCODE -ne 0) { $missing += 'Pillow' }
+# the modules the generators of the assets import
+foreach ($module in @(@('PIL', 'Pillow'), @('numpy', 'numpy')))
+{
+    & $pyExe @pyArgs -c "import $($module[0])" 2>$null
+    if ($LASTEXITCODE -ne 0) { $missing += $module[1] }
+}
 $ErrorActionPreference = 'Stop'
 if ($missing.Count -gt 0)
 {

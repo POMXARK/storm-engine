@@ -22,7 +22,7 @@ foreach ($candidate in @(@('py', '-3'), @('python'), @('python3')))
 {
     if (Get-Command $candidate[0] -ErrorAction SilentlyContinue) { $Python = $candidate; break }
 }
-if ($null -eq $Python) { throw 'no Python 3: install it from python.org, then pip install Pillow' }
+if ($null -eq $Python) { throw 'no Python 3: install it from python.org, then pip install Pillow numpy' }
 
 # runs a generator of the assets; a failed one stops the demo, as set -e in run.sh
 function Invoke-Python
