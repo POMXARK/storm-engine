@@ -497,16 +497,31 @@ worldMap.playerShipX = 100.0; worldMap.playerShipZ = 0.0; worldMap.playerShipTel
 
 ## 6.21 Редактор (`--editor`)
 
-Встроенный редактор — окна ImGui поверх кадра. Работает в любом демо и в игре, на Windows и Linux:
+Встроенный редактор — рабочее место на ImGui вокруг запущенной игры, как у Godot или Unity. Работает в любом демо и в игре, на Windows и Linux:
 
 ```bash
 demos/model/run.sh build/Debug/engine --editor
 ```
 
+![Рабочее место в демо melee](media/workspace.jpg)
+
+- **Рабочее место.** Кадр игры — в окне **Viewport** посередине, пропорции сохраняются. Вокруг закреплены панели: слева **Entities** (иерархия), справа **Entity Properties** (инспектор) и вкладки остальных окон, внизу **Assets** и **Console**. Панели перетаскиваются и стыкуются (docking ImGui), раскладка хранится в `imgui.ini`, **View → Reset layout** возвращает исходную.
+  - Кадр берётся из back buffer в конце кадра (`StretchRect` в текстуру, до отрисовки окон), так что Viewport показывает ровно то, что нарисовала игра.
+  - Ввод: щелчок по Viewport отдаёт клавиатуру и мышь игре, F1 возвращает их редактору. Пока фокус на панели, игра ввода не получает.
+  - **View → Workspace** выключает рабочее место: окна снова плавают поверх кадра на весь экран (`Editor.Layout=overlay`). **Game only** (F10) прячет редактор целиком.
+- **Панель инструментов** в строке меню:
+  - **Pause/Play** держит время игры: `CoreImpl` умножает dt кадра на `EngineEditor::TimeScale()`, при паузе это 0. Сущности и скрипты получают нулевое время, кадр рисуется, камера и окна работают.
+  - **Step** пропускает один кадр.
+  - Скорость 0.1x–4x.
+  - **Scene camera** — свободная камера: правая кнопка мыши во Viewport — обзор, WASD и Q/E — движение, Shift — быстрее, колесо — скорость. Она стартует там, где камера игры, и подменяет её в `DX9RENDER::SetCamera`, поэтому работает с любой камерой (локация, корабль, карта). Летает и на паузе. Включённая камера запоминается (`Editor.SceneCamera=1`).
+- **Console** — логи движка по вкладкам: System (`system.log`), Errors (`error.log`, вкладка красная, если там что-то есть), Scripts (`compile.log`: компиляция и `Trace`). Есть фильтр, «Errors only» и Clear (прячет прочитанное, файл не трогает). Файлы дочитываются по мере роста.
+- **Assets** — дерево `resource/` и `program/` с типом (модель, анимация, текстура…) и размером. Текстовый файл (.ini, .ani, .c, .fx) показывается справа. Выбранный файл хранится в `Assets.File=`.
+- Окна, которые рисуют в сцене (Gizmo), берут прямоугольник кадра и список отрисовки из `EngineEditor::GetViewportRect()/GetViewportDrawList()`: в рабочем месте это Viewport, в оверлее — весь экран.
+
 ![Инспектор атрибутов погоды в демо model](media/editor.jpg)
 
 - Оверлей (`src/libs/editor`) — часть движка. Окна инструментов живут в отдельном репозитории [storm-editor](https://github.com/POMXARK/storm-editor), submodule `src/libs/editor_tools` (`git clone --recursive` или `git submodule update --init`). Без него, или с `-DSTORM_EDITOR_TOOLS=OFF`, движок собирается как прежде, в **Tools** остаются окна самих модулей (Sound Service).
-- **Developer Tools → Tools** открывает окна инструментов, **Debug** — отладочную отрисовку модулей (каркас, звук, локаторы, пушки).
+- Меню **Tools** открывает окна инструментов, **Debug** — отладочную отрисовку модулей (каркас, звук, локаторы, пушки). В оверлее меню — в окне Developer Tools.
 - **Entities** — все сущности с классом, поле **Class** фильтрует список. Выбранная открывается в **Entity Properties**:
   - **Layers** — в каких слоях сущность и её приоритет там;
   - **Attributes** — дерево атрибутов, которые ей дали скрипты. Число тянется мышью (двойной щелчок — ввод), атрибут с `color` в имени — палитра (`argb` скрипта), текст ставится по Enter. Поле **Name** оставляет ветки с совпадающим именем (через запятую — несколько) и раскрывает их.
@@ -531,7 +546,7 @@ demos/model/run.sh build/Debug/engine --editor
 
 ![Ветка Actions персонажа](media/character-actions.jpg)
 
-- Состояние редактора хранит `imgui.ini` в рабочей папке, секция `[Storm][Editor]`: открытые окна (`Open=`), выбранная сущность — класс и номер среди сущностей класса (`Entities.Class=`, `Entities.Index=`), фильтр атрибутов (`Entities.Filter=`), режим гизмо (`Gizmo.Operation=translate|rotate`, `Gizmo.Space=local|world`, `Gizmo.Snap=`), выбранный локатор и показанные группы (`Location.Locator=item/crate2`, `Location.Show=goto,item`), фильтр действий (`Animation.Filter=`). Положение окон ImGui хранит там же. Так проверяется редактор без нажатий: тест кладёт `imgui.ini` и снимает окно.
+- Состояние редактора хранит `imgui.ini` в рабочей папке, секция `[Storm][Editor]`: открытые окна (`Open=`), выбранная сущность — класс и номер среди сущностей класса (`Entities.Class=`, `Entities.Index=`), фильтр атрибутов (`Entities.Filter=`), режим гизмо (`Gizmo.Operation=translate|rotate`, `Gizmo.Space=local|world`, `Gizmo.Snap=`), выбранный локатор и показанные группы (`Location.Locator=item/crate2`, `Location.Show=goto,item`), фильтр действий (`Animation.Filter=`), раскладка (`Editor.Layout=workspace|overlay`), свободная камера (`Editor.SceneCamera=`), файл в Assets (`Assets.File=`), «Errors only» консоли (`Console.ErrorsOnly=`). Положение окон ImGui хранит там же. Так проверяется редактор без нажатий: тест кладёт `imgui.ini` и снимает окно.
 
 ```ini
 [Storm][Editor]

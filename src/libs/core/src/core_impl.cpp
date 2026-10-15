@@ -203,8 +203,10 @@ bool CoreImpl::Run()
     if (Controls && Controls->GetDebugAsyncKeyState('Y') < 0)
         Timer.Delta_Time = static_cast<uint32_t>(Timer.Delta_Time * 0.2f);
 
-    Timer.Delta_Time = static_cast<uint32_t>(Timer.Delta_Time * fTimeScale);
-    Timer.fDeltaTime *= fTimeScale;
+    // the editor holds the game (Pause), lets one frame go (Step) or changes its speed
+    const float time_scale = editor_ != nullptr ? fTimeScale * editor_->TimeScale() : fTimeScale;
+    Timer.Delta_Time = static_cast<uint32_t>(Timer.Delta_Time * time_scale);
+    Timer.fDeltaTime *= time_scale;
 
     auto *pVData = static_cast<VDATA *>(GetScriptVariable("fHighPrecisionDeltaTime", nullptr));
     if (pVData)

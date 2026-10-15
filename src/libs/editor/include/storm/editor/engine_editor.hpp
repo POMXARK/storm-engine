@@ -9,6 +9,7 @@
 struct SDL_Window;
 union SDL_Event;
 struct IDirect3DDevice9;
+struct ImDrawList;
 
 namespace storm::editor
 {
@@ -40,6 +41,29 @@ struct GizmoTarget
     std::function<std::string(const float *matrix)> script;
 };
 
+// The free camera of the scene: while it is on, the renderer shows the frame from it instead of from the
+// camera of the game (DX9RENDER::SetCamera); it starts where the camera of the game is
+struct SceneCamera
+{
+    bool active = false;
+    // false until the renderer has put it where the camera of the game is
+    bool placed = false;
+    float pos[3]{};
+    // pitch, yaw, roll as CVECTOR angles of the renderer
+    float ang[3]{};
+    // metres a second
+    float speed = 5.f;
+};
+
+// where the frame of the game is on the screen: the window Viewport of the workspace, else the whole screen
+struct ViewportRect
+{
+    float x = 0.f;
+    float y = 0.f;
+    float width = 0.f;
+    float height = 0.f;
+};
+
 class EngineEditor final
 {
   public:
@@ -58,6 +82,10 @@ class EngineEditor final
 
     bool IsDebugFlagEnabled(DebugFlag flag) const;
 
+    // The factor of the time of the game the core puts on every frame: 0 while the editor holds the game
+    // (Pause), 1 for the one frame of Step, else the speed picked in the toolbar
+    float TimeScale();
+
     static void RegisterEditorTool(const std::string_view &title, EditorToolCallback callback);
 
     // A value a tool keeps between runs, in imgui.ini next to the open tools and the windows
@@ -72,6 +100,12 @@ class EngineEditor final
     // work on a model (Animation) take the entity as well; ModelOf is 0 when no module knows the entity
     static void RegisterModelOf(ModelOfCallback callback);
     static uint64_t ModelOf(uint64_t entity);
+
+    static SceneCamera &GetSceneCamera();
+
+    // The frame of the game on the screen and the draw list over it, for what is drawn in the scene (the gizmo)
+    static ViewportRect GetViewportRect();
+    static ImDrawList *GetViewportDrawList();
 
   private:
     class Impl;

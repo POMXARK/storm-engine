@@ -2015,8 +2015,36 @@ bool DX9RENDER::SetCamera(const CVECTOR &pos, const CVECTOR &ang, float fov)
     return true;
 }
 
-bool DX9RENDER::SetCamera(const CVECTOR &pos, const CVECTOR &ang)
+namespace
 {
+// The free camera of the editor stands in for the camera of the game; it starts where that one is
+void SceneCameraOver(CVECTOR &pos, CVECTOR &ang)
+{
+    if (core.GetEditor() == nullptr)
+    {
+        return;
+    }
+    auto &camera = storm::editor::EngineEditor::GetSceneCamera();
+    if (!camera.active)
+    {
+        return;
+    }
+    if (!camera.placed)
+    {
+        camera.pos[0] = pos.x, camera.pos[1] = pos.y, camera.pos[2] = pos.z;
+        camera.ang[0] = ang.x, camera.ang[1] = ang.y, camera.ang[2] = 0.f;
+        camera.placed = true;
+    }
+    pos = CVECTOR(camera.pos[0], camera.pos[1], camera.pos[2]);
+    ang = CVECTOR(camera.ang[0], camera.ang[1], camera.ang[2]);
+}
+} // namespace
+
+bool DX9RENDER::SetCamera(const CVECTOR &game_pos, const CVECTOR &game_ang)
+{
+    CVECTOR pos = game_pos;
+    CVECTOR ang = game_ang;
+    SceneCameraOver(pos, ang);
     CMatrix mtx;
     const CVECTOR vOldWordRelationPos = vWordRelationPos;
     /*if (!pos || !ang)
@@ -2064,6 +2092,15 @@ bool DX9RENDER::SetCamera(const CVECTOR &pos, const CVECTOR &ang)
 
 bool DX9RENDER::SetCamera(CVECTOR lookFrom, CVECTOR lookTo, CVECTOR up)
 {
+    if (core.GetEditor() != nullptr && storm::editor::EngineEditor::GetSceneCamera().active)
+    {
+        // the scene camera works by angles: the look of the game camera becomes the angles it starts with
+        const CVECTOR look = !(lookTo - lookFrom);
+        const CVECTOR ang(atan2f(-look.y, sqrtf(look.x * look.x + look.z * look.z)), atan2f(look.x, look.z), 0.f);
+        const bool done = SetCamera(lookFrom, ang);
+        ProcessScriptPosAng(lookFrom, ang);
+        return done;
+    }
     CMatrix mtx;
     if (!mtx.BuildViewMatrix(lookFrom, lookTo, up))
         return false;
