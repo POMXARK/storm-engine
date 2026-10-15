@@ -64,5 +64,14 @@ function Start-Demo([string[]]$Folders = @())
     $start = @{ FilePath = $Engine; WorkingDirectory = $Demo; Wait = $true; PassThru = $true; NoNewWindow = $true }
     if ($EngineArgs.Count -gt 0) { $start.ArgumentList = $EngineArgs }
     $process = Start-Process @start
-    exit $process.ExitCode
+    $code = $process.ExitCode
+    if ($code -ne 0)
+    {
+        # a crash code of Windows reads in hex: 0xC0000135 is a missing DLL, 0xC0000005 an access violation
+        Write-Host ('engine exited with {0} (0x{1:X8})' -f $code, $code)
+        $logs = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'My Games\Sea Dogs\Logs'
+        if ($IsLinux) { $logs = '~/.local/share/Akella/Sea Dogs/Logs' }
+        Write-Host "logs: $logs (error.log, system.log); no fresh logs there: the engine did not get to start"
+    }
+    exit $code
 }
