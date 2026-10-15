@@ -30,6 +30,18 @@ $W/
 pip3 install --user "conan>=2,<3" "cmake>=3.28,<4"
 ```
 
+### В venv на HDD (без sudo, `$W/venv-economy`)
+Симулятор экономики игры (`corsairs-remake/economy`): подбор баланса и тесты. numpy, pandas, matplotlib — системные (`--system-site-packages`).
+| Пакет | Версия | Зачем |
+|---|---|---|
+| optuna | 4.1.0 | подбор параметров рынка |
+| pytest | 8.3.3 | тесты симулятора |
+
+```bash
+python3 -m venv --system-site-packages $W/venv-economy
+$W/venv-economy/bin/pip install optuna==4.1.0 pytest==8.3.3
+```
+
 ### Скачано вручную
 - glslang (KhronosGroup, `main-tot`, linux-x86_64-release) → `tools/bin/glslangValidator` — нужен meson'у для сборки dxvk-native. Аналог `apt install glslang-tools`.
 
