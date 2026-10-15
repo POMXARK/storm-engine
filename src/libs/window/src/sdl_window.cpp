@@ -8,6 +8,11 @@ SDLWindow::SDLWindow(int width, int height, int preferred_display, bool fullscre
     : fullscreen_(fullscreen)
 {
     uint32_t flags = (fullscreen ? SDL_WINDOW_FULLSCREEN : 0) | SDL_WINDOW_HIDDEN;
+    // a window with borders is sized by the user: the renderer resizes its back buffer after it
+    if (bordered && !fullscreen)
+    {
+        flags |= SDL_WINDOW_RESIZABLE;
+    }
 #if !defined(_WIN32) && !defined(STORM_MESA_NINE) // DXVK-Native
     flags |= SDL_WINDOW_VULKAN;
 #endif

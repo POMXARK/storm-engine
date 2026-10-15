@@ -71,10 +71,12 @@ class WEATHER : public WEATHER_BASE
         case Stage::realize:
             Realize(delta);
             break;
+        // Reset of the device drops the ambient, the fog and the sun light set by the weather
+        case Stage::restore_render:
+            SetCommonStates();
+            break;
             /*case Stage::lost_render:
-                LostRender(delta); break;
-            case Stage::restore_render:
-                RestoreRender(delta); break;*/
+                LostRender(delta); break;*/
         }
     }
 };

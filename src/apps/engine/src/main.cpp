@@ -210,7 +210,8 @@ int main(int argc, char *argv[])
     int height = ini->GetInt(nullptr, "screen_y", 768);
     int preferred_display = ini->GetInt(nullptr, "display", 0);
     bool fullscreen = ini->GetInt(nullptr, "full_screen", false);
-    bool show_borders = ini->GetInt(nullptr, "window_borders", false);
+    // the editor is a window among others: moved, resized and closed by its frame
+    bool show_borders = ini->GetInt(nullptr, "window_borders", false) || enable_editor;
     bool run_in_background = ini->GetInt(nullptr, "run_in_background", false);
     if (run_in_background) 
     {

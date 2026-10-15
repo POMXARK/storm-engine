@@ -78,6 +78,11 @@ class EngineEditor final
     void StartFrame();
     void EndFrame();
 
+    // the device is reset (the window resized, on Windows also lost): the objects of the default pool go
+    // before and come back after
+    void LostDevice();
+    void RestoreDevice();
+
     void ProcessEvent(SDL_Event &event);
 
     bool IsFocused() const;

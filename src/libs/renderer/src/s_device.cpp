@@ -2576,7 +2576,18 @@ void DX9RENDER::LostRender()
     }
 
     InvokeEntitiesLostRender();
+    if (auto *editor = core.GetEditor(); editor != nullptr)
+    {
+        editor->LostDevice();
+    }
 
+    // the targets of the post-process live in the default pool: Reset fails while they do
+    S_RELEASE(pSmallPostProcessSurface2, 0);
+    S_RELEASE(pPostProcessSurface, 1);
+    S_RELEASE(pSmallPostProcessSurface, 2);
+    S_RELEASE(pSmallPostProcessTexture2, 5);
+    S_RELEASE(pPostProcessTexture, 6);
+    S_RELEASE(pSmallPostProcessTexture, 7);
     Release(pOriginalScreenSurface);
     Release(pOriginalDepthSurface);
     Release(rectsVBuffer);
@@ -2691,6 +2702,10 @@ void DX9RENDER::RestoreRender()
 #endif
 
     InvokeEntitiesRestoreRender();
+    if (auto *editor = core.GetEditor(); editor != nullptr)
+    {
+        editor->RestoreDevice();
+    }
 
     resourcesReleased = false;
 }
@@ -2710,6 +2725,31 @@ void DX9RENDER::RecompileEffects()
         }
     std::filesystem::current_path(cur_path);
 #endif
+}
+
+// the window was resized (it is with --editor): the back buffer takes its size, the scripts see it in Render
+void DX9RENDER::ResizeBackBuffer(int32_t width, int32_t height)
+{
+    d3dpp.BackBufferWidth = width;
+    d3dpp.BackBufferHeight = height;
+    screen_size.x = width;
+    screen_size.y = height;
+    m_fHeightDeformator = static_cast<float>(height * 4.0f) / static_cast<float>(width * 3.0f);
+    // the screen target is drawn through this viewport: kept at the old size, it would cut the frame
+    OriginalViewPort.Width = width;
+    OriginalViewPort.Height = height;
+    if (!ResetDevice())
+    {
+        core.Trace("Render: the back buffer is not resized to %dx%d", width, height);
+        return;
+    }
+    spdlog::info("Render: back buffer {}x{}", width, height);
+    if (auto *pScriptRender = static_cast<VDATA *>(core.GetScriptVariable("Render")); pScriptRender != nullptr)
+    {
+        ATTRIBUTES *pARender = pScriptRender->GetAClass();
+        pARender->SetAttributeUseDword("screen_x", screen_size.x);
+        pARender->SetAttributeUseDword("screen_y", screen_size.y);
+    }
 }
 
 bool DX9RENDER::ResetDevice()
@@ -2733,6 +2773,15 @@ void DX9RENDER::SetGLOWParams(float _fBlurBrushSize, int32_t _GlowIntensity, int
 
 void DX9RENDER::RunStart()
 {
+    if (bWindow && core.GetWindow() != nullptr)
+    {
+        const storm::WindowSize size = core.GetWindow()->GetWindowSize();
+        if (size.width > 0 && size.height > 0 && (size.width != screen_size.x || size.height != screen_size.y))
+        {
+            ResizeBackBuffer(size.width, size.height);
+        }
+    }
+
     auto *pScriptRender = static_cast<VDATA *>(core.GetScriptVariable("Render"));
     if (pScriptRender != nullptr)
     {

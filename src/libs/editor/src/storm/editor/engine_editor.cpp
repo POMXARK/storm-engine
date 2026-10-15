@@ -596,6 +596,21 @@ void EngineEditor::Impl::CopyFrame()
     back->Release();
 }
 
+void EngineEditor::LostDevice()
+{
+    if (impl_->frame_ != nullptr)
+    {
+        impl_->frame_->Release();
+        impl_->frame_ = nullptr;
+    }
+    ImGui_ImplDX9_InvalidateDeviceObjects();
+}
+
+void EngineEditor::RestoreDevice()
+{
+    ImGui_ImplDX9_CreateDeviceObjects();
+}
+
 void EngineEditor::StartFrame()
 {
     ImGui_ImplDX9_NewFrame();
