@@ -129,12 +129,25 @@ def mirror_x(v):
     return (-v[0], v[1], v[2])
 
 
+def bone_label_axes(y_dir):
+    """Rows x, y, z of a label whose y axis points along y_dir; x stays as close to +x as it can."""
+    length = math.sqrt(sum(c * c for c in y_dir))
+    y = [c / length for c in y_dir]
+    x = [1.0 - y[0] * y[0], -y[0] * y[1], -y[0] * y[2]]
+    length = math.sqrt(sum(c * c for c in x))
+    x = [c / length for c in x]
+    z = [x[1] * y[2] - x[2] * y[1], x[2] * y[0] - x[0] * y[2], x[0] * y[1] - x[1] * y[0]]
+    return [x, y, z]
+
+
 def write_gm(meshes, path, skinned=False, bsp=False, labels=()):
     """Writes a .gm: one material and texture per mesh, one vertex buffer and, with bsp, the tree
     GEOM::Trace and GEOM::Clip search (without it every trace misses the model).
 
     Labels are (group, name, position) locators, unrotated, or (group, name, position, (x, z))
-    turned so that their z axis points along (x, z), as ship cannons (sea_ai/src/ai_cannon.cpp).
+    turned so that their z axis points along (x, z), as ship cannons (sea_ai/src/ai_cannon.cpp),
+    or (group, name, position, (x, y, z), bone): carried by a bone, its y axis along (x, y, z), as
+    the saber_hand / saber_belt locators a character holds its blade by (blade/src/blade.cpp).
     Group "geometry" makes the model load
     <file>_<name>.gm as a child node there (model/src/node.cpp); other groups are read by the
     entities that use the model, such as the sail corners of a ship (rigging/src/sail.cpp).
@@ -208,11 +221,22 @@ def write_gm(meshes, path, skinned=False, bsp=False, labels=()):
     # RDF_LABEL; group names are matched by the address of the string, so equal names share one
     label_data = b""
     # a label may carry a horizontal direction (x, z) for its z axis: a cannon fires along it
-    for group_name, label_name, pos, *direction in labels:
-        dx, dz = direction[0] if direction else (0.0, 1.0)
-        matrix = (dz, 0.0, -dx, 0.0, 0.0, 1.0, 0.0, 0.0, dx, 0.0, dz, 0.0, *pos, 1.0)
+    for group_name, label_name, pos, *rest in labels:
+        bones, weights = [0] * 4, [0.0] * 4
+        if len(rest) == 2:
+            axes = bone_label_axes(rest[0])
+            bones[0], weights[0] = rest[1], 1.0
+            if skinned:
+                # BLADE places it as mirror * label * skin * mirror (the model is stored mirrored
+                # in x): store it conjugated by the mirror so that it lands where it was modelled
+                axes = [[-c if (r == 0) != (k == 0) else c for k, c in enumerate(row)] for r, row in enumerate(axes)]
+                pos = mirror_x(pos)
+            matrix = (*axes[0], 0.0, *axes[1], 0.0, *axes[2], 0.0, *pos, 1.0)
+        else:
+            dx, dz = rest[0] if rest else (0.0, 1.0)
+            matrix = (dz, 0.0, -dx, 0.0, 0.0, 1.0, 0.0, 0.0, dx, 0.0, dz, 0.0, *pos, 1.0)
         label_data += struct.pack("<3i16f4i4f", name(group_name), name(label_name), 0, *matrix,
-                                  *([0] * 4), *([0.0] * 4))
+                                  *bones, *weights)
 
     names = list(offsets.values())
     flags = 0

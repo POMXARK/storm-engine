@@ -407,3 +407,51 @@ int charge = sti(AIBalls.CurrentBallType);
 - Высоту, в которую целят пушки, возвращает обработчик события `CannGFHeight` (метры над ватерлинией цели). Поднимать её выше 3 м не стоит: с дальней дистанции снаряд проходит над корпусом и редко цепляет парус. Книппелям — 3 м, а попадание книппелем в корпус засчитать и парусам: цепь сносит такелаж над бортом.
 - Ядро, пролетая сквозь мачту, пробивает несколько парусов, и на каждый приходит свой `ShpSailDamage`: урон за событие брать небольшим (2–3 % для книппеля).
 
+
+## 6.19 Ближний бой (`demos/melee`)
+Двор из 6.7, в нём матрос (игрок) против пирата (NPC). У обоих в руках сабли. Атаки, блок, парирование, реакции на удар и смерть играет движок, а сколько стоит действие и какой урон наносит удар, решает скрипт. Над пиратом локация рисует полосы жизни и энергии. Модели, анимации боя, саблю и текстуру полос генерирует `make_melee.py` (позы — `common/sailor_fight.py`).
+```c
+#define MSG_CHARACTER_SETBLADE 30360
+#define MSG_NPCHARACTER_SETTASK 30400
+
+// списки действий (attack_fast.a1..a4, parry.p1..p4, ...) — по одному имени из .ani;
+// после записи "actions" персонаж перечитывает их
+chr.actions.fightidle.i1 = "fight stand";
+chr.actions.attack_fast.a1 = "attack_fast_1";
+chr.actions.attack_force.a1 = "attack_force_1";
+chr.actions.parry.p1 = "parry_1";
+chr.actions.hit_attack.h1 = "hit_attack_1";
+chr.actions.block = "block";
+chr.actions.blockhit = "block_hit";
+chr.actions.fightdead.d1 = "death_1";
+// ... fightwalk, fightrun, hit_parry, HitNoFight и прочие — см. melee.c
+chr.actions = "";
+// models\Ammo\saber.gm; след клинка между его метками start/end, гаснет за 0.25 с
+SendMessage(chr, "lsfll", MSG_CHARACTER_SETBLADE, "saber", 0.25, argb(64,255,255,255), argb(0,255,255,255));
+
+// бьют только врагов: отношения хранит CharactersGroups
+SendMessage(&Groups, "sis", "MoveChr", &Sailor, "Player");
+SendMessage(&Groups, "sis", "MoveChr", &Pirate, "Pirates");
+SendMessage(&Groups, "ssss", "SetRelation", "Player", "Pirates", "enemy");
+SendMessage(&Pirate, "lsi", MSG_NPCHARACTER_SETTASK, "Fight", &Sailor);
+```
+Без ответов скрипта бой не работает. Каждое событие должно вернуть значение своего типа:
+
+| Событие | Аргументы | Ответ |
+|---|---|---|
+| `Location_CharacterIsFight` | персонаж | int: 0 — достать саблю нельзя |
+| `ChrAttackAction` | персонаж, `"fast"`/`"force"`/… | int: 1 — атака начинается; без ответа атаки нет |
+| `ChrCheckEnergy` | персонаж, `"recoil"`/`"strafe_l"`/… | int: хватает ли энергии |
+| `ChrFgtActApply` | персонаж, имя действия | — (снять энергию) |
+| `Location_CharacterAttack` | атакующий, цель, имя атаки, в блоке ли, sabergun, мс в блоке | — (урон) |
+| `NpcEvtHP`, `NpcEvtEny` | персонаж | float 0..1 — полосы над врагом |
+| `NpcEvtEgy` | персонаж | float 0..1 — энергия для решений ИИ |
+| `NPC_Event_GetActionEnergy` | персонаж, действие | float — доля энергии на действие |
+| `NPC_Event_GetAttackActive`, `…WeightFast/Force/Round/Break/Feint`, `GetDefenceActive`, `…WeightBlock/Parry` | персонаж | float — как часто ИИ атакует, защищается и чем |
+| `NPC_Event_EnableRecoil`, `GetFireActive`, `EnableFire`, `StunChance` | персонаж | float (0 — выключено) |
+| `NPC_Event_AdaptiveTargetSelect`, `NPC_IsDodgeEnabled` | | int (0 — выключено) |
+
+- Смерть: при 0 HP скрипт шлёт `SETTASK "Dead"` — персонаж встаёт и проигрывает `fightdead`. В конце анимации приходит `Location_Character_Dead`. Вернуть мёртвого к жизни нельзя: для нового боя (R) демо удаляет обоих (`DeleteClass`) и создаёт заново.
+- Игрок — это `NPCharacter`: пока его задача `"None"`, им управляют контролы (`ChrFightMode`, `ChrAttackFast`, `ChrAttackForce`, `ChrBlock`, `ChrParry`). С задачей `"Fight"` он дерётся сам, как NPC. Так устроены автотест и видео демо — без нажатий.
+- `MSG_CHARACTER_SETFTGLEVEL 30362 "lf"` — мастерство NPC 0..1: чем выше, тем быстрее он отвечает на атаку блоком или парированием.
+- Метки сабли и её модель — в 4.2, события анимации (`Attack`, `Parry start/end`, `Blade to hand`) — в 4.3.

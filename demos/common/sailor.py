@@ -43,10 +43,10 @@ def noisy(size, color, amount=14):
     return Image.blend(image, Image.composite(image, noise, Image.new("L", size, 215)), 0.5)
 
 
-def stripes():
+def stripes(color=(28, 40, 92)):
     # the tel'nyashka: one white and one navy stripe per tile, v follows the height
     image = Image.new("RGB", (64, 64), (236, 236, 230))
-    ImageDraw.Draw(image).rectangle([0, 32, 63, 63], fill=(28, 40, 92))
+    ImageDraw.Draw(image).rectangle([0, 32, 63, 63], fill=color)
     return image.filter(ImageFilter.GaussianBlur(0.7))
 
 
@@ -64,18 +64,19 @@ def face():
     return image.filter(ImageFilter.GaussianBlur(0.6))
 
 
-def write_textures(directory):
-    """sailor_*.tga.tx into directory; the meshes refer to them by texture_prefix + name."""
+def write_textures(directory, prefix="", stripe=(28, 40, 92), trousers=(44, 52, 76), hair=(58, 40, 28)):
+    """<prefix>sailor_*.tga.tx into directory; the meshes refer to them by texture_prefix + name.
+    The colours make another man of the same mesh (a pirate in red stripes)."""
     textures = {
         "sailor_skin": noisy((64, 64), (222, 170, 128), 8),
         "sailor_face": face(),
-        "sailor_hair": noisy((64, 64), (58, 40, 28), 30),
-        "sailor_shirt": stripes(),
-        "sailor_trousers": noisy((64, 64), (44, 52, 76), 24),
+        "sailor_hair": noisy((64, 64), hair, 30),
+        "sailor_shirt": stripes(stripe),
+        "sailor_trousers": noisy((64, 64), trousers, 24),
         "sailor_boots": noisy((64, 64), (58, 40, 30), 20),
     }
     for name, image in textures.items():
-        write_tx(image, directory / f"{name}.tga.tx")
+        write_tx(image, directory / f"{prefix}{name}.tga.tx")
 
 
 # ---------------------------------------------------------------- geometry
@@ -178,6 +179,17 @@ def rot_y(angle):
     return quat_axis_angle(Y_AXIS, angle)
 
 
+def rot_z(angle):
+    """around z a positive angle turns +x towards +y: the left arm (+x) rises sideways"""
+    return quat_axis_angle((0, 0, 1), angle)
+
+
+def euler(x=0.0, y=0.0, z=0.0, twist=0.0):
+    """A bone rotation: twist about the bone's own y axis first (a forearm turning the hand), then
+    x (forward / back), z (sideways) and y (turning around the vertical) in the parent's frame."""
+    return quat_mul(quat_mul(quat_mul(rot_y(twist), rot_x(x)), rot_z(z)), rot_y(y))
+
+
 def idle_pose(t):
     p = 2 * math.pi * t
     rot = {
@@ -231,10 +243,11 @@ def turn_pose(t):
 
 
 class Cycle:
-    """A looped action: frames of one cycle and the distance it covers (0 for standing ones)."""
+    """An action: frames of one cycle and the distance it covers (0 for standing ones). A looped
+    one ends on its first pose; with loop=False it plays its pose from t = 0 to t = 1 once."""
 
-    def __init__(self, name, pose, frames, stride=0.0):
-        self.name, self.pose, self.frames, self.stride = name, pose, frames, stride
+    def __init__(self, name, pose, frames, stride=0.0, loop=True):
+        self.name, self.pose, self.frames, self.stride, self.loop = name, pose, frames, stride, loop
         self.start = self.end = None
 
     @property
@@ -252,15 +265,20 @@ TURN = Cycle("turn", turn_pose, 24)
 def frame_list(cycles):
     """(root position, {bone: rotation}) for every frame of the .an file; sets cycle.start/end.
 
-    Frame 0 is the bind pose; every cycle repeats its first frame at the end (the loop point)
-    and is followed by one spare frame, because the engine blends frame f with f + 1.
+    Frame 0 is the bind pose; every looped cycle repeats its first frame at the end (the loop
+    point), a single one ends on its last pose; both are followed by one spare frame, because the
+    engine blends frame f with f + 1.
     """
     frames = [(JOINTS[0], {})]
     for cycle in cycles:
         cycle.start = len(frames)
         cycle.end = cycle.start + cycle.frames
-        poses = [cycle.pose(i / cycle.frames) for i in range(cycle.frames)]
-        frames += poses + [poses[0], poses[0]]
+        if cycle.loop:
+            poses = [cycle.pose(i / cycle.frames) for i in range(cycle.frames)]
+            frames += poses + [poses[0], poses[0]]
+        else:
+            poses = [cycle.pose(i / cycle.frames) for i in range(cycle.frames + 1)]
+            frames += poses + [poses[-1]]
     return frames
 
 
@@ -338,12 +356,13 @@ def check_engine_skinning(mesh_list, frames, cycles):
             assert pos[BONE["knee_l"]][2] > 0.1 > -0.1 > pos[BONE["knee_r"]][2], f"{cycle.name}: left leg should lead"
 
 
-def write_sailor(model_path, an_path, texture_prefix, cycles):
-    """Writes the skinned model and the .an with the given cycles (their start/end are set)."""
+def write_sailor(model_path, an_path, texture_prefix, cycles, labels=()):
+    """Writes the skinned model and the .an with the given cycles (their start/end are set);
+    labels are passed to write_gm, such as the bone locators a blade hangs on."""
     mesh_list = meshes(texture_prefix)
     frames = frame_list(cycles)
     check_engine_skinning(mesh_list, frames, cycles)
-    write_gm(mesh_list, model_path, skinned=True)
+    write_gm(mesh_list, model_path, skinned=True, labels=labels)
     rotations = [[rot.get(name, IDENTITY) for _, rot in frames] for name, _, _ in BONES]
     joints = [JOINTS[0]] + [tuple(JOINTS[i][k] - JOINTS[p][k] for k in range(3))
                             for i, p in enumerate(PARENTS) if p >= 0]
