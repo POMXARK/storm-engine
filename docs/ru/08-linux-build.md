@@ -44,6 +44,7 @@ $W/venv-economy/bin/pip install optuna==4.1.0 pytest==8.3.3
 
 ### Скачано вручную
 - glslang (KhronosGroup, `main-tot`, linux-x86_64-release) → `tools/bin/glslangValidator` — нужен meson'у для сборки dxvk-native. Аналог `apt install glslang-tools`.
+- PowerShell 7.4.6 (github.com/PowerShell/PowerShell, `powershell-7.4.6-linux-x64.tar.gz`) → `tools/pwsh/pwsh`, без sudo — проверка `run.ps1` демо на Linux. Для сборки не нужен.
 
 ```bash
 curl -sL https://github.com/KhronosGroup/glslang/releases/download/main-tot/glslang-main-linux-x86_64-release.tar.gz | tar xz -C tools
@@ -245,7 +246,16 @@ Windows — родная платформа движка: CI (`.github/workflows
 5. Звук без FMOD (как на Linux): `cmake --preset=default -DSTORM_SOUND_BACKEND=miniaudio`.
 6. Для запуска нужен DirectX 9 runtime (June 2010, `dxwebsetup`): в Windows 11 нет `d3dx9_43.dll`.
 
-**Демо.** `run.sh` — bash-скрипты. Проще всего запускать их из **Git Bash**: `demos/trigger/run.sh build/default/Debug/engine.exe --editor`. Если ссылку `ln -sfn` нельзя создать (нет режима разработчика), скопируйте `build\default\Debug\resource\techniques` в `demos\<демо>\resource\techniques`. Python там вызывается как `python3`: в Windows это `python`, поэтому нужен alias или правка строки. Движок запускается из папки демо: он ищет `program\` и `resource\` от cwd.
+**Демо.** У каждого демо рядом с `run.sh` лежат `run.ps1` (те же шаги на PowerShell) и `run.bat` (обёртка над `run.ps1` для двойного щелчка). Без пути к движку берётся `build\default\Debug\engine.exe`:
+```bat
+demos\scene\run.bat                 :: двойной щелчок или из cmd
+demos\scene\run.bat --editor
+demos\scene\run.bat D:\build\engine.exe --editor
+```
+```powershell
+.\demos\scene\run.ps1 --editor    # из PowerShell; если скрипты запрещены — запускайте run.bat
+```
+Общие шаги — в `demos/common/demo.ps1`: Python ищется как `py -3`, `python`, `python3`; шейдеры подключаются junction-ом (не нужны ни права администратора, ни режим разработчика), если не вышло — symlink, затем копия; движок стартует из папки демо, потому что `program\` и `resource\` он ищет от cwd. При ошибке окно `run.bat` не закрывается. Скачивание шрифтов — `fetch_assets.ps1` у dialog и interface (ассеты и так лежат в git). Скрипты проверены через PowerShell 7 на Linux (`run.ps1` запускает scene, trigger, interface, save, sound, gltf); на Windows не проверены. Git Bash с `run.sh` тоже работает, если есть `python3`.
 
 **Логи** на Windows лежат в `Documents\My Games\Sea Dogs\Logs\` (а не в `~/.local/share`).
 

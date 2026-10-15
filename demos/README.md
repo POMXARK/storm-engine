@@ -6,7 +6,7 @@ made from free sources. The built assets are committed, so a demo runs as cloned
 them with the `make_*.py` generators and `fetch_assets.sh` before every start. Game content does not belong here — the game lives in its own
 repository and uses this engine as a submodule.
 
-Each demo is started with `run.sh <path to built engine executable>` from its folder.
+Each demo is started with `run.sh <path to built engine executable>` from its folder. On Windows: `run.bat` or `run.ps1` next to it (the same steps; without the engine path `build\default\Debug\engine.exe` is taken).
 `common/record.sh` records a run to a video with scripted input (`RECORD_AUDIO=1` adds the sound). How the engine works, the formats and a recipe per demo are described (in Russian) in [`docs/ru`](../docs/ru).
 
 | Mechanic | Demo | Status |
