@@ -100,6 +100,7 @@ ninja                # движок
 ```
 
 Модули игры (её окна редактора) добавляет `-DSTORM_EXTRA_MODULES="<папка>;<папка>"`, см. 6.21. Для corsairs-remake: `-DSTORM_EXTRA_MODULES=$W/corsairs-remake/editor`.
+Кириллица в окнах редактора — шрифт из `[editor] font` в `engine.ini` (6.21); пакетов не требует, TTF лежит в репозитории игры.
 Звук: по умолчанию на Linux — **miniaudio** (`-DSTORM_SOUND_BACKEND=miniaudio`), на Windows — FMOD. См. п. 7.
 Первый configure долгий: Conan собирает из исходников openssl, SDL, wayland, sentry и др.
 Гизмо редактора — Conan-пакет `imguizmo/cci.20231114` (MIT). Он требует imgui 1.90.5, движку нужна ветка docking: `conanfile.py` подключает `imgui/1.90-docking` с `force=True`, и Conan собирает imguizmo из исходников под неё.

@@ -41,7 +41,10 @@ struct GizmoTarget
 class EngineEditor final
 {
   public:
-    explicit EngineEditor(SDL_Window *window, IDirect3DDevice9 *device);
+    // font: a TTF for the windows instead of the built-in one (which has Latin letters only), with
+    // Cyrillic; empty or missing keeps the built-in font
+    explicit EngineEditor(SDL_Window *window, IDirect3DDevice9 *device, const std::string &font = {},
+                          float font_size = 0.f);
     ~EngineEditor();
 
     void StartFrame();

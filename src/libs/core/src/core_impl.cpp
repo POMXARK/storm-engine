@@ -130,7 +130,20 @@ void CoreImpl::Init()
 
 void CoreImpl::InitializeEditor(IDirect3DDevice9 *device)
 {
-    editor_ = std::make_unique<storm::editor::EngineEditor>(GetWindow()->SDLHandle(), device);
+    // [editor] font = <ttf>, font_size = <px> of engine.ini: a font with the letters of the game
+    std::string font;
+    float font_size = 0.f;
+    if (const auto ini = fio->OpenIniFile(EngineIniFileName()))
+    {
+        char buffer[MAX_PATH]{};
+        if (ini->ReadString("editor", "font", buffer, sizeof(buffer), ""))
+        {
+            font = buffer;
+            std::replace(font.begin(), font.end(), '\\', '/');
+        }
+        font_size = ini->GetFloat("editor", "font_size", 0.f);
+    }
+    editor_ = std::make_unique<storm::editor::EngineEditor>(GetWindow()->SDLHandle(), device, font, font_size);
 }
 
 bool CoreImpl::IsEditorEnabled()

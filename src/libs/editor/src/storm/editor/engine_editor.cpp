@@ -8,6 +8,7 @@
 
 #include <array>
 #include <cstring>
+#include <filesystem>
 #include <map>
 #include <optional>
 
@@ -104,12 +105,25 @@ void AddSettingsHandler(std::vector<EditorToolConfig> &tools, std::map<std::stri
 
 } // namespace
 
-EngineEditor::EngineEditor(SDL_Window *window, IDirect3DDevice9 *device)
+EngineEditor::EngineEditor(SDL_Window *window, IDirect3DDevice9 *device, const std::string &font, float font_size)
     : impl_(std::make_unique<Impl>())
 {
     IMGUI_CHECKVERSION();
     impl_->imgui_ = ImGui::CreateContext();
     ImGuiIO &io = ImGui::GetIO();
+    // the atlas is built on the first frame, so the font goes in before it
+    if (!font.empty())
+    {
+        if (std::filesystem::exists(font))
+        {
+            io.Fonts->AddFontFromFileTTF(font.c_str(), font_size > 0.f ? font_size : 16.f, nullptr,
+                                         io.Fonts->GetGlyphRangesCyrillic());
+        }
+        else
+        {
+            core.Trace("Editor: no font %s, the built-in one is used", font.c_str());
+        }
+    }
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     AddSettingsHandler(Impl::Tools(), Impl::Settings());

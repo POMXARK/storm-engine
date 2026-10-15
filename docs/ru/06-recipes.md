@@ -535,4 +535,14 @@ Gizmo.Operation=translate
   ```
 
   Движок собирает её после своих библиотек и линкует вместе с остальными модулями, окна регистрируются так же, как в storm-editor. Переменные скрипта окно читает и пишет через `core.GetScriptVariable("имя")` → `VDATA`: `Get(value, i)`/`Set(value, i)` для элемента массива, `Get(value)` для простой переменной, `GetString()` для строки. Правка видна скрипту сразу, а `#define` скомпилированы в скрипт, их меняет только перезапуск. Пример — окно Market в [corsairs-remake/editor](https://github.com/POMXARK/corsairs-remake/tree/main/editor): таблицы рынков, текущие цены и запись обратно в `market.c`.
+- **Сцена игры из окна.** Окно не вызывает функции скрипта напрямую: оно шлёт событие `core.PostEvent("Editor_DialogNode", 1, "s", name)`, а игра ловит его своим обработчиком (`SetEventHandler("Editor_DialogNode", "Dialog_EditorNode", 0)` в `port.c`) и сама решает, можно ли сейчас. Так окно Dialog corsairs-remake открывает диалог на любом узле. Тот же путь проверяется без нажатий: тест игры шлёт событие из скрипта (`PostEvent("Editor_DialogNode", 0, "s", "shop")`).
+- **Шрифт редактора.** Встроенный шрифт ImGui — только латиница. Свой задаёт `engine.ini`:
+
+  ```ini
+  [editor]
+  font = ..\assets\ptserif\PT_Serif-Web-Regular.ttf   ; путь от рабочей папки, \ или /
+  font_size = 16
+  ```
+
+  Шрифт грузится с кириллицей (`GetGlyphRangesCyrillic`). Нет файла — в `system.log` строка `Editor: no font …`, остаётся встроенный.
 
