@@ -68,6 +68,8 @@ class Location : public Entity
     void Realize(uint32_t delta_time);
     // Messages
     uint64_t ProcessMessage(MESSAGE &message) override;
+    // the locator groups in the editor: shown or not, a picked locator goes to the window Gizmo
+    void ShowEditor() override;
 
     void ProcessStage(Stage stage, uint32_t delta) override
     {
@@ -165,6 +167,8 @@ class Location : public Entity
 
     bool isPause;
     bool isDebugView;
+    // the groups shown in the last run of the editor are shown again once (Location.Show in imgui.ini)
+    bool editorShowRestored = false;
 
     VDX9RENDER *rs;
 

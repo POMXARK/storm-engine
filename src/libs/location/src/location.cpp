@@ -10,7 +10,9 @@
 
 #include "location.h"
 
+#include <algorithm>
 #include <chrono>
+#include <cmath>
 
 #include "core.h"
 #include "character.h"
@@ -19,6 +21,10 @@
 
 #include "c_vector4.h"
 #include "shared/messages.h"
+#include "storm/editor/engine_editor.hpp"
+#include "storm/editor/storm_imgui.hpp"
+
+#include <fmt/format.h>
 
 float fCausticScale, fCausticDelta, fFogDensity, fCausticDistance;
 CVECTOR4 v4CausticColor;
@@ -1374,4 +1380,143 @@ void Location::LoadCaustic() const
         sprintf_s(tex, "weather\\caustic\\caustic%.2d.tga", i);
         iCausticTex[i] = rs->TextureCreate(tex);
     }
+}
+
+namespace
+{
+
+// the locator "group/name" of the location id as a target of the gizmo
+storm::editor::GizmoTarget LocatorTarget(entid_t id, const std::string &group, const std::string &name)
+{
+    auto find = [id, group, name](int32_t &index) -> LocatorArray * {
+        auto *location = static_cast<Location *>(core.GetEntityPointer(id));
+        LocatorArray *la = location ? location->FindLocatorsGroup(group.c_str()) : nullptr;
+        index = la ? la->FindByName(name.c_str()) : -1;
+        return index < 0 ? nullptr : la;
+    };
+    storm::editor::GizmoTarget target;
+    target.owner = id;
+    target.name = group + "/" + name;
+    target.get = [find](float *matrix) {
+        int32_t index;
+        LocatorArray *la = find(index);
+        CMatrix mtx;
+        if (la == nullptr || !la->GetLocatorPos(index, mtx))
+        {
+            return false;
+        }
+        std::copy(mtx.matrix, mtx.matrix + 16, matrix);
+        return true;
+    };
+    target.set = [find, id](const float *matrix) {
+        int32_t index;
+        if (LocatorArray *la = find(index))
+        {
+            CMatrix mtx;
+            std::copy(matrix, matrix + 16, mtx.matrix);
+            la->SetNewMatrix(index, mtx);
+            // the scripts read the locators from the attributes after MSG_LOCATION_UPDATELOCATORS
+            auto *location = static_cast<Location *>(core.GetEntityPointer(id));
+            if (location->AttributesPointer && location->AttributesPointer->FindAClass(location->AttributesPointer, "locators"))
+            {
+                core.Send_Message(id, "l", MSG_LOCATION_UPDATELOCATORS);
+            }
+        }
+    };
+    // a label of write_gm (demos/common/storm_formats.py): position and the horizontal direction of z
+    target.script = [group, name](const float *m) {
+        const float length = std::sqrt(m[8] * m[8] + m[10] * m[10]);
+        const float dx = length > 0.f ? m[8] / length : 0.f;
+        const float dz = length > 0.f ? m[10] / length : 1.f;
+        return fmt::format("(\"{}\", \"{}\", ({:.3f}, {:.3f}, {:.3f}), ({:.3f}, {:.3f})),", group, name, m[12], m[13],
+                           m[14], dx, dz);
+    };
+    return target;
+}
+
+} // namespace
+
+void Location::ShowEditor()
+{
+    using storm::editor::EngineEditor;
+    if (!ImGui::TreeNodeEx("Locators", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        return;
+    }
+    // the locator picked in the last run, "group/name"
+    const std::string picked = EngineEditor::GetSetting("Location.Locator");
+    const auto *target = EngineEditor::GetGizmoTarget();
+    if ((target == nullptr || target->owner != GetId()) && picked.find('/') != std::string::npos)
+    {
+        const auto slash = picked.find('/');
+        auto restored = LocatorTarget(GetId(), picked.substr(0, slash), picked.substr(slash + 1));
+        float matrix[16];
+        if (restored.get(matrix))
+        {
+            EngineEditor::SetGizmoTarget(std::move(restored));
+            target = EngineEditor::GetGizmoTarget();
+        }
+    }
+    const bool targeted = target != nullptr && target->owner == GetId();
+    const std::string shown = EngineEditor::GetSetting("Location.Show");
+    for (int32_t i = 0; i < numLocators; i++)
+    {
+        LocatorArray *la = locators[i];
+        const std::string group = la->GetGroupName();
+        ImGui::PushID(i);
+        // shown as balls with names, as MSG_LOCATION_VIEWLGROUP does
+        bool visible = la->isVisible;
+        const bool restore = !editorShowRestored && ("," + shown + ",").find("," + group + ",") != std::string::npos;
+        if (ImGui::Checkbox("##visible", &visible) || restore)
+        {
+            visible = visible || restore;
+            la->isVisible = visible;
+            std::string groups;
+            for (int32_t k = 0; k < numLocators; k++)
+            {
+                if (locators[k]->isVisible)
+                {
+                    groups += (groups.empty() ? "" : ",") + std::string(locators[k]->GetGroupName());
+                }
+            }
+            EngineEditor::SetSetting("Location.Show", groups);
+            if (visible)
+            {
+                if (la->kViewRadius <= 0.0f)
+                {
+                    la->kViewRadius = 1.0f;
+                    la->viewDist = 50.0f;
+                    la->color = 0xff00ff00;
+                }
+                if (la->radius <= 0.0f)
+                {
+                    la->radius = 0.3f;
+                }
+            }
+        }
+        ImGui::SetItemTooltip("Show the locators of the group");
+        ImGui::SameLine();
+        // the group of the picked locator is open
+        if (targeted && target->name.starts_with(group + "/"))
+        {
+            ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+        }
+        if (ImGui::TreeNode(group.c_str(), "%s (%d)", group.c_str(), la->Num()))
+        {
+            for (int32_t j = 0; j < la->Num(); j++)
+            {
+                const std::string name = la->Name(j);
+                const std::string full = group + "/" + name;
+                if (ImGui::Selectable(name.c_str(), targeted && target->name == full))
+                {
+                    EngineEditor::SetGizmoTarget(LocatorTarget(GetId(), group, name));
+                    EngineEditor::SetSetting("Location.Locator", full);
+                }
+            }
+            ImGui::TreePop();
+        }
+        ImGui::PopID();
+    }
+    editorShowRestored = true;
+    ImGui::TreePop();
 }

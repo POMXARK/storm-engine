@@ -511,7 +511,12 @@ demos/model/run.sh build/Debug/engine --editor
 
 ![Гизмо на ящике в демо model](media/gizmo.jpg)
 
-- Состояние редактора хранит `imgui.ini` в рабочей папке, секция `[Storm][Editor]`: открытые окна (`Open=`), выбранная сущность — класс и номер среди сущностей класса (`Entities.Class=`, `Entities.Index=`), фильтр атрибутов (`Entities.Filter=`), режим гизмо (`Gizmo.Operation=translate|rotate`, `Gizmo.Space=local|world`, `Gizmo.Snap=`). Положение окон ImGui хранит там же. Так проверяется редактор без нажатий: тест кладёт `imgui.ini` и снимает окно.
+- **Локаторы локации.** У сущности `Location` в Entity Properties есть ветка **Locators**: группы локаторов из меток её моделей. Галочка показывает группу шарами, как `MSG_LOCATION_VIEWLGROUP`. Щелчок по локатору отдаёт его в Gizmo. Правка идёт через `LocatorArray::SetNewMatrix`. Если скрипт уже копировал локаторы в атрибуты (`MSG_LOCATION_UPDATELOCATORS`), они обновляются. **Copy as script** даёт строку метки для генератора, `("goto", "platform", (5.000, 0.800, 5.000), (-1.000, 0.000)),` — её можно вставить в `LOCATORS` из `demos/location/make_location.py`. Метка хранит только поворот вокруг вертикали: наклон в строку не попадает.
+- Свой объект для гизмо модуль отдаёт через `EngineEditor::SetGizmoTarget({owner, name, get, set, script})`, пример — `Location::ShowEditor` (`src/libs/location/src/location.cpp`). Функции ищут объект заново по id сущности, поэтому после её удаления цель просто пропадает.
+
+![Локатор item/crate2 в демо location](media/gizmo-locator.jpg)
+
+- Состояние редактора хранит `imgui.ini` в рабочей папке, секция `[Storm][Editor]`: открытые окна (`Open=`), выбранная сущность — класс и номер среди сущностей класса (`Entities.Class=`, `Entities.Index=`), фильтр атрибутов (`Entities.Filter=`), режим гизмо (`Gizmo.Operation=translate|rotate`, `Gizmo.Space=local|world`, `Gizmo.Snap=`), выбранный локатор и показанные группы (`Location.Locator=item/crate2`, `Location.Show=goto,item`). Положение окон ImGui хранит там же. Так проверяется редактор без нажатий: тест кладёт `imgui.ini` и снимает окно.
 
 ```ini
 [Storm][Editor]

@@ -6,8 +6,8 @@ Writes models/yard/{yard.gm,yard_patch.ptc}, textures/yard/*.tga.tx, the sailor 
 models/characters/sailor.gm with textures/characters/*.tga.tx, and animation/sailor.{an,ani}.
 Everything is generated, so the demo has no third-party assets.
 
-The yard: cobbled ground inside four walls, a wooden platform in one corner with a ramp up to it
-and a few crates. The patch is the floor characters walk on: a grid of 0.5 m cells over the
+The yard: cobbled ground inside four walls, a wooden platform in one corner with a ramp up to it,
+a few crates and the locators (LOCATORS). The patch is the floor characters walk on: a grid of 0.5 m cells over the
 yard, leaving out the cells under and next to the crates, walls and the platform's sides.
 """
 import math
@@ -37,6 +37,17 @@ CRATES = [(-4.0, -3.0), (-4.5, 3.5), (2.5, -4.5), (-1.5, 5.5)]  # 1 m crates, ce
 CRATE = 1.0
 
 GROUND, WOOD = 0, 1  # patch materials
+
+# the locators of the yard, labels of yard.gm: (group, name, position, (x, z) the way z faces).
+# The location reads them into its groups; the editor shows them and moves them (Gizmo), "Copy as
+# script" gives such a line back.
+LOCATORS = [
+    ("goto", "start", (0.0, 0.0, -5.0), (0.0, 1.0)),
+    ("goto", "platform", (5.0, 0.8, 5.0), (-1.0, 0.0)),
+    ("reload", "gate", (0.0, 0.0, 7.0), (0.0, -1.0)),
+    ("item", "crate1", (-4.0, 1.0, -3.0), (0.0, 1.0)),
+    ("item", "crate2", (-4.5, 1.0, 3.5), (0.0, 1.0)),
+]
 
 
 # ---------------------------------------------------------------- textures
@@ -276,7 +287,7 @@ def main():
     write_tx(planks(), textures / "planks.tga.tx")
     write_tx(planks(border=True), textures / "crate.tga.tx")
     # with the BSP, traces hit the yard: shadows fall on it, the camera stops at the walls
-    write_gm(yard_meshes(), resource / "models" / "yard" / "yard.gm", bsp=True)
+    write_gm(yard_meshes(), resource / "models" / "yard" / "yard.gm", bsp=True, labels=LOCATORS)
     count = write_ptc(patch_triangles(), resource / "models" / "yard" / "yard_patch.ptc",
                       materials=("ground", "wood"))
 

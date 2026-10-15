@@ -20,7 +20,7 @@ Each demo is started with `run.sh <path to built engine executable>` from its fo
 | Free camera (`FREE_CAMERA` run by the `Scene` entity) | [`model`](model) | done |
 | Dynamic sun light, ambient and fog (`weather` attributes + `DLightModel` technique) | [`model`](model) | done |
 | Skeletal animation: skinned `.gm`, `.an` skeleton, `.ani` actions played and switched by script | [`character`](character) | done |
-| Locations: model with BSP (traces, shadows), walkable `.ptc` patch, player character controller, following camera | [`location`](location) | done |
+| Locations: model with BSP (traces, shadows), walkable `.ptc` patch, player character controller, following camera, locators from model labels | [`location`](location) | done |
 | Sea (animated waves, cube-map sky reflection, foam), skybox, weather presets switched by script | [`sea`](sea) | done |
 | Ship: hull, masts and sails from `.gm` labels, sails in the wind, helm and sail controls, ship camera | [`ship`](ship) | done |
 | Particles: fire and smoke, cannonball splashes and blasts from `.xps` systems | [`particles`](particles) | done |

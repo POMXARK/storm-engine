@@ -9,6 +9,7 @@
 #include <array>
 #include <cstring>
 #include <map>
+#include <optional>
 
 #include <imgui_impl_dx9.h>
 
@@ -34,6 +35,12 @@ public:
     {
         static std::map<std::string, std::string, std::less<>> settings;
         return settings;
+    }
+
+    static std::optional<GizmoTarget> &Gizmo()
+    {
+        static std::optional<GizmoTarget> target;
+        return target;
     }
 
     std::array<bool, 5> debugFlags_{};
@@ -221,6 +228,17 @@ void EngineEditor::SetSetting(const std::string_view &key, const std::string_vie
             ImGui::MarkIniSettingsDirty();
         }
     }
+}
+
+void EngineEditor::SetGizmoTarget(GizmoTarget target)
+{
+    Impl::Gizmo() = std::move(target);
+}
+
+const GizmoTarget *EngineEditor::GetGizmoTarget()
+{
+    const auto &target = Impl::Gizmo();
+    return target ? &*target : nullptr;
 }
 
 } // namespace storm::editor
