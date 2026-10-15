@@ -16,6 +16,9 @@
 #include <optional>
 #include <vector>
 
+// the frame of the Viewport is a D3D9 texture: on Linux d3d9.h comes in by the headers of dxvk-native,
+// with MSVC it does not
+#include <d3d9.h>
 #include <imgui_impl_dx9.h>
 
 namespace storm::editor
