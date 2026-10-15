@@ -74,27 +74,66 @@ Write-Host "ninja: $((Get-Command ninja).Source) $(& ninja --version)"
 cmd /c 'conan profile path default >nul 2>&1'
 if ($LASTEXITCODE -ne 0) { & conan profile detect; Assert-Exit 'conan profile detect' }
 
-$cmakeArgs = @('--preset=default')
-if ($ExtraModules) { $cmakeArgs += "-DSTORM_EXTRA_MODULES=$((Resolve-Path $ExtraModules).Path)" }
+$defines = @()
+if ($ExtraModules) { $defines += "-DSTORM_EXTRA_MODULES=$((Resolve-Path $ExtraModules).Path)" }
+$build = 'build/default'
+$cache = "$build/CMakeCache.txt"
+
+# the generator of the Visual Studio of the developer shell: VisualStudioVersion is 16.0 or 17.0
+function Get-VsGenerator
+{
+    switch -Wildcard ($env:VisualStudioVersion)
+    {
+        '16.*' { return 'Visual Studio 16 2019' }
+        '17.*' { return 'Visual Studio 17 2022' }
+        default { throw "unknown Visual Studio version '$($env:VisualStudioVersion)'" }
+    }
+}
+
+function Show-ConfigureLog
+{
+    # the reason of a failed compiler check is in the log, not on the screen
+    foreach ($log in "$build/CMakeFiles/CMakeError.log", "$build/CMakeFiles/CMakeConfigureLog.yaml")
+    {
+        if (Test-Path $log) { Write-Host "--- $log"; Get-Content $log -Tail 40 | Write-Host }
+    }
+}
+
 Push-Location $PSScriptRoot
 try
 {
-    # a configure that failed without a compiler leaves a cache that the next one trips on
-    if ((Test-Path 'build/default/CMakeCache.txt') -and -not (Test-Path 'build/default/build.ninja'))
+    $generator = ''
+    if (Test-Path $cache)
     {
-        Remove-Item -Recurse -Force 'build/default'
+        $line = Select-String -Path $cache -Pattern '^CMAKE_GENERATOR:INTERNAL=(.*)$' | Select-Object -First 1
+        if ($line) { $generator = $line.Matches[0].Groups[1].Value }
     }
-    & cmake @cmakeArgs
-    if ($LASTEXITCODE -ne 0)
+    # a configure that failed without a compiler leaves a cache that the next one trips on
+    if ((Test-Path $cache) -and -not (Test-Path "$build/build.ninja") -and -not (Test-Path "$build/*.sln"))
     {
-        # the reason of a failed compiler check is in the log, not on the screen
-        foreach ($log in 'build/default/CMakeFiles/CMakeError.log', 'build/default/CMakeFiles/CMakeConfigureLog.yaml')
+        Remove-Item -Recurse -Force $build
+        $generator = ''
+    }
+
+    if ($generator -like 'Visual Studio*') { & cmake -S . -B $build @defines }
+    else
+    {
+        & cmake --preset=default @defines
+        # on a Russian Windows the compiler check of Ninja fails: CMake writes no rules.ninja for the
+        # localized /showIncludes of cl, and VSLANG does not help without the English language pack.
+        # The generator of Visual Studio does not use them
+        $log = "$build/CMakeFiles/CMakeConfigureLog.yaml"
+        if ($LASTEXITCODE -ne 0 -and (Test-Path $log) -and (Select-String -Path $log -Pattern 'rules\.ninja' -Quiet))
         {
-            if (Test-Path $log) { Write-Host "--- $log"; Get-Content $log -Tail 40 | Write-Host }
+            $generator = Get-VsGenerator
+            Write-Host "Ninja cannot check the compiler here; configuring with $generator"
+            Remove-Item -Recurse -Force $build
+            & cmake -S . -B $build -G $generator -A x64 @defines
         }
     }
+    if ($LASTEXITCODE -ne 0) { Show-ConfigureLog }
     Assert-Exit 'cmake configure'
-    & cmake --build --preset=$($Config.ToLower())
+    & cmake --build $build --config $Config --parallel
     Assert-Exit 'cmake build'
 }
 finally { Pop-Location }
