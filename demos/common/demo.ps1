@@ -71,13 +71,21 @@ function Start-Demo([string[]]$Folders = @())
         Write-Host ('engine exited with {0} (0x{1:X8})' -f $code, $code)
         $logs = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'My Games\Sea Dogs\Logs'
         if ($IsLinux) { $logs = '~/.local/share/Akella/Sea Dogs/Logs' }
-        Write-Host "logs: $logs (error.log, system.log); no fresh logs there: the engine did not get to start"
+        $system = Get-Item -Path (Join-Path $logs 'system.log') -ErrorAction SilentlyContinue
+        if ($system -and $system.LastWriteTime -ge $process.StartTime)
+        {
+            Write-Host "logs of this run: $logs (error.log, system.log)"
+        }
+        else
+        {
+            # the folder is shared by the games on Storm: logs of another one may lie there
+            Write-Host "no logs of this run in ${logs}: the engine did not get to start"
+        }
         # 0xC0000135: Windows did not find a DLL of the engine. Windows 11 has no d3dx9_43.dll of DirectX 9
         # June 2010, the rest is copied next to the engine by the build
         if ($code -eq -1073741515)
         {
-            $system = Join-Path $env:SystemRoot 'System32'
-            if (-not (Test-Path (Join-Path $system 'd3dx9_43.dll')))
+            if (-not (Test-Path (Join-Path $env:SystemRoot 'System32\d3dx9_43.dll')))
             {
                 Write-Host 'missing d3dx9_43.dll: install DirectX End-User Runtime (dxwebsetup.exe, June 2010) from microsoft.com'
             }
