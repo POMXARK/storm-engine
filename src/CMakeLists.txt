@@ -57,4 +57,9 @@ endif()
 
 # this is crucial to include libs first
 add_subdirectory(libs)
+# the modules a game brings, after the libs they depend on and before the engine links them all
+foreach(dir ${STORM_EXTRA_MODULES})
+    get_filename_component(name ${dir} NAME)
+    add_subdirectory(${dir} ${CMAKE_BINARY_DIR}/extra_modules/${name})
+endforeach()
 add_subdirectory(apps)

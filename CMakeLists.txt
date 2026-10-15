@@ -15,6 +15,9 @@ option(STORM_ENABLE_STEAM "Enable Steam integration" OFF)
 option(STORM_ENABLE_SAFE_MODE "Enable additional runtime checks" OFF)
 option(STORM_USE_CONAN_SDL "Use sdl from conan" ON)
 option(STORM_EDITOR_TOOLS "Build the tool windows of the editor (src/libs/editor_tools, submodule storm-editor)" ON)
+# modules of a game built into the engine (its editor windows, say): directories with a CMakeLists.txt
+# of STORM_SETUP(... TYPE storm_module), as the modules of src/libs
+set(STORM_EXTRA_MODULES "" CACHE STRING "Directories of extra engine modules from a game (a list)")
 if (WIN32)
     set(STORM_SOUND_BACKEND "fmod" CACHE STRING "Sound backend: fmod or miniaudio")
 else()

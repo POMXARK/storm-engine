@@ -98,6 +98,8 @@ cmake ../storm-engine -G Ninja -DCMAKE_BUILD_TYPE=Debug -Wno-dev   # Conan ст�
 ninja dependencies   # dxvk-native (DX9 → Vulkan), meson + системный SDL2
 ninja                # движок
 ```
+
+Модули игры (её окна редактора) добавляет `-DSTORM_EXTRA_MODULES="<папка>;<папка>"`, см. 6.21. Для corsairs-remake: `-DSTORM_EXTRA_MODULES=$W/corsairs-remake/editor`.
 Звук: по умолчанию на Linux — **miniaudio** (`-DSTORM_SOUND_BACKEND=miniaudio`), на Windows — FMOD. См. п. 7.
 Первый configure долгий: Conan собирает из исходников openssl, SDL, wayland, sentry и др.
 Гизмо редактора — Conan-пакет `imguizmo/cci.20231114` (MIT). Он требует imgui 1.90.5, движку нужна ветка docking: `conanfile.py` подключает `imgui/1.90-docking` с `force=True`, и Conan собирает imguizmo из исходников под неё.
@@ -145,6 +147,7 @@ Linux-порт сделан в 2022 (issue storm-devs/storm-engine#348), но с
 | 33 | `cannot find -leditor_tools` после `-DSTORM_EDITOR_TOOLS=OFF` | список модулей `global_modules_list` кэшируется, выключенный модуль остаётся в нём | движок линкует только существующие цели (`cmake/StormSetup.cmake`) |
 | 34 | `imguizmo/cci.20231114` тянет `imgui/1.90.5` — конфликт с `imgui/1.90-docking` | рецепт imguizmo пинует обычную ветку imgui | `self.requires("imgui/1.90-docking", force=True)` в `requirements()` (`conanfile.py`) |
 | 35 | `Assertion 'PushID/PopID or TreeNode/TreePop Mismatch!'` при выборе модели в Entities | `NODER::ShowEditorTree` делал `PushID` без `PopID` | `PopID` в конце (`src/libs/model/src/node.cpp`) |
+| 36 | `RUNTIME ERROR in <файл>(<строка>): Incorrect usage of index on single variable` каждый кадр, хотя скрипт верный | окно редактора читало простую переменную (`gold`) через `VDATA::Get(value, 0)`; ошибку движок приписывает строке, которую скрипт исполнял последней | для простой переменной `Get(value)`, индекс — только если `IsArray()` (`corsairs-remake/editor/src/market_tool.cpp`) |
 
 ## 6. Обход недоступного gnu.org (локальное зеркало для Conan)
 

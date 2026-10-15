@@ -528,4 +528,11 @@ Gizmo.Operation=translate
 ```
 
 - Свой инструмент: `storm::editor::EngineEditor::RegisterEditorTool("Имя", [](bool &active) { if (ImGui::Begin("Имя", &active)) { ... } ImGui::End(); })`. Общие окна — в storm-editor, они регистрируются сами из статического инициализатора (модули линкуются целиком, пример в README репозитория); окно одного модуля — в нём самом, как `Sound Service` в `core_impl.cpp`. Редактору движок отдаёт общий API `core`: `ForEachEntity`, `GetClassCode`, `GetLayerPriority`, атрибуты. Сохранить своё значение между запусками — `EngineEditor::SetSetting/GetSetting`. Свои поля сущности показывает `Entity::ShowEditor()`.
+- **Окна игры — модулем игры.** Окна данных одной игры (таблицы рынков, диалоги) держат в её репозитории, а не в движке и не в storm-editor. Папка с `CMakeLists.txt` из одного `STORM_SETUP(TARGET_NAME … TYPE storm_module DEPENDENCIES core editor)` и исходниками в `src/` подключается при настройке движка:
+
+  ```bash
+  cmake ../storm-engine -DSTORM_EXTRA_MODULES="/path/game/editor"   # несколько папок — через ;
+  ```
+
+  Движок собирает её после своих библиотек и линкует вместе с остальными модулями, окна регистрируются так же, как в storm-editor. Переменные скрипта окно читает и пишет через `core.GetScriptVariable("имя")` → `VDATA`: `Get(value, i)`/`Set(value, i)` для элемента массива, `Get(value)` для простой переменной, `GetString()` для строки. Правка видна скрипту сразу, а `#define` скомпилированы в скрипт, их меняет только перезапуск. Пример — окно Market в [corsairs-remake/editor](https://github.com/POMXARK/corsairs-remake/tree/main/editor): таблицы рынков, текущие цены и запись обратно в `market.c`.
 
