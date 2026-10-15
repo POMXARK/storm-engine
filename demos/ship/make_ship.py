@@ -36,6 +36,10 @@ GUNS = 6
 GUN_AFT, GUN_FORE = -8.0, 7.0
 GUN_SIDE = BEAM / 2 + 0.4
 GUN_HEIGHT = 2.6
+# two chasers at the bow and two at the stern (the cannonf / cannonb sides), just beyond the stem
+# and the transom, under the bowsprit
+CHASERS = [("cannonf", (0.45, 3.4, LENGTH / 2 + 0.4), (0.0, 1.0)),
+           ("cannonb", (1.0, 3.0, -LENGTH / 2 - 0.4), (0.0, -1.0))]
 
 
 # ---------------------------------------------------------------- textures
@@ -236,6 +240,8 @@ def main():
     # ship type, and fires each along the z axis of its label
     guns = [(bort, f"gun{i}", (side * GUN_SIDE, GUN_HEIGHT, GUN_AFT + (GUN_FORE - GUN_AFT) * i / (GUNS - 1)), (side, 0.0))
             for bort, side in (("cannonl", -1.0), ("cannonr", 1.0)) for i in range(GUNS)]
+    guns += [(bort, f"gun{i}", (x * side, y, z), direction)
+             for bort, (x, y, z), direction in CHASERS for i, side in enumerate((-1.0, 1.0))]
     # the BSP is what cannonballs (and the camera) trace against: without it a ball flies through
     write_gm(hull_meshes(), models / f"{SHIP}.gm", labels=masts + jib + guns, bsp=True)
     group = 1

@@ -160,6 +160,9 @@ void BATTLE_NAVIGATOR::Draw() const
         rs->SetRenderState(D3DRS_TEXTUREFACTOR, (BIUtils::g_dwBlinkColor << 24L) | 0xFFFFFF);
         rs->DrawPrimitive(D3DPT_TRIANGLESTRIP, m_idCurChargeVBuf, sizeof(BI_ONETEXTURE_VERTEX), 0, 2,
                           m_bNotEnoughBallFlag ? "battle_texure_blend_tf" : "battle_rectangle");
+        if (m_chargeCount >= 0)
+            rs->ExtPrint(m_speedFont, 0xFFFFFFFF, 0, PR_ALIGN_CENTER, true, m_fFontScale, 0, 0, m_ChargePos.x,
+                         m_yChargeCount, "%d", m_chargeCount);
     }
     if (m_idPowderTexture >= 0 && m_curPowder >= 0)
     {
@@ -578,6 +581,7 @@ void BATTLE_NAVIGATOR::Init(VDX9RENDER *RenderService, Entity *pOwnerEI)
     m_ChargeSize.y = 32;
     if ((tmpstr = BIUtils::GetStringFromAttr(pARoot, "chargePictureSize", nullptr)) != nullptr)
         sscanf(tmpstr, "%d,%d", &m_ChargeSize.x, &m_ChargeSize.y);
+    m_yChargeCount = m_ChargePos.y + BIUtils::GetIntFromAttr(pARoot, "chargeCountYOffset", m_ChargeSize.y / 2);
 
     // powder
     m_PowderGreed.x = 1;
@@ -1431,6 +1435,9 @@ void BATTLE_NAVIGATOR::UpdateCurrentCharge()
     pVD->Get(curPowder, 3);
     pVD->Get(isPowderRunOut, 4);
     m_bPowderRunOut = isPowderRunOut;
+    m_chargeCount = -1;
+    if (pVD->GetElementsNum() > 5)
+        pVD->Get(m_chargeCount, 5);
     if (curCharge == m_curCharge && curSailState == m_curSailState && curWindPic == m_curWindPic &&
         curPowder == m_curPowder)
         return;

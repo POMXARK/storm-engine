@@ -207,6 +207,10 @@ class BATTLE_NAVIGATOR
     POINT m_ChargePos{};
     POINT m_ChargeSize{};
     int32_t m_curCharge{-1};
+    // the 6th element of GetCurrentCharge, if the script returns it: how many charges are left,
+    // printed under the icon (-1 hides it)
+    int32_t m_chargeCount{-1};
+    int32_t m_yChargeCount{};
     // gunpowder icon
     POINT m_PowderGreed{};
     POINT m_PowderPos{};
