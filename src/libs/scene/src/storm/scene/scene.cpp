@@ -5,6 +5,7 @@
 #include "model.h"
 #include "shared/layers.h"
 #include "shared/messages.h"
+#include "v_sound_service.h"
 
 #include <fmt/format.h>
 #include <toml++/toml.h>
@@ -86,12 +87,24 @@ MODEL *Model(entid_t entity)
     return dynamic_cast<MODEL *>(core.GetEntityPointerSafe(entity));
 }
 
+VSoundService *Sounds()
+{
+    return core.GetServiceX<VSoundService>();
+}
+
 } // namespace
+
+bool SceneObject::MadeAs(const SceneObject &other) const
+{
+    return marker == other.marker && geometry == other.geometry && technique == other.technique &&
+           textures == other.textures && animation == other.animation && action == other.action &&
+           sound == other.sound && Round(volume) == Round(other.volume) &&
+           Round(distance[0]) == Round(other.distance[0]) && Round(distance[1]) == Round(other.distance[1]);
+}
 
 bool SceneObject::SameAs(const SceneObject &other) const
 {
-    if (name != other.name || marker != other.marker || geometry != other.geometry || technique != other.technique ||
-        textures != other.textures || animation != other.animation || action != other.action)
+    if (name != other.name || !MadeAs(other))
     {
         return false;
     }
@@ -132,10 +145,11 @@ std::optional<std::vector<SceneObject>> ParseScene(std::string_view text, std::s
         return std::nullopt;
     }
     std::vector<SceneObject> objects;
-    // the models first, then the markers: the order the file is written in
-    for (const char *kind : {"model", "marker"})
+    // the models first, then the markers, then the sounds: the order the file is written in
+    for (const char *kind : {"model", "marker", "sound"})
     {
-        const bool marker = std::string_view(kind) == "marker";
+        const bool marker = std::string_view(kind) != "model";
+        const bool sound = std::string_view(kind) == "sound";
         const toml::array *items = table[kind].as_array();
         if (items == nullptr)
         {
@@ -155,8 +169,23 @@ std::optional<std::vector<SceneObject>> ParseScene(std::string_view text, std::s
             object.name = view["name"].value_or(std::string());
             if (marker && object.name.empty())
             {
-                error = "a marker has no name";
+                error = fmt::format("a {} has no name", kind);
                 return std::nullopt;
+            }
+            if (sound)
+            {
+                object.sound = view["sound"].value_or(std::string());
+                object.volume = static_cast<float>(view["volume"].value_or(1.0));
+                if (object.sound.empty())
+                {
+                    error = "sound \"" + object.name + "\" has no sound";
+                    return std::nullopt;
+                }
+                if (view["distance"] && !ReadFloats(view["distance"], object.distance, 2))
+                {
+                    error = "sound \"" + object.name + "\": distance is 2 numbers";
+                    return std::nullopt;
+                }
             }
             if (!marker)
             {
@@ -195,20 +224,31 @@ std::string FormatScene(const std::vector<SceneObject> &objects)
     // written by hand, not by toml++: the keys go in the order a reader wants and the floats stay short
     std::string text = "# A scene of Storm Engine: the models and their places, made in the window Scene of the editor.\n"
                        "# A script loads it with LoadScene(\"<name>\"). position is in metres, axes are the rows x, y, z of\n"
-                       "# the turn. A marker is a place the script asks for by name (GetSceneMarker).\n";
-    for (const bool markers : {false, true})
+                       "# the turn. A marker is a place the script asks for by name (GetSceneMarker). A sound plays\n"
+                       "# looped where it is: a file of resource/sounds or an alias, full up to the first distance, silent\n"
+                       "# from the second.\n";
+    for (const int kind : {0, 1, 2})
     {
         for (const SceneObject &object : objects)
         {
-            if (object.marker != markers)
+            const bool markers = kind > 0;
+            if ((object.marker ? (object.IsSound() ? 2 : 1) : 0) != kind)
             {
                 continue;
             }
             const float axes[9] = {object.matrix[0], object.matrix[1], object.matrix[2],
                                    object.matrix[4], object.matrix[5], object.matrix[6],
                                    object.matrix[8], object.matrix[9], object.matrix[10]};
-            text += markers ? "\n[[marker]]\n" : "\n[[model]]\n";
+            text += kind == 2 ? "\n[[sound]]\n" : markers ? "\n[[marker]]\n" : "\n[[model]]\n";
             text += "name = " + Quote(object.name) + "\n";
+            if (kind == 2)
+            {
+                text += "sound = " + Quote(object.sound) + "\n";
+                text += "volume = " + Number(object.volume) + "\n";
+                text += "distance = " + Numbers(object.distance, 2) + "\n";
+                text += "position = " + Numbers(object.matrix + 12, 3) + "\n";
+                continue;
+            }
             if (!markers)
             {
                 text += "geometry = " + Quote(object.geometry) + "\n";
@@ -261,9 +301,31 @@ bool WriteScene(std::string_view name, const std::vector<SceneObject> &objects)
 
 bool Spawn(SceneObject &object)
 {
+    object.entity = invalid_entity;
+    object.voice = 0;
+    if (object.IsSound())
+    {
+        VSoundService *sounds = Sounds();
+        if (sounds == nullptr)
+        {
+            return false;
+        }
+        VSoundService::SoundPlayOptions options;
+        options.type = PCM_3D;
+        options.startPosition = CVECTOR(object.matrix[12], object.matrix[13], object.matrix[14]);
+        options.minDistance = object.distance[0];
+        options.maxDistance = object.distance[1];
+        options.volume = object.volume;
+        options.looped = true;
+        object.voice = sounds->SoundPlay(object.sound, options);
+        if (object.voice == 0)
+        {
+            core.Trace("Scene: no sound %s for \"%s\"", object.sound.c_str(), object.name.c_str());
+        }
+        return object.voice != 0;
+    }
     if (object.marker)
     {
-        object.entity = invalid_entity;
         return false;
     }
     object.entity = core.CreateEntity("MODELR");
@@ -314,6 +376,14 @@ bool Spawn(SceneObject &object)
 
 void Despawn(SceneObject &object)
 {
+    if (object.voice != 0)
+    {
+        if (VSoundService *sounds = Sounds())
+        {
+            sounds->SoundStop(object.voice);
+        }
+        object.voice = 0;
+    }
     if (core.GetEntityPointerSafe(object.entity) != nullptr)
     {
         core.EraseEntity(object.entity);
@@ -331,6 +401,14 @@ void ReadPlace(SceneObject &object)
 
 void WritePlace(const SceneObject &object)
 {
+    if (object.voice != 0)
+    {
+        if (VSoundService *sounds = Sounds())
+        {
+            const float position[3] = {object.matrix[12], object.matrix[13], object.matrix[14]};
+            sounds->SoundSet3DParam(object.voice, SM_POSITION, position);
+        }
+    }
     if (MODEL *model = Model(object.entity))
     {
         std::copy(object.matrix, object.matrix + 16, model->mtx.matrix);
@@ -341,7 +419,7 @@ const SceneObject *FindMarker(std::string_view name)
 {
     for (const SceneObject &object : CurrentScene().objects)
     {
-        if (object.marker && object.name == name)
+        if (object.marker && !object.IsSound() && object.name == name)
         {
             return &object;
         }
@@ -364,15 +442,20 @@ std::optional<size_t> LoadScene(std::string_view name)
     scene.objects = std::move(*objects);
     size_t made = 0;
     size_t markers = 0;
+    size_t sounds = 0;
+    size_t playing = 0;
     uint32_t id = 0;
     for (SceneObject &object : scene.objects)
     {
         object.id = ++id;
-        made += Spawn(object) ? 1 : 0;
-        markers += object.marker ? 1 : 0;
+        const bool spawned = Spawn(object);
+        made += spawned && !object.marker ? 1 : 0;
+        playing += spawned && object.IsSound() ? 1 : 0;
+        sounds += object.IsSound() ? 1 : 0;
+        markers += object.marker && !object.IsSound() ? 1 : 0;
     }
-    core.Trace("Scene: %s, %zu models of %zu, %zu markers", std::string(name).c_str(), made,
-               scene.objects.size() - markers, markers);
+    core.Trace("Scene: %s, %zu models of %zu, %zu markers, %zu sounds of %zu", std::string(name).c_str(), made,
+               scene.objects.size() - markers - sounds, markers, playing, sounds);
     return made;
 }
 

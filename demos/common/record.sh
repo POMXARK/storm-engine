@@ -10,6 +10,8 @@
 #   move:DX:DY:S     move the mouse by DX, DY pixels evenly over S seconds
 #   click[:X:Y]      left click at X, Y pixels of the window, or where the mouse is. The engine keeps the
 #                    mouse relative on Linux: once the window has the focus only move: steps move it
+#   mousedown:B      press mouse button B (1 left, 3 right) and keep it, till mouseup:B; the editor's
+#                    scene camera flies while the right one is held
 # The engine is stopped after the last step, so end with the time the result should stay in view.
 # Each recording is listed in index.tsv next to the video: date, demo, engine commit, file.
 # ENGINE_ARGS are passed to the engine after run.sh (ENGINE_ARGS=--editor records the editor).
@@ -92,6 +94,8 @@ for step in "$@"; do
         click)
             [ -z "$a" ] || { xdotool mousemove --window "$WID" "$a" "$b"; sleep 0.15; }
             xdotool mousedown 1; sleep 0.15; xdotool mouseup 1 ;;
+        mousedown) xdotool mousedown "$a" ;;
+        mouseup) xdotool mouseup "$a" ;;
         move)
             n=$(awk -v s="$c" 'BEGIN { n = int(s * 30 + 0.5); print (n < 1 ? 1 : n) }')
             for i in $(seq "$n"); do

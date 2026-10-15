@@ -1,6 +1,6 @@
-// Scene demo: what is in the scene is not in the script. The models and their places are in
-// resource/scenes/harbour.scene, made in the window Scene of the editor (run.sh <engine> --editor);
-// the script sets the camera, the sun and the fog and loads the scene by its name.
+// Scene demo: what is in the scene is not in the script. The models, their places and the sounds heard
+// there (the surf, a bell) are in resource/scenes/harbour.scene, made in the window Scene of the editor
+// (run.sh <engine> --editor); the script sets the camera, the sun and the fog and loads the scene by its name.
 // Mouse looks around, W/S move the camera, Escape quits.
 
 // LoadScene comes from the module scene of the engine: the function is declared as native, then its
@@ -52,6 +52,7 @@ void Main()
 	// the models of the scene go into the layers EXECUTE and REALIZE themselves
 	int models = LoadScene("harbour");
 	Trace("SCENE: harbour, " + models + " models");
+	// the sounds of the scene play by themselves where they are, the camera hears them
 
 	SetEventHandler("Control Activation", "Demo_Control", 0);
 }

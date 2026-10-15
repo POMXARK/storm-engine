@@ -92,3 +92,42 @@ TEST_CASE("Animated models and markers are written and read back", "[scene]")
     CHECK(!ParseScene("[[marker]]\nposition = [0.0, 0.0, 0.0]\n", error));
     CHECK(error.find("name") != std::string::npos);
 }
+
+TEST_CASE("Sound sources are written and read back", "[scene]")
+{
+    SceneObject surf;
+    surf.name = "surf";
+    surf.marker = true;
+    surf.sound = "demo\\waves.wav";
+    surf.volume = 0.8f;
+    surf.distance[0] = 4.f;
+    surf.distance[1] = 40.f;
+    surf.matrix[14] = 8.f;
+    SceneObject start;
+    start.name = "player";
+    start.marker = true;
+
+    // the sounds go after the markers, with no turn
+    const std::string text = FormatScene({surf, start});
+    CHECK(text.find("[[sound]]") > text.find("[[marker]]"));
+    CHECK(text.find("sound = 'demo\\waves.wav'") != std::string::npos);
+    CHECK(text.find("distance = [ 4.0, 40.0 ]") != std::string::npos);
+    std::string error;
+    const auto objects = ParseScene(text, error);
+    REQUIRE(objects);
+    REQUIRE(objects->size() == 2);
+    CHECK((*objects)[0].SameAs(start));
+    CHECK((*objects)[1].SameAs(surf));
+    CHECK((*objects)[1].IsSound());
+    CHECK(!(*objects)[0].IsSound());
+    CHECK(FormatScene(*objects) == text);
+
+    // by hand: the loudness and the distances may be left out
+    const auto plain = ParseScene("[[sound]]\nname = \"bell\"\nsound = \"bell\"\n", error);
+    REQUIRE(plain);
+    CHECK((*plain)[0].volume == 1.f);
+    CHECK((*plain)[0].distance[1] == 30.f);
+    CHECK(!ParseScene("[[sound]]\nname = \"x\"\n", error));
+    CHECK(error.find("no sound") != std::string::npos);
+    CHECK(!ParseScene("[[sound]]\nname = \"x\"\nsound = \"a\"\ndistance = [1.0]\n", error));
+}

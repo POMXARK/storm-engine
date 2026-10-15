@@ -629,3 +629,18 @@ demos/model/run.sh build/Debug/engine --editor
 - Из своего модуля: `std::vector<std::string> errors; if (!core.ReloadScripts(errors)) for (auto &e : errors) ...`.
 
 ![Перезагрузка скрипта в демо model](../../demos/model/media/model-reload.jpg)
+
+## 6.24 Звуки сцены (`demos/scene`)
+
+```bash
+demos/scene/run.sh build/Debug/engine --editor
+```
+
+В сцене `harbour` два источника: прибой `surf` и колокол `bell`. Слушатель — камера, поэтому со свободной камерой (правая кнопка мыши + WASD во Viewport) громкость меняется, пока летишь.
+
+- Прослушать файл: в **Assets** выбрать `resource/sounds/...wav` → **Play** (с **Loop** — по кругу). Справа частота, разрядность, каналы и длительность из заголовка WAV.
+- Поставить источник: бросить файл из Assets на Viewport или **Add sound** в окне Scene. В свойствах — **Sound**, **Volume**, **Distance** (мин. и макс., м); на Viewport — оранжевые круги этих радиусов.
+- Из скрипта: `LoadScene("harbour")` — звуки играют вместе с моделями. Свой звук из C++: `SoundPlay(name, SoundPlayOptions{.type = PCM_3D, .startPosition = pos, .minDistance = 3.f, .maxDistance = 30.f, .looped = true})`, двигать — `SoundSet3DParam(id, SM_POSITION, &pos)`.
+- Для 3D файл должен быть моно: стерео играется без панорамы. Генератор демо — `demos/scene/make_sounds.py` (берёт синтез из `demos/sound/make_sound.py`).
+
+![Звуки сцены в редакторе](../../demos/scene/media/scene-sound.jpg)

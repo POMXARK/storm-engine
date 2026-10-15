@@ -1,6 +1,8 @@
 # A scene of Storm Engine: the models and their places, made in the window Scene of the editor.
 # A script loads it with LoadScene("<name>"). position is in metres, axes are the rows x, y, z of
-# the turn.
+# the turn. A marker is a place the script asks for by name (GetSceneMarker). A sound plays
+# looped where it is: a file of resource/sounds or an alias, full up to the first distance, silent
+# from the second.
 
 [[model]]
 name = 'deck'
@@ -22,3 +24,17 @@ geometry = 'demo\crate'
 technique = 'DLightModel'
 position = [ -1.4, 0.0, 0.4 ]
 axes = [ 0.9553, 0.0, -0.2955, 0.0, 1.0, 0.0, 0.2955, 0.0, 0.9553 ]
+
+[[sound]]
+name = 'surf'
+sound = 'demo\waves.wav'
+volume = 0.8
+distance = [ 3.0, 30.0 ]
+position = [ 0.0, 0.5, 7.0 ]
+
+[[sound]]
+name = 'bell'
+sound = 'demo\bell.wav'
+volume = 0.9
+distance = [ 1.5, 14.0 ]
+position = [ 4.5, 1.5, 3.0 ]

@@ -37,6 +37,7 @@ Each demo is started with `run.sh <path to built engine executable>` from its fo
 | Characters in the scene: markers placed in the editor where the script puts the player and NPCs (`GetSceneMarker`), animated models of the scene playing an action; the fencers of melee stand on the markers of `yard.scene` | [`melee`](melee) | done |
 | glTF import: models from Blender, Kenney or Sketchfab (`.glb`/`.gltf`) converted by `tools/gltf2gm` into `.gm` and `.tx` and put into a cove scene | [`gltf`](gltf) | done |
 | Script hot reload: `.c` files edited in the editor (window Assets), Ctrl+S recompiles them while the game runs, globals and event handlers kept; compile errors linked to the line, the old code runs until they are fixed | [`model`](model) | done |
+| Scene sounds: sound files played in the editor (window Assets), sound sources put into a scene (`[[sound]]`, looped 3D sound with a volume and distances), the camera hears them | [`scene`](scene) | done |
 
 ## Videos
 
@@ -48,3 +49,4 @@ A recorded run of every demo (`common/record.sh`); click a frame to open the vid
 | [![Ship](ship/media/ship.jpg)](ship/media/ship.mp4)<br>Ship | [![Particles](particles/media/particles.jpg)](particles/media/particles.mp4)<br>Particles | [![Dialog](dialog/media/dialog.jpg)](dialog/media/dialog.mp4)<br>Dialog | [![Save / load](save/media/save.jpg)](save/media/save.mp4)<br>Save / load | [![Sound](sound/media/sound.jpg)](sound/media/sound.mp4)<br>Sound |
 | [![Battle](battle/media/battle.jpg)](battle/media/battle.mp4)<br>Battle | [![Enemy ship](ai-ship/media/ai-ship.jpg)](ai-ship/media/ai-ship.mp4)<br>Enemy ship | [![Island](island/media/island.jpg)](island/media/island.mp4)<br>Island | [![HUD](hud/media/hud.jpg)](hud/media/hud.mp4)<br>HUD | [![Melee](melee/media/melee.jpg)](melee/media/melee.mp4)<br>Melee |
 | [![World map](worldmap/media/worldmap.jpg)](worldmap/media/worldmap.mp4)<br>World map | [![Scene](scene/media/scene.jpg)](scene/media/scene.mp4)<br>Scene | [![glTF import](gltf/media/gltf.jpg)](gltf/media/gltf.mp4)<br>glTF import | [![Characters in the scene](melee/media/melee-editor.jpg)](melee/media/melee-editor.mp4)<br>Characters in the scene | [![Script hot reload](model/media/model-reload.jpg)](model/media/model-reload.mp4)<br>Script hot reload |
+| [![Scene sounds](scene/media/scene-sound.jpg)](scene/media/scene-sound.mp4)<br>Scene sounds |   |   |   |   |

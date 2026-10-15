@@ -13,12 +13,20 @@ namespace storm::scene
 {
 
 // A model of a scene: its .gm and its place; or a marker, a named place without a model where the script
-// puts what the scene does not make itself (the player, an NPC with its AI)
+// puts what the scene does not make itself (the player, an NPC with its AI); or a sound source, a marker
+// that plays a sound there over and over (the surf, a fire, a tavern)
 struct SceneObject
 {
     std::string name;
-    // [[marker]] of the file: no model, only the place; GetSceneMarker gives it to the script
+    // [[marker]] of the file: no model, only the place; GetSceneMarker gives it to the script.
+    // [[sound]] is a marker too, with its sound
     bool marker = false;
+    // the sound of a source: a file of resource/sounds ("demo\waves.wav") or an alias of resource/ini/aliases;
+    // empty for a plain marker
+    std::string sound;
+    // its loudness, 0-1, and the distances in metres: full up to the first, silent from the second
+    float volume = 1.f;
+    float distance[2] = {2.f, 30.f};
     // the model as MSG_MODEL_LOAD_GEO takes it: resource/models/<geometry>.gm, "demo\crate"
     std::string geometry;
     // the shader technique of its nodes, empty for the one of the model
@@ -36,9 +44,17 @@ struct SceneObject
     uint32_t id = 0;
     // the MODELR of the object, invalid_entity when it is not made (or the game has erased it)
     entid_t entity = invalid_entity;
+    // the sound playing for a source (an id of the sound service), 0 when none
+    int32_t voice = 0;
 
+    [[nodiscard]] bool IsSound() const
+    {
+        return marker && !sound.empty();
+    }
     // the same in the file (the entity and the id aside)
     [[nodiscard]] bool SameAs(const SceneObject &other) const;
+    // made the same: what Spawn takes, the place aside
+    [[nodiscard]] bool MadeAs(const SceneObject &other) const;
 };
 
 // The scene loaded now, by LoadScene or by the editor
@@ -61,11 +77,11 @@ std::string FormatScene(const std::vector<SceneObject> &objects);
 std::optional<std::vector<SceneObject>> ReadScene(std::string_view name, std::string &error);
 bool WriteScene(std::string_view name, const std::vector<SceneObject> &objects);
 
-// The MODELR of an object in the layers EXECUTE and REALIZE, at its place; false when the model is not
-// loaded (object.entity stays invalid)
+// The MODELR of an object in the layers EXECUTE and REALIZE, at its place, or the sound of a source playing
+// looped at its place; false when the model or the sound is not loaded and for a plain marker
 bool Spawn(SceneObject &object);
 void Despawn(SceneObject &object);
-// the matrix of the model to the object, and back
+// the matrix of the model to the object, and back (the place of a sound only goes to it)
 void ReadPlace(SceneObject &object);
 void WritePlace(const SceneObject &object);
 
