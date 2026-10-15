@@ -138,12 +138,21 @@ def hull_meshes():
             points.append(row)
             uvs.append(uv)
         grid(hull, points, uvs, lambda p: (p[0], 0.3 * (p[1] - KEEL), 0.0))
-    # transom
+        # the bulwark from inside: the faces are one-sided, and over the deck the far side would
+        # let the sea show through
+        grid(hull, [row[-2:] for row in points], [uv[-2:] for uv in uvs], lambda p: (-p[0], 0.0, 0.0))
+    # transom: a fan along the curved section, a flat triangle would leave gaps at the bilge;
+    # from both sides, its top shows over the deck too
     z0 = zs[0]
     w0, top0 = half_beam(z0), sheer(z0)
-    transom = [(-w0, top0, z0), (w0, top0, z0), (0.0, KEEL, z0)]
-    a, b, c = (hull.vertex(p, (0, 0, -1), (p[0] / 6.0, 0.5)) for p in transom)
-    hull.triangle(a, b, c)
+    edge = [(w0 * (1 - (1 - j / depth) ** 2.2), KEEL + (top0 - KEEL) * j / depth) for j in range(depth + 1)]
+    section = [(-x, y) for x, y in reversed(edge)] + edge[1:]
+    centre = (0.0, (KEEL + top0) / 2, z0)
+    for facing in (-1, 1):
+        c = hull.vertex(centre, (0, 0, facing), (0.0, 0.5))
+        rim = [hull.vertex((x, y, z0), (0, 0, facing), (x / 6.0, (y - KEEL) / (top0 - KEEL))) for x, y in section]
+        for a, b in zip(rim, rim[1:] + rim[:1]):
+            hull.triangle(c, a, b)
 
     deck = Mesh("deck", f"ships\\{SHIP.lower()}\\deck.tga")
     points, uvs = [], []
