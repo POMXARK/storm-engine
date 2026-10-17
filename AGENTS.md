@@ -36,6 +36,16 @@ an ImGui editor, scene authoring, script hot reload, glTF import and self-contai
 - Start the engine in the background first, capture, then read the PNG to check the result.
 - Do not put captures into the repo unless the task asks for it.
 
+## Modelling in Blender (blender MCP)
+- Plan first: write the parts with exact sizes in metres and positions before any code
+  (e.g. "post 0.2 x 0.2 x 2.0 at z=1.0; beam 1.2 x 0.2 x 0.2 at z=1.4").
+- Build from primitives (cube, cylinder) plus modifiers (Bevel, Mirror, Array, Boolean, Solidify);
+  do not move single vertices by hand. Join parts and apply scale at the end.
+- One part per `execute_blender_code` call. After each call print `obj.dimensions` and
+  `obj.location` and compare with the plan, then check with `blender_look`; fix before the next part.
+- Ready assets (Poly Haven, CC0) are fine; credit them in CREDITS.md.
+- Export for the engine as glTF; keep the generating script as `make_<name>.py` next to the asset.
+
 ## Rules
 - Format with the root `.clang-format`. Keep the style of the surrounding code.
 - Prefer the C++ standard library over new custom containers/utilities.
