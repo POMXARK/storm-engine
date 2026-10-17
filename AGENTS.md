@@ -28,6 +28,14 @@ an ImGui editor, scene authoring, script hot reload, glTF import and self-contai
 - Never drive the game with simulated key presses (xdotool): test scenarios go through a script
   `autotest.c` using `PostEvent` with delays.
 
+## Screenshots and video (Windows)
+- Use ffmpeg from the shell, not an MCP server (no tool definitions in the context):
+  - screenshot: `ffmpeg -y -f gdigrab -i desktop -frames:v 1 shot.png`
+  - 10 s video: `ffmpeg -y -f gdigrab -framerate 30 -i desktop -t 10 -c:v libx264 -pix_fmt yuv420p clip.mp4`
+  - one window: replace `-i desktop` with `-i title="<window title>"`.
+- Start the engine in the background first, capture, then read the PNG to check the result.
+- Do not put captures into the repo unless the task asks for it.
+
 ## Rules
 - Format with the root `.clang-format`. Keep the style of the surrounding code.
 - Prefer the C++ standard library over new custom containers/utilities.

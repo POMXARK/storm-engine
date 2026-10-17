@@ -5,6 +5,33 @@
     "auto": true,
     "prune": true
   },
+  "mcp": {
+    "duckduckgo": {
+      "type": "local",
+      "command": [
+        "uvx",
+        "duckduckgo-mcp-server"
+      ],
+      "enabled": true
+    },
+    "playwright": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "@playwright/mcp@latest"
+      ],
+      "enabled": false
+    },
+    "windows": {
+      "type": "local",
+      "command": [
+        "uvx",
+        "windows-mcp"
+      ],
+      "enabled": false
+    }
+  },
   "provider": {
     "llama": {
       "npm": "@ai-sdk/openai-compatible",
