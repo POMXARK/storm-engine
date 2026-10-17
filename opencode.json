@@ -30,6 +30,23 @@
         "windows-mcp"
       ],
       "enabled": false
+    },
+    "context7": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "@upstash/context7-mcp"
+      ],
+      "enabled": true
+    },
+    "blender": {
+      "type": "local",
+      "command": [
+        "uvx",
+        "mcp-for-blender"
+      ],
+      "enabled": false
     }
   },
   "provider": {
