@@ -27,7 +27,8 @@
       "type": "local",
       "command": [
         "uvx",
-        "windows-mcp"
+        "windows-mcp",
+        "serve"
       ],
       "enabled": false
     },
