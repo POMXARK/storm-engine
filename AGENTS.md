@@ -36,6 +36,18 @@ an ImGui editor, scene authoring, script hot reload, glTF import and self-contai
 - Start the engine in the background first, capture, then read the PNG to check the result.
 - Do not put captures into the repo unless the task asks for it.
 
+## Debugging crashes (Windows)
+- The engine is open source and the Debug build has a PDB: never decompile `engine.exe` in Ghidra
+  and never parse dumps by hand. Ghidra is only for the original game binaries.
+- Read a dump with cdb (Windows SDK, Debugging Tools) and symbols from the build folder:
+  `cdb -z crash.dmp -y build\default\Debug -c ".ecxr; kP 30; .frame 0; dv /t /v; q"`
+  This gives the exact `file.cpp:line`, arguments and locals of every frame.
+- Or reproduce under the debugger: `cdb -g -G -y build\default\Debug build\default\Debug\engine.exe`.
+- An AV inside `strlen` on a member array (`char name[256]`) means the object pointer is bad
+  (freed or garbage), not the string. Check object lifetime first: who frees it, is the pointer
+  still in a container, was the entity/model released before the call.
+- Turn logging on before guessing: `spdlog::set_level` in `src/apps/engine/src/main.cpp`.
+
 ## Modelling in Blender (blender MCP)
 - Plan first: write the parts with exact sizes in metres and positions before any code
   (e.g. "post 0.2 x 0.2 x 2.0 at z=1.0; beam 1.2 x 0.2 x 0.2 at z=1.4").
