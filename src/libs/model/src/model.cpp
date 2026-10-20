@@ -675,6 +675,9 @@ float MODELR::Trace(const CVECTOR &src, const CVECTOR &dst)
 
         return bd;
     }
+    // the geometry file was not found: nothing to hit
+    if (root == nullptr)
+        return 2.0f;
     float d = root->Trace(src, dst);
     colideNode = bestTraceNode;
     return d;

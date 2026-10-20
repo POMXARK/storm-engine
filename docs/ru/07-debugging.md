@@ -100,3 +100,12 @@ demos/common/record.sh demos/sea build/Debug/engine videos/sea.mp4 \
 Кадр для проверки: `ffmpeg -ss 12 -i videos/sea.mp4 -frames:v 1 frame.png`. Шаги отстают от плана на время загрузки сцены, поэтому моменты событий лучше сверять с метками времени Trace в `compile.log`. Движок убивается сигналом, поэтому последние секунды Trace в `compile.log` могут не дойти до диска: в своих прогонах лучше выходить из демо через Esc (`ExitProgram`).
 
 Без нажатий клавиш (окно не забирает фокус, рядом можно работать): сценарий на `PostEvent` сам ведёт игру, а ffmpeg пишет окно по `-window_id`. Звук идёт в null-sink без loopback. Персонаж в локации доходит до точки сам, как NPC: `SendMessage(&chr, "lsfff", MSG_NPCHARACTER_SETTASK, "Runto point", x, y, z)` (30400; ещё есть `"Goto point"`). Путь строится по патчу, а останавливается персонаж примерно в 0,5 м до цели. Корабль игрока ведёт SEA_AI, если снять `MainCharacter`: флаг читается каждый кадр (`ship.cpp`, `AIShipMoveController`). После этого задача `AI_MESSAGE_SHIP_SET_TASK` управляет им и его пушками, как вражеским. Пока окно не отрисовано, x11grab снимает то, что под ним, поэтому начало записи обрезают.
+
+## 7.2 Краш под gdb
+
+Debug-сборка Linux содержит символы, поэтому стек с файлами и строками gdb даёт сразу, без минидампов и разбора RVA:
+```
+cd <папка игры>
+timeout -s INT 90 gdb -q -batch -ex 'handle SIGPIPE nostop noprint' -ex run -ex 'bt 30' build/Debug/engine
+```
+- Модель, у которой не нашёлся `.gm` (`can't open geometry file` в `system.log`), остаётся с `root == nullptr`. Методы `MODELR` должны это проверять. Без проверки в `MODELR::Trace` меню, у которого нет моделей пунктов, падало в `NODER::Trace(this=0x0)` из `InterfaceBackScene::CheckMousePos`. Теперь такая модель возвращает 2.0f, то есть «нет попадания».
