@@ -45,6 +45,7 @@ $W/venv-economy/bin/pip install optuna==4.1.0 pytest==8.3.3
 ### Скачано вручную
 - glslang (KhronosGroup, `main-tot`, linux-x86_64-release) → `tools/bin/glslangValidator` — нужен meson'у для сборки dxvk-native. Аналог `apt install glslang-tools`.
 - PowerShell 7.4.6 (github.com/PowerShell/PowerShell, `powershell-7.4.6-linux-x64.tar.gz`) → `tools/pwsh/pwsh`, без sudo — проверка `run.ps1` демо на Linux. Для сборки не нужен.
+- Ghidra 12.1.4 (github.com/NationalSecurityAgency/ghidra, SHA-256 из описания релиза) → `tools/ghidra_12.1.4_PUBLIC`, без sudo, JDK 24 уже стоял — декомпиляция DLL оригинальных «Корсаров». Для сборки не нужна.
 
 ```bash
 curl -sL https://github.com/KhronosGroup/glslang/releases/download/main-tot/glslang-main-linux-x86_64-release.tar.gz | tar xz -C tools
