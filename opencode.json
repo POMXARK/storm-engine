@@ -6,6 +6,24 @@
     "prune": true
   },
   "mcp": {
+    "ghidra": {
+      "type": "local",
+      "command": [
+        "uvx",
+        "--python", "3.13",
+        "--from", "ghidra-mcp[headless] @ git+https://github.com/LaurieWired/GhidraMCP",
+        "ghidra-mcp",
+        "--headless",
+        "--binary", "C:\\corsairs-remake\\engine\\build\\default\\Debug\\engine.exe",
+        "--extension-jar", "C:\\Users\\User\\AppData\\Local\\ghidramcp\\GhidraMCP.jar",
+        "--ready-timeout", "600"
+      ],
+      "environment": {
+        "GHIDRA_INSTALL_DIR": "C:\\Users\\User\\AppData\\Local\\ghidra_12.1.4\\ghidra_12.1.4_PUBLIC",
+        "JAVA_HOME": "C:\\Users\\User\\AppData\\Local\\jdk-21\\jdk-21.0.12.1+1"
+      },
+      "enabled": true
+    },
     "duckduckgo": {
       "type": "local",
       "command": [

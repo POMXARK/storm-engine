@@ -210,7 +210,9 @@ bool NODER::Init(const char *lightPath, const char *pname, const char *oname, co
     geo = gs->CreateGeometry(sys_modelName_full.c_str(), sys_LightPath.c_str(), 0, lmPath);
     if (!geo)
     {
-        return false;
+        geo = gs->CreateGeometry("sphere", nullptr, 0);
+        if (!geo)
+            return false;
     }
 
     // load geometry radius and center

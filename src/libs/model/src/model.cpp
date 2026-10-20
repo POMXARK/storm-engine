@@ -364,7 +364,6 @@ uint64_t MODELR::ProcessMessage(MESSAGE &message)
         {
             delete root;
             root = nullptr;
-            core.EraseEntity(GetId());
             return 0;
         }
         // CVECTOR tmp;
@@ -456,16 +455,22 @@ uint64_t MODELR::ProcessMessage(MESSAGE &message)
 
 NODE *MODELR::GetNode(int32_t n)
 {
+    if (root == nullptr)
+        return nullptr;
     return root->GetNode(n);
 }
 
 NODE *MODELR::FindNode(const char *cNodeName)
 {
+    if (root == nullptr)
+        return nullptr;
     return root->FindNode(cNodeName);
 }
 
 void MODELR::Update()
 {
+    if (root == nullptr)
+        return;
     CVECTOR tmp;
     static_cast<NODER *>(root)->Update(mtx, tmp);
 }

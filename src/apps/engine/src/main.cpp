@@ -1,5 +1,10 @@
 #include <thread>
 
+#ifdef _WIN32
+#include <windows.h>
+#include <dbghelp.h>
+#endif
+
 #include <SDL2/SDL.h>
 #include <mimalloc-new-delete.h>
 #include <mimalloc.h>
@@ -81,6 +86,79 @@ void mimalloc_fun(const char *msg, void *arg)
     }
 }
 
+#ifdef _WIN32
+LONG WINAPI crash_dump_handler(_EXCEPTION_POINTERS *exceptionInfo)
+{
+    __try
+    {
+        wchar_t modulePath[MAX_PATH]{};
+        GetModuleFileNameW(nullptr, modulePath, MAX_PATH);
+
+        wchar_t *lastSlash = nullptr;
+        for (wchar_t *p = modulePath; *p; ++p)
+            if (*p == L'\\') lastSlash = p;
+
+        if (lastSlash != nullptr)
+        {
+            *lastSlash = L'\0';
+
+            // Write raw stack backtrace to text file (works even in SEH context)
+            wchar_t stackPath[MAX_PATH];
+            wcscpy_s(stackPath, MAX_PATH, modulePath);
+            wcscat_s(stackPath, MAX_PATH, L"\\crash_stack.txt");
+            HANDLE hStack = CreateFileW(stackPath, GENERIC_WRITE, 0, nullptr,
+                CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+            if (hStack != INVALID_HANDLE_VALUE)
+            {
+                void *stack[64];
+                unsigned int frames = CaptureStackBackTrace(0, 64, stack, nullptr);
+
+                char buf[256];
+                int len = _snprintf_s(buf, sizeof(buf),
+                    "exception_addr=%p code=0x%08X\nmodule_base=%p\nframes=%u\n",
+                    exceptionInfo->ExceptionRecord->ExceptionAddress,
+                    exceptionInfo->ExceptionRecord->ExceptionCode,
+                    GetModuleHandleW(nullptr), frames);
+                DWORD written;
+                WriteFile(hStack, buf, (DWORD)len, &written, nullptr);
+
+                for (unsigned int i = 0; i < frames; ++i)
+                {
+                    len = _snprintf_s(buf, sizeof(buf), "frame[%u]=%p\n", i, stack[i]);
+                    WriteFile(hStack, buf, (DWORD)len, &written, nullptr);
+                }
+                CloseHandle(hStack);
+            }
+
+            // Write minidump with thread info
+            wchar_t dumpPath[MAX_PATH];
+            wcscpy_s(dumpPath, MAX_PATH, modulePath);
+            wcscat_s(dumpPath, MAX_PATH, L"\\crash.dmp");
+            HANDLE file = CreateFileW(
+                dumpPath, GENERIC_WRITE, 0, nullptr,
+                CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+
+            if (file != INVALID_HANDLE_VALUE)
+            {
+                MINIDUMP_EXCEPTION_INFORMATION mdExc{};
+                mdExc.ThreadId = GetCurrentThreadId();
+                mdExc.ExceptionPointers = exceptionInfo;
+
+                MiniDumpWriteDump(GetCurrentProcess(), GetCurrentProcessId(), file,
+                                  (MINIDUMP_TYPE)(MiniDumpNormal | MiniDumpWithFullMemory | MiniDumpWithThreadInfo),
+                                  &mdExc, nullptr, nullptr);
+                CloseHandle(file);
+            }
+        }
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER)
+    {
+    }
+
+    return EXCEPTION_CONTINUE_SEARCH;
+}
+#endif
+
 } // namespace
 
 void HandleWindowEvent(const storm::OSWindow::Event &event)
@@ -123,6 +201,10 @@ void HandleWindowEvent(const storm::OSWindow::Event &event)
 
 int main(int argc, char *argv[])
 {
+#ifdef _WIN32
+    SetUnhandledExceptionFilter(crash_dump_handler);
+#endif
+
     CLI::App app("Storm Engine");
 
     bool enable_editor = false;

@@ -1479,7 +1479,11 @@ bool SHIP::Mount(ATTRIBUTES *_pAShip)
     sprintf_s(temp_str, "ships\\%s\\%s", cShipIniName, cShipIniName);
 
     model_id = core.CreateEntity("MODELR");
-    core.Send_Message(GetModelEID(), "ls", MSG_MODEL_LOAD_GEO, temp_str);
+    if (core.Send_Message(GetModelEID(), "ls", MSG_MODEL_LOAD_GEO, temp_str) == 0)
+    {
+        core.Trace("SHIP::Mount: failed to load model '%s'", temp_str);
+        return false;
+    }
     core.AddToLayer(HULL_TRACE, GetModelEID(), 10);
     core.AddToLayer(SUN_TRACE, GetModelEID(), 10);
     core.AddToLayer(MAST_SHIP_TRACE, GetId(), 10);
@@ -1529,12 +1533,14 @@ bool SHIP::Mount(ATTRIBUTES *_pAShip)
     core.Send_Message(sea_id, "lic", MSG_SHIP_CREATE, temp_id,
                       CVECTOR(State.vPos.x + fXOffset, State.vPos.y, State.vPos.z + fZOffset));
 
-    GEOS::INFO ginfo;
+    GEOS::INFO ginfo = {};
     MODEL *pModel = GetModel();
-    Assert(pModel);
-    NODE *pNode = pModel->GetNode(0);
-    Assert(pNode);
-    pNode->geo->GetInfo(ginfo);
+    if (pModel)
+    {
+        NODE *pNode = pModel->GetNode(0);
+        if (pNode && pNode->geo)
+            pNode->geo->GetInfo(ginfo);
+    }
 
     CalcRealBoxsize();
 
