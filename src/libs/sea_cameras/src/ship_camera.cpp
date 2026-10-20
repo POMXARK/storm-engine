@@ -260,6 +260,11 @@ uint32_t SHIP_CAMERA::AttributeChanged(ATTRIBUTES *pAttr)
         fInvertMouseX = pAttr->GetAttributeAsFloat();
     if (*pAttr == "InvertMouseY")
         fInvertMouseY = pAttr->GetAttributeAsFloat();
+    // angles around the ship set by a script: a scripted fly-around without the mouse
+    if (*pAttr == "AngleY")
+        vAng.y = pAttr->GetAttributeAsFloat();
+    if (*pAttr == "AngleX")
+        vAng.x = pAttr->GetAttributeAsFloat();
 
     return 0;
 }
