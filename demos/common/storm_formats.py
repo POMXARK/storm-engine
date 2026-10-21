@@ -214,9 +214,12 @@ def write_gm(meshes, path, skinned=False, bsp=False, labels=()):
                                         VERTEX_COLOR, *uv)
             else:
                 vertices += struct.pack("<3f3fI2f", *p, *n, VERTEX_COLOR, *uv)
+        assert len(mesh.vertices) <= 65536, f"16-bit indices: {mesh.name} has {len(mesh.vertices)} vertices"
         striangle += len(mesh.triangles)
         svertex += len(mesh.vertices)
-    assert svertex < 65536, "16-bit indices"
+    # a static object is drawn with BaseVertexIndex = its first vertex (geom_static.cpp, an int) and the BSP
+    # keeps 24-bit indices, so only an object is limited; the skinned ones go through model.cpp, kept whole
+    assert not skinned or svertex <= 65536, "16-bit indices"
 
     # RDF_LABEL; group names are matched by the address of the string, so equal names share one
     label_data = b""
