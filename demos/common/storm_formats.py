@@ -11,9 +11,9 @@
 Meshes and skeletons are authored in model space as they should appear on screen; the writers take
 care of the engine's conventions (see the notes at write_gm and write_an).
 """
+import heapq
 import math
 import struct
-from collections import deque
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
@@ -490,6 +490,9 @@ PTC_NOSEA = fourcc(" HTE")
 PTC_UNREACHABLE = 3
 
 
+PTC_STEP = 0.5  # metres added to every step between triangles of a path, see write_ptc
+
+
 def write_ptc(triangles, path, materials=("ground",), cell=1.0):
     """Writes a .ptc character patch (location/include/ptc.h, PtcData::Load).
 
@@ -504,7 +507,10 @@ def write_ptc(triangles, path, materials=("ground",), cell=1.0):
     - the lookup grid splits the bounds into cells of about `cell` metres, each listing the
       triangles whose bounds overlap it
     - the path table has a row per triangle with 2 bits per destination triangle: the edge to
-      leave through to get there by the fewest triangles (breadth-first), 3 if unreachable
+      leave through on the shortest way there, 3 if unreachable. The way is measured in metres from
+      centre to edge middle to centre (Dijkstra): counted in triangles, a floor of long thin fans
+      sends the characters round the block. Each step costs PTC_STEP metres more: else the way
+      runs down a chain of slivers along a wall, where a character sticks at the vertex of a fan
     """
     vertex_index = {}
     vertices = []
@@ -567,23 +573,37 @@ def write_ptc(triangles, path, materials=("ground",), cell=1.0):
                 grid[mz * map_w + mx].append(t)
     indices = [t for cell_list in grid for t in cell_list]
 
-    # one breadth-first search per destination fills its column of the table
+    # the steps between neighbours: (neighbour, metres, the edge of the neighbour back to here)
+    centres = [[sum(vertices[i][k] for i in ids) / 3 for k in range(3)] for ids, _ in tris]
+    steps = []
+    for t, (ids, _) in enumerate(tris):
+        out = []
+        for j, n in enumerate(neighbours[t]):
+            if n < 0:
+                continue
+            a, b = vertices[ids[j]], vertices[ids[(j + 1) % 3]]
+            mid = [(a[k] + b[k]) / 2 for k in range(3)]
+            metres = math.dist(centres[t], mid) + math.dist(mid, centres[n]) + PTC_STEP
+            out.append((n, metres, neighbours[n].index(t)))
+        steps.append(out)
+
+    # one shortest-path search per destination fills its column of the table
     line_size = (count + 3) // 4
     table = bytearray(b"\xff" * (line_size * count))
     for to in range(count):
-        seen = {to}
-        queue = deque([to])
-        while queue:
-            u = queue.popleft()
-            for n in neighbours[u]:
-                if n < 0 or n in seen:
-                    continue
-                seen.add(n)
-                queue.append(n)
-                edge = neighbours[n].index(u)
-                byte = n * line_size + (to >> 2)
-                shift = (to & 3) * 2
-                table[byte] = (table[byte] & ~(3 << shift)) | (edge << shift)
+        dist = {to: 0.0}
+        heap = [(0.0, to)]
+        byte, shift = to >> 2, (to & 3) * 2
+        while heap:
+            d, u = heapq.heappop(heap)
+            if d > dist[u]:
+                continue
+            for n, w, edge in steps[u]:
+                if d + w < dist.get(n, math.inf):
+                    dist[n] = d + w
+                    heapq.heappush(heap, (d + w, n))
+                    at = n * line_size + byte
+                    table[at] = (table[at] & ~(3 << shift)) | (edge << shift)
 
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)

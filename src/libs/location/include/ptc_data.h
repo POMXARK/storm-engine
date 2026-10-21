@@ -13,7 +13,9 @@
 #include "c_vector.h"
 #include "ptc.h"
 
-#define PTCDATA_MAXSTEPS 32
+// patches converted from other games cut the floor into thousands of triangles: a path
+// across a town takes hundreds of them, past the limit the character walks straight at the goal
+#define PTCDATA_MAXSTEPS 512
 
 class VDX9RENDER;
 

@@ -315,8 +315,10 @@ void LocationCamera::Execute(uint32_t real_delta)
             oldPos = camPos;
             oldLookTo = lookTo;
         }
-        isTeleport = false;
     }
+    // only the very first frame places the camera at once: left on, the flag ate the first
+    // morph after it (the first dialog in a location began with a jump)
+    isTeleport = false;
     auto realPos = camPos;
     auto *sb = static_cast<SEA_BASE *>(core.GetEntityPointer(sea));
     if (sb && wmode != cwm_free && location->IsSwimming())
