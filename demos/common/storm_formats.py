@@ -735,6 +735,24 @@ def write_xps(emitters, path):
 # Latin, Cyrillic and the punctuation the demo texts use
 FONT_CHARS = [chr(c) for c in range(33, 127)] + [chr(c) for c in range(0x410, 0x450)] + ["Ё", "ё", "—", "«", "»", "·"]
 FONT_SKIP_KEYS = {";", "[", "]"}  # would break the ini syntax
+FONT_NO_GLYPH = "\U0010FFFD"  # a private code no font has: renders the .notdef box of the font
+
+
+def _font_glyph(font, ch):
+    """The character to draw for `ch`: itself, or for the old Russian fonts of Windows (no Cyrillic in
+    Unicode, their Cyrillic sits on the bytes of cp1251, U+00C0..U+00FF) the character of its cp1251 byte.
+    Drawn as is, a missing glyph would put the .notdef box of the font into the atlas."""
+    notdef = font.getmask(FONT_NO_GLYPH)
+    def missing(c):
+        mask = font.getmask(c)
+        return mask.size == notdef.size and bytes(mask) == bytes(notdef)
+    if not missing(ch):
+        return ch
+    try:
+        legacy = chr(ch.encode("cp1251")[0])
+    except UnicodeEncodeError:
+        return ch
+    return ch if missing(legacy) else legacy
 
 
 def write_fonts(fonts, resource, comment, shadow=True):
@@ -755,10 +773,11 @@ def write_fonts(fonts, resource, comment, shadow=True):
         x, y = 1, 1
         records = []
         for ch in FONT_CHARS:
-            w = int(font.getlength(ch)) + outline * 2 + 1
+            glyph = _font_glyph(font, ch)
+            w = int(font.getlength(glyph)) + outline * 2 + 1
             if x + w + 1 > atlas_w:
                 x, y = 1, y + cell_h + 2
-            draw.text((x + outline, y + outline), ch, font=font, fill=(255, 255, 255, 255),
+            draw.text((x + outline, y + outline), glyph, font=font, fill=(255, 255, 255, 255),
                       stroke_width=outline, stroke_fill=(0, 0, 0, 255))
             records.append((ch, x, y, w))
             x += w + 2
