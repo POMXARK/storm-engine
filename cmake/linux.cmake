@@ -40,6 +40,7 @@ if (STORM_MESA_NINE)
     )
     include_directories("${NINE_NATIVE_INCLUDE_DIRS}")
     add_custom_target(dependencies ALL DEPENDS nine-native)
+    set(NATIVE_D3D9_PROJECT nine-native)
 else()
     message("Using DXVK Native for D3D9 API")
 
@@ -52,6 +53,7 @@ else()
         CONFIGURE_HANDLED_BY_BUILD ON
         CONFIGURE_COMMAND meson setup ../dxvk-native --buildtype=release -Denable_d3d11=false -Denable_d3d10=false -Denable_dxgi=false
         BUILD_COMMAND     ninja
+        BUILD_BYPRODUCTS  <BINARY_DIR>/src/d3d9/libdxvk_d3d9.so
         INSTALL_COMMAND   ""
     )
     ExternalProject_Get_property(dxvk-native SOURCE_DIR BINARY_DIR)
@@ -62,4 +64,13 @@ else()
     set(NATIVE_D3D9_LIBS ${BINARY_DIR}/src/d3d9/libdxvk_d3d9.so)
     include_directories("${DXVK_NATIVE_INCLUDE_DIRS}")
     add_custom_target(dependencies ALL DEPENDS dxvk-native)
+    set(NATIVE_D3D9_PROJECT dxvk-native)
 endif()
+
+# the libraries link the native D3D9 through this target: it brings the external project first, so that
+# "cmake --build --target engine" in a fresh build folder clones and builds it before the sources that
+# include its headers (ours: ninja stopped with "libdxvk_d3d9.so ... missing and no known rule")
+add_library(native_d3d9 INTERFACE)
+target_link_libraries(native_d3d9 INTERFACE ${NATIVE_D3D9_LIBS})
+add_dependencies(native_d3d9 ${NATIVE_D3D9_PROJECT})
+set(NATIVE_D3D9_LIBS native_d3d9)
