@@ -293,6 +293,7 @@ BITextInfo::BITextInfo(BITextInfo &&text_info) noexcept
     nFont = text_info.nFont;
     dwColor = text_info.dwColor;
     bShadow = text_info.bShadow;
+    nAlign = text_info.nAlign;
     pARefresh = text_info.pARefresh;
 
     text_info.nFont = -1;
@@ -307,6 +308,7 @@ BITextInfo::BITextInfo(const BITextInfo &text_info)
     nFont = text_info.nFont;
     dwColor = text_info.dwColor;
     bShadow = text_info.bShadow;
+    nAlign = text_info.nAlign;
     pARefresh = text_info.pARefresh;
 
     pRS->IncRefCounter(nFont);
@@ -340,6 +342,8 @@ void BITextInfo::Init(VDX9RENDER *rs, ATTRIBUTES *pA)
     fScale = pA->GetAttributeAsFloat("scale", 1.f);
     dwColor = pA->GetAttributeAsDword("color", 0xFFFFFFFF);
     bShadow = pA->GetAttributeAsDword("shadow", 1) != 0;
+    const std::string align = to_string(pA->GetAttribute("align"));
+    nAlign = align == "left" ? PR_ALIGN_LEFT : align == "right" ? PR_ALIGN_RIGHT : PR_ALIGN_CENTER;
 
     ATTRIBUTES *pAttr = pA->GetAttributeClass("pos");
     if (pAttr)
@@ -370,7 +374,7 @@ void BITextInfo::Print()
             sText = textAttr ? textAttr : "";
         }
         if (!sText.empty())
-            pRS->ExtPrint(nFont, dwColor, 0, PR_ALIGN_CENTER, bShadow, fScale, 0, 0, pos.x, pos.y, "%s", sText.c_str());
+            pRS->ExtPrint(nFont, dwColor, 0, nAlign, bShadow, fScale, 0, 0, pos.x, pos.y, "%s", sText.c_str());
     }
 }
 
@@ -378,8 +382,7 @@ void BITextInfo::Print(std::string outputText)
 {
     if (nFont != -1 && !outputText.empty())
     {
-        pRS->ExtPrint(nFont, dwColor, 0, PR_ALIGN_CENTER, bShadow, fScale, 0, 0, pos.x, pos.y, "%s",
-                      outputText.c_str());
+        pRS->ExtPrint(nFont, dwColor, 0, nAlign, bShadow, fScale, 0, 0, pos.x, pos.y, "%s", outputText.c_str());
     }
 }
 

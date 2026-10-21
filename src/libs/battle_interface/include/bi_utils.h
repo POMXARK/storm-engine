@@ -25,6 +25,8 @@ class BITextInfo final
     int32_t nFont;
     uint32_t dwColor;
     bool bShadow;
+    // PR_ALIGN_CENTER by default, "align" = "left" / "right" makes pos the start / the end of the text
+    int32_t nAlign = PR_ALIGN_CENTER;
 
     ATTRIBUTES *pARefresh;
 };
