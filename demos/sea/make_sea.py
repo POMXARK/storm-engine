@@ -1,7 +1,7 @@
 """Builds the sea demo assets: three skyboxes (day, sunset, storm), the animated wave height frames
 of the sea and its foam, trash and light sprites.
 
-Usage: make_sea.py <output resource dir>
+Usage: make_sea.py <output resource dir> [--waves fft]
 Writes textures/weather/skies/<preset>/sky_{fr,lf,bk,rt,up}.tga.tx, sea/sea0000..0063.tga,
 textures/weather/sea/pena/pena.tga.tx, textures/seatrash.tga.tx and textures/sealight.tga.tx.
 Everything is generated, so the demo has no third-party assets.
@@ -146,6 +146,52 @@ def sea_frames():
     return [((f - low) / (high - low) * 255).astype(np.uint8) for f in frames]
 
 
+# the FFT sea (Tessendorf, "Simulating Ocean Water", 2001): the JONSWAP spectrum of a wind sea, the waves
+# summed by an inverse FFT. Frame units: the tile is SEA_WIDTH pixels; the engine plays the frames over
+# 128 / Scale m in 64 / AnimSpeed s, and program/sea.c sets AnimSpeed so that a wave of n crests per tile
+# goes round SEA_CYCLES * sqrt(n) times a loop (deep water), as in sea_frames
+SEA_CYCLES = 1.6
+# the tile of the swell layer (Scale1 = 0.6) and the wind of program/sea.c: the spectrum peaks at
+# waves of g T^2 / 2 pi with T = 2 pi U / (0.877 g), 83 m at 10 m/s, about 2.6 crests per tile
+SEA_TILE = 128 / 0.6
+SEA_WIND = 10.0
+JONSWAP_GAMMA = 3.3
+# the waves run within this of the wind (cos^SPREAD of the angle), none against it
+SEA_SPREAD = 4
+
+
+def sea_frames_fft():
+    """Heights of a wind sea running along +y of the frame (+z of the world, Wind.Angle 0): every wave
+    of the tile goes a whole number of times round the loop, so the animation loops without a seam."""
+    g = 9.81
+    n = np.fft.fftfreq(SEA_WIDTH, 1.0 / SEA_WIDTH)
+    nx, ny = np.meshgrid(n, n)
+    count = np.hypot(nx, ny)
+    k = 2 * math.pi * np.maximum(count, 1e-6) / SEA_TILE
+    omega = np.sqrt(g * k)
+    omega_p = 0.877 * g / SEA_WIND
+    sigma = np.where(omega <= omega_p, 0.07, 0.09)
+    peak = JONSWAP_GAMMA ** np.exp(-((omega - omega_p) ** 2) / (2 * sigma ** 2 * omega_p ** 2))
+    spectrum = omega ** -5.0 * np.exp(-1.25 * (omega_p / omega) ** 4) * peak
+    # S(omega) to the wave number plane: d omega / dk = g / (2 omega), over k for the ring
+    spectrum *= g / (2 * omega) / k
+    cos = ny / np.maximum(count, 1e-6)
+    spectrum *= np.where(cos > 0, cos, 0.0) ** SEA_SPREAD
+    # nothing finer than 4 pixels (aliasing in the bilinear lookup of the engine), no mean level
+    spectrum[(count < 1) | (count > SEA_WIDTH / 4)] = 0.0
+    rng = np.random.default_rng(5)
+    h0 = (rng.normal(size=count.shape) + 1j * rng.normal(size=count.shape)) * np.sqrt(spectrum / 2)
+    cycles = np.round(SEA_CYCLES * np.sqrt(count))
+    frames = []
+    for frame in range(SEA_FRAMES):
+        # one-sided waves: the real part of the sum runs every wave along its own k
+        wave = h0 * np.exp(-2j * math.pi * cycles * frame / SEA_FRAMES)
+        frames.append(np.fft.ifft2(wave).real)
+    low = min(f.min() for f in frames)
+    high = max(f.max() for f in frames)
+    return [((f - low) / (high - low) * 255).astype(np.uint8) for f in frames]
+
+
 def write_sea_tga(height, path):
     # uncompressed true colour, 32 bits, top-left origin
     header = struct.pack("<BBB5sHHHHBB", 0, 0, 2, b"\0" * 5, 0, 0, SEA_WIDTH, SEA_WIDTH, 32, 0x28)
@@ -175,11 +221,13 @@ def sprite(color, radius):
 
 def main():
     resource = Path(sys.argv[1])
+    # --waves fft: the JONSWAP sea of sea_frames_fft; the default is the sum of sines of sea_frames
+    fft = sys.argv[2:4] == ["--waves", "fft"]
     textures = resource / "textures"
     for preset in SKY_PRESETS:
         for face in SKY_FACES:
             write_tx(sky_face(face, preset), textures / "weather" / "skies" / preset / f"{face}.tga.tx")
-    for index, height in enumerate(sea_frames()):
+    for index, height in enumerate(sea_frames_fft() if fft else sea_frames()):
         write_sea_tga(height, resource / "sea" / f"sea{index:04d}.tga")
     write_tx(foam(), textures / "weather" / "sea" / "pena" / "pena.tga.tx")
     write_tx(sprite((200, 190, 160), 20), textures / "seatrash.tga.tx")

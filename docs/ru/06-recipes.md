@@ -122,6 +122,8 @@ Sea.Sea2.WaterColor = ...; Sea.Sea2.SkyColor = ...; Sea.Sea2.Amp1 = 6.0; ... Sea
 ```
 - `Demo_FogColor` получает x, y, z вершины (`GetEventData` ×3) и возвращает ARGB.
 - Атрибуты `Sea2.*` читаются в `Sea::AttributeChanged` (`sea.cpp`): два слоя волн (`Amp/AnimSpeed/Scale/MoveSpeed 1` — крупная зыбь, `…2` — рябь), `Reflection`, `Transparency`, `Frenel`, `Attenuation`, пена `Foam*` (текстура `weather\sea\pena\pena.tga`), `SimpleSea`, `LodScale`, `GridStep`; `Sea.Fog.*`, `Sea.MaxSeaHeight`.
+- Корпус следует за волной с долей `Rocking.y` (высота) и `Rocking.az` (крен) в секунду, атрибуты типа корабля (`ship.cpp ShipRocking`). Без них движок берёт 1.0, и корабль трясёт на каждой ряби; у кораблей TEHO — 0.4 и 0.02–0.05.
+- Паруса и флаги каждый кадр берут силу и направление ветра из погоды (`sail.cpp`, `Weather.Wind.Speed/Angle` применяются сразу через `AttributeChanged`): постоянный ветер — неподвижные паруса, порывы задаются из скрипта по таймеру.
 - Если море зелёное (дефолт `v4SeaColor` 0,255,0), значит `Sea2.*` не применились: см. 3.4.
 - Камеру в шторм держать выше гребней (`Amp1` 12 → камера на y = 20).
 
