@@ -1375,11 +1375,21 @@ void BATTLE_NAVIGATOR::SetIsland()
                         // fill fone color
                         rs->Clear(0, nullptr, D3DCLEAR_TARGET, m_dwSeaColor, 1.f, 0);
                         // show island
+                        // ours: the model draws with its own techniques inside this one; without Effects (Linux)
+                        // the renderer keeps one set of saved states, the inner technique drops the outer one's,
+                        // and its AlphaTestEnable = false stayed for the locations after the sea
+                        IDirect3DStateBlock9 *pStates = nullptr;
+                        static_cast<IDirect3DDevice9 *>(rs->GetD3DDevice())->CreateStateBlock(D3DSBT_ALL, &pStates);
                         if (rs->TechniqueExecuteStart("battle_island_gettexture"))
                         {
                             pM->ProcessStage(Entity::Stage::realize, 1);
                             while (rs->TechniqueExecuteNext())
                                 ;
+                        }
+                        if (pStates)
+                        {
+                            pStates->Apply();
+                            pStates->Release();
                         }
                         rs->SetRenderTarget(pOldRenderTarg, pStencil);
                         rs->SetTransform(D3DTS_VIEW, oldmatv);
