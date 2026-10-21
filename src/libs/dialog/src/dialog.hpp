@@ -234,5 +234,10 @@ class DIALOG final : public Entity
     int32_t play;
     bool start;
 
+    // "voice": the speech of the node, said after the greeting; a new one cuts the one that plays
+    std::string voiceName_;
+    int32_t voiceSnd_ = 0;
+    bool voicePending_ = false;
+
     bool bEditMode;
 };

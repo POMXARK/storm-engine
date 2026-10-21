@@ -55,8 +55,11 @@ cleanup() {
     for _ in $(seq 10); do kill -0 "$ENGINE_PID" 2>/dev/null || break; sleep 0.2; done
     kill -KILL "$ENGINE_PID" 2>/dev/null || true
     wait "$ENGINE_PID" 2>/dev/null || true
-    # the loopback goes before the sink it plays from
-    for ((m = ${#AUDIO_MODULES[@]} - 1; m >= 0; m--)); do pactl unload-module "${AUDIO_MODULES[m]}" || true; done
+    # the loopback goes before the sink it plays from; a pulse server busy with the killed client answers
+    # "Connection failure: Timeout" once, and a loopback left behind hangs the sound: tried again
+    for ((m = ${#AUDIO_MODULES[@]} - 1; m >= 0; m--)); do
+        for _ in 1 2 3; do timeout 5 pactl unload-module "${AUDIO_MODULES[m]}" && break; sleep 1; done
+    done
 }
 trap cleanup EXIT
 

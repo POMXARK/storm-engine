@@ -218,6 +218,9 @@ DIALOG::~DIALOG()
 {
     core.SetTimeScale(1.f);
 
+    if (snd && voiceSnd_)
+        snd->SoundStop(voiceSnd_);
+
     if (m_idVBufBack != -1)
         RenderService->ReleaseVertexBuffer(m_idVBufBack);
     m_idVBufBack = -1;
@@ -677,6 +680,13 @@ void DIALOG::Realize(uint32_t Delta_Time)
         play = 1;
     }
 
+    // the speech of the node waits for the greeting to end
+    if (voicePending_ && snd && !(play == 1 && snd->SoundIsPlaying(curSnd)))
+    {
+        voiceSnd_ = snd->SoundPlay(voiceName_.c_str(), PCM_STEREO, VOLUME_SPEECH);
+        voicePending_ = false;
+    }
+
     // no dialogue attributes - no further conversation
     if (!AttributesPointer)
         return;
@@ -875,6 +885,16 @@ uint32_t DIALOG::AttributeChanged(ATTRIBUTES *pA)
         strcpy_s(soundName, pA->GetThisAttr());
         if (start)
             play = 0;
+    }
+
+    if (!parLinks && nm && storm::iEquals(nm, "voice"))
+    {
+        if (snd && voiceSnd_)
+            snd->SoundStop(voiceSnd_);
+        voiceSnd_ = 0;
+        const char *v = pA->GetThisAttr();
+        voiceName_ = v ? v : "";
+        voicePending_ = !voiceName_.empty();
     }
 
     m_bDlgChanged = true;

@@ -304,11 +304,14 @@ void AnimationImp::BuildAnimationMatrices()
                     inmtx.Pos() = p0 + kBlend * (p1 - p0);
                 }
 
-                // Procedural head look
+                // Procedural head look: about the joint of the head, its offset from the parent stays (ours:
+                // turned with the offset, a head far from its parent joint, as in converted models, left the neck)
                 if (j == headBoneIndex && isControllableHead)
                 {
+                    const CVECTOR joint = inmtx.Pos();
                     inmtx.RotateX(customHeadAX);
                     inmtx.RotateY(customHeadAY);
+                    inmtx.Pos() = joint;
                 }
 
                 if (bn.parent)
@@ -342,11 +345,14 @@ void AnimationImp::BuildAnimationMatrices()
                 if (j == 0)
                     inmtx.Pos() = bn.pos[f] + ki * (bn.pos[f + 1] - bn.pos[f]);
 
-                // Procedural head look
+                // Procedural head look: about the joint of the head, its offset from the parent stays (ours:
+                // turned with the offset, a head far from its parent joint, as in converted models, left the neck)
                 if (j == headBoneIndex && isControllableHead)
                 {
+                    const CVECTOR joint = inmtx.Pos();
                     inmtx.RotateX(customHeadAX);
                     inmtx.RotateY(customHeadAY);
+                    inmtx.Pos() = joint;
                 }
 
                 if (bn.parent)
@@ -380,11 +386,14 @@ void AnimationImp::BuildAnimationMatrices()
                 if (j == 0)
                     inmtx.Pos() = bn.pos[f] + ki * (bn.pos[f + 1] - bn.pos[f]);
 
-                // Procedural head look
+                // Procedural head look: about the joint of the head, its offset from the parent stays (ours:
+                // turned with the offset, a head far from its parent joint, as in converted models, left the neck)
                 if (j == headBoneIndex && isControllableHead)
                 {
+                    const CVECTOR joint = inmtx.Pos();
                     inmtx.RotateX(customHeadAX);
                     inmtx.RotateY(customHeadAY);
+                    inmtx.Pos() = joint;
                 }
 
                 if (bn.parent)
