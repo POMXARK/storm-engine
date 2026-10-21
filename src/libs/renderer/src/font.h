@@ -93,6 +93,8 @@ class FONT final : public storm::VFont
     int32_t spacebarWidth_ = 8;
 
     bool drawShadows_ = false;
+    // No_shadow in the font ini: the font is never shadowed, whatever the caller asks for
+    bool noShadows_ = false;
 
     bool initialized_ = false;
 };

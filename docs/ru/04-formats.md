@@ -111,7 +111,7 @@ data = "Walk speed", "-1.312"
 | Вариант | Признак | Ключи |
 |---|---|---|
 | BmFont | есть ключ `file` | `file` (бинарный AngelCode .fnt, сигнатура BMF, unicode; страницы — относительно .fnt), `pcscale`, `line_spacing`, `gradient` (текстура). Техники `BmFont` / `BmFontGradient` (`techniques/interfaces/font.fx`) |
-| Классический (FONT::Init, font.cpp:69) | нет `file` | `Texture`, `Techniques` (обычно `InterfaceFont` из `interfaces/game_interface.fx`), `Height`, `AspectHeightConstant`, `pcscale`, `Texture_xsize/ysize`, `Symbol_interval`, `Shadow` (сам факт наличия ключа), `Shadow_offsetx/y` (2), `Spacebar` (8), `char_X = x,y,w,h` для кодов 30..0x206F |
+| Классический (FONT::Init, font.cpp:69) | нет `file` | `Texture`, `Techniques` (обычно `InterfaceFont` из `interfaces/game_interface.fx`), `Height`, `AspectHeightConstant`, `pcscale`, `Texture_xsize/ysize`, `Symbol_interval`, `Shadow` (сам факт наличия ключа), `No_shadow` (тени нет никогда: узлы XINTERFACE сами просят тень у `ExtPrint`, и тонкий шрифт двоится), `Shadow_offsetx/y` (2), `Spacebar` (8), `char_X = x,y,w,h` для кодов 30..0x206F |
 
 Особенности ключей символов: строчная латиница записывается как `char_a_` (ini регистрозависим), знак `=` — как `char_equ`.
 

@@ -737,11 +737,12 @@ FONT_CHARS = [chr(c) for c in range(33, 127)] + [chr(c) for c in range(0x410, 0x
 FONT_SKIP_KEYS = {";", "[", "]"}  # would break the ini syntax
 
 
-def write_fonts(fonts, resource, comment):
+def write_fonts(fonts, resource, comment, shadow=True):
     """Renders each font of `fonts` ({name: (TrueType file, pixel size, outline)}) into
     textures/fonts/<name>.tga.tx and writes ini/fonts.ini with a [NAME] section per font.
     Glyphs are white with a black outline, so the colour a text is printed with tints them.
-    `comment` heads the ini file (where the font comes from and its license)."""
+    `comment` heads the ini file (where the font comes from and its license).
+    shadow=False writes No_shadow: the interface nodes print with a shadow 2 px aside, which doubles thin glyphs."""
     resource = Path(resource)
     sections = []
     for name, (ttf, size, outline) in fonts.items():
@@ -775,6 +776,7 @@ def write_fonts(fonts, resource, comment):
                  f"Height = {cell_h}",
                  f"Spacebar = {int(font.getlength(' '))}",
                  "Symbol_interval = -1",
+                 *([] if shadow else ["No_shadow = 1"]),
                  ""]
         for ch, cx, cy, w in records:
             if ch in FONT_SKIP_KEYS:

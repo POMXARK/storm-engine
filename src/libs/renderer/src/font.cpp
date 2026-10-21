@@ -116,6 +116,8 @@ bool FONT::Init(const char *font_name, const char *iniName)
 
     if (ini->TestKey(font_name, "Shadow", nullptr))
         drawShadows_ = true;
+    if (ini->TestKey(font_name, "No_shadow", nullptr))
+        noShadows_ = true;
 
     shadowOffsetX_ = ini->GetInt(font_name, "Shadow_offsetx", 2);
     shadowOffsetY_ = ini->GetInt(font_name, "Shadow_offsety", 2);
@@ -347,7 +349,7 @@ std::optional<size_t> FONT::Print(float x, float y, const std::string_view &text
     device_.SetStreamSource(0, vertexBuffer_, 0, sizeof(FONT_CHAR_VERTEX));
     // Device->SetIndices(0);
 
-    const bool drawShadows = overrides.shadow.value_or(drawShadows_);
+    const bool drawShadows = !noShadows_ && overrides.shadow.value_or(drawShadows_);
     const float scale = overrides.scale.value_or(scale_);
     const uint32_t color = overrides.color.value_or(color_);
     if (drawShadows)
