@@ -229,6 +229,11 @@ void XINTERFACE::SetDevice()
 
     if (AttributesPointer)
     {
+        // the width of the window in the units of the screens and how far their 800 x 600 rect is moved
+        // into it: with bDynamicScaling a script can spread a screen over a wide window
+        AttributesPointer->SetAttributeUseDword("ScreenWidth", dwScreenWidth);
+        AttributesPointer->SetAttributeUseDword("ScreenLeft", GlobalScreenRect.left);
+        AttributesPointer->SetAttributeUseDword("ScreenTop", GlobalScreenRect.top);
         auto *pA = AttributesPointer->GetAttributeClass("GameTime");
         if (pA)
         {
@@ -1076,10 +1081,15 @@ void XINTERFACE::LoadIni()
     const auto screenSize = core.GetScreenSize();
     dwScreenHeight = screenSize.height;
     dwScreenWidth = windowSize.width * dwScreenHeight / windowSize.height;
+    // a window narrower than the screens (5:4 for 4:3 screens) gets bands above and below them: before the
+    // screens were stretched up and down
     if (dwScreenWidth < screenSize.width)
+    {
         dwScreenWidth = screenSize.width;
-    GlobalScreenRect.top = 0;
-    GlobalScreenRect.bottom = screenSize.height;
+        dwScreenHeight = windowSize.height * dwScreenWidth / windowSize.width;
+    }
+    GlobalScreenRect.top = (dwScreenHeight - screenSize.height) / 2;
+    GlobalScreenRect.bottom = screenSize.height + GlobalScreenRect.top;
     GlobalScreenRect.left = (dwScreenWidth - screenSize.width) / 2;
     GlobalScreenRect.right = screenSize.width + GlobalScreenRect.left;
 

@@ -121,6 +121,8 @@ data = "Walk speed", "-1.312"
 
 **`interfaces.ini`** (xinterface.cpp:1062). Секция `PC_SCREEN` или `PC_SCREEN_W_H` выбирается по соотношению сторон окна. Ключи: `bDynamicScaling`, `fScale`, `wScreenWidth/Height`, `wScreenLeft/Top/Right/Down`. В `[COMMON]`: `MousePointer = tex,sensitivity,size:(w,h),pos:(x,y)`, `mouseDblClickInterval` (300), `RepeatDelay` (500), `BlindTime`, `blendSpeed`, `wave*`. Если ini экрана не найден, движок шлёт `PostEvent("exitCancel")`.
 
+С `bDynamicScaling = 1` экран 800 × 600 ставится в середину окна без растяжения: на широком окне поля слева и справа, на окне уже 4:3 (5:4) — сверху и снизу. Сущность интерфейса получает атрибуты `ScreenWidth` (ширина окна в единицах экрана), `ScreenLeft` и `ScreenTop` (сдвиг прямоугольника 800 × 600) — по ним скрипт растягивает экран на всё окно. Сообщения узлам о позиции (`PICTURE` 0, общее −1, 4) принимают координаты всего окна, без этого сдвига; координаты из ini экрана его получают.
+
 **Экран `<screen>.ini`**:
 ```ini
 [MAIN]
