@@ -151,6 +151,7 @@ void BIShipIcon::Init(ATTRIBUTES *pRoot, ATTRIBUTES *pA)
     FULLRECT(m_rShipSPUV);
     ZERROPOINT(m_pntShipSPOffset);
     FILLPOINT(m_pntShipSPIconSize, 128, 128);
+    m_bShipStateHorizontal = false;
 
     m_nShipClassTextureID = -1;
     m_dwShipClassColor = ARGB(255, 128, 128, 128);
@@ -253,6 +254,7 @@ void BIShipIcon::Init(ATTRIBUTES *pRoot, ATTRIBUTES *pA)
         pcTmp = pA->GetAttribute("shipspiconsize");
         if (pcTmp)
             sscanf(pcTmp, "%f,%f", &m_pntShipSPIconSize.x, &m_pntShipSPIconSize.y);
+        m_bShipStateHorizontal = pA->GetAttributeAsDword("shipstatehorizontal", 0) != 0;
 
         pcTmp = pA->GetAttribute("shipclasstexturename");
         if (pcTmp)
@@ -579,12 +581,16 @@ void BIShipIcon::FillVertexBuffer()
 
         for (n = 0; n < m_nShipQuantity; n++)
         {
+            const float fHP = GetProgressShipHP(n);
+            const float fSP = GetProgressShipSP(n);
             vn += WriteSquareToVBuffWithProgress(&pV[vn], m_rShipHPUV, m_dwShipStateColor,
                                                  m_Ship[n].pntPos + m_pntShipHPOffset, m_pntShipHPIconSize,
-                                                 GetProgressShipHP(n), 0.f, 0.f, 0.f);
+                                                 m_bShipStateHorizontal ? 0.f : fHP, 0.f, 0.f,
+                                                 m_bShipStateHorizontal ? fHP : 0.f);
             vn += WriteSquareToVBuffWithProgress(&pV[vn], m_rShipSPUV, m_dwShipStateColor,
                                                  m_Ship[n].pntPos + m_pntShipSPOffset, m_pntShipSPIconSize,
-                                                 GetProgressShipSP(n), 0.f, 0.f, 0.f);
+                                                 m_bShipStateHorizontal ? 0.f : fSP, 0.f, 0.f,
+                                                 m_bShipStateHorizontal ? fSP : 0.f);
         }
 
         for (n = 0; n < m_nShipQuantity; n++)

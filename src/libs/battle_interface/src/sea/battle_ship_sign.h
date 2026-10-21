@@ -94,6 +94,8 @@ class BIShipIcon
     FRECT m_rShipSPUV;
     BIFPOINT m_pntShipSPOffset;
     FPOINT m_pntShipSPIconSize;
+    // the hull and sail bars empty from the right instead of from the top
+    bool m_bShipStateHorizontal;
 
     int32_t m_nShipClassTextureID;
     int32_t m_nShipClassSquareQ;
