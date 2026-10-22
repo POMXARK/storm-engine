@@ -43,6 +43,7 @@
 |---|---|---|---|
 | `screen_x`, `screen_y` | — | main.cpp, s_device.cpp | размер окна (1024x768) |
 | `full_screen`, `display`, `window_borders`, `title` | — | main.cpp | окно |
+| `mouse_release` | — | main.cpp, sdl_input.cpp | Linux: Ctrl+Alt отпускает мышь из окна, клик захватывает снова (ours, по умолчанию 0) |
 | `max_fps` | — | main.cpp | ограничение FPS |
 | `logs` | — | main.cpp | 0 — отключить логи |
 | `run_in_background`, `sound_in_background` | — | main.cpp | работа без фокуса; звук без фокуса — только вместе с run_in_background |
@@ -73,3 +74,5 @@ font = interface_normal
 [sound]
 fade_time = 0.5
 ```
+
+Ключи запуска сильнее `engine.ini` (ours, `main.cpp`): `--size 1920x1080` — размер окна (`screen_x`/`screen_y`), `--fullscreen` и `--windowed` — `full_screen` = 1 или 0, `--mouse-release` — как `mouse_release = 1`. Так один собранный движок запускается в окне нужного размера без правки ini: `engine --windowed --size 1600x900`.

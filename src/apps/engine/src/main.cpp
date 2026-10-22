@@ -13,6 +13,7 @@
 
 #include "core_private.h"
 #include "fs.h"
+#include "input.hpp"
 #include "lifecycle_diagnostics_service.hpp"
 #include "logging.hpp"
 #include "os_window.hpp"
@@ -209,6 +210,15 @@ int main(int argc, char *argv[])
 
     bool enable_editor = false;
     app.add_flag("--editor", enable_editor, "Enable in-game editor");
+    // the window of engine.ini, set from the command line by the launch scripts of a game
+    std::string screen_size;
+    app.add_option("--size", screen_size, "Window or screen size WxH, instead of screen_x and screen_y");
+    bool cli_fullscreen = false;
+    app.add_flag("--fullscreen", cli_fullscreen, "Full screen, instead of full_screen");
+    bool cli_windowed = false;
+    app.add_flag("--windowed", cli_windowed, "A window with borders, instead of full_screen and window_borders");
+    bool cli_mouse_release = false;
+    app.add_flag("--mouse-release", cli_mouse_release, "Ctrl+Alt lets the mouse go, a click takes it back");
 
     try
     {
@@ -294,6 +304,27 @@ int main(int argc, char *argv[])
     bool fullscreen = ini->GetInt(nullptr, "full_screen", false);
     // the editor is a window among others: moved, resized and closed by its frame
     bool show_borders = ini->GetInt(nullptr, "window_borders", false) || enable_editor;
+    if (int w = 0, h = 0; sscanf(screen_size.c_str(), "%dx%d", &w, &h) == 2 && w > 0 && h > 0)
+    {
+        width = w;
+        height = h;
+    }
+    if (cli_fullscreen)
+    {
+        fullscreen = true;
+    }
+    if (cli_windowed)
+    {
+        fullscreen = false;
+        show_borders = true;
+    }
+    // Linux keeps the mouse relative, held in the window (sdl_input.cpp); mouse_release = 1 lets it go by
+    // Ctrl+Alt, the input then ignores its moves, and a click in the window takes it back
+    const bool mouse_release = ini->GetInt(nullptr, "mouse_release", 0) != 0 || cli_mouse_release;
+    if (mouse_release)
+    {
+        SDL_SetHint(STORM_HINT_MOUSE_RELEASE, "1");
+    }
     bool run_in_background = ini->GetInt(nullptr, "run_in_background", false);
     if (run_in_background) 
     {
@@ -339,6 +370,20 @@ int main(int argc, char *argv[])
         SDL_Event event{};
         while (SDL_PollEvent(&event) )
         {
+#ifndef _WIN32
+            if (mouse_release)
+            {
+                const bool ctrl_alt = (SDL_GetModState() & KMOD_CTRL) && (SDL_GetModState() & KMOD_ALT);
+                if (event.type == SDL_KEYDOWN && ctrl_alt && SDL_GetRelativeMouseMode())
+                {
+                    SDL_SetRelativeMouseMode(SDL_FALSE);
+                }
+                else if (event.type == SDL_MOUSEBUTTONDOWN && !SDL_GetRelativeMouseMode())
+                {
+                    SDL_SetRelativeMouseMode(SDL_TRUE);
+                }
+            }
+#endif
             if (auto *editor = core.GetEditor(); editor != nullptr) {
                 editor->ProcessEvent(event);
             }

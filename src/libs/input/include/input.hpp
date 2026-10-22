@@ -6,6 +6,9 @@
 #include <string>
 #include <memory>
 
+// an SDL hint the engine sets for mouse_release of engine.ini: the mouse let go by Ctrl+Alt moves nothing
+#define STORM_HINT_MOUSE_RELEASE "STORM_MOUSE_RELEASE"
+
 namespace storm
 {
 // TODO: Make own type for keycodes and use it everywhere (reuse SDL scancodes?)

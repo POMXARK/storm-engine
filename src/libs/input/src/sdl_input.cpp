@@ -328,6 +328,11 @@ void SDLInput::ProcessEvent(const SDL_Event &event)
     // Mouse/keyboard
     if (event.type == SDL_MOUSEMOTION)
     {
+        // let go by Ctrl+Alt (main.cpp): the pointer goes over the window, the camera stays
+        if (!SDL_GetRelativeMouseMode() && SDL_GetHintBoolean(STORM_HINT_MOUSE_RELEASE, SDL_FALSE))
+        {
+            return;
+        }
         out.type = InputEvent::MouseMove;
         out.data = MousePos{event.motion.xrel, event.motion.yrel};
     }
