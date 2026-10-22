@@ -10,3 +10,4 @@
 // "s..." for different messages "SetTimeScale", float fScale
 #define LI_OTHER_MSG 45029
 #define LOG_TRACE_SCRIPT_STACK 45030 // ""
+#define LOG_SET_BOARDING_BAR 45031   // "lf" (bar index, value 0..1) for IBoardingStatus

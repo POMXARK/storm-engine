@@ -569,6 +569,7 @@ Character::Character()
     kSpd = 1.0f;
     kSpdCur = 1.0f;
     kSpdDlt = rand() * (0.1f / RAND_MAX) - 0.05f;
+    animSpeed = 1.0f;
     numDetectors = 0;
     startColCharacter = 0;
     numColCharacter = 0;
@@ -2053,7 +2054,7 @@ void Character::Move(float dltTime)
     if (kSpd > 1.0f)
         kSpd = 1.0f;
     kSpdCur += (kSpd - kSpdCur) * k;
-    k = kSpdCur * 0.3f + 0.7f + kSpdDlt;
+    k = (kSpdCur * 0.3f + 0.7f + kSpdDlt) * animSpeed;
     MODEL *m = Model();
     if (m)
     {
@@ -3599,6 +3600,12 @@ uint32_t Character::zExMessage(MESSAGE &message)
         {
             isFightWOWps = message.Long() != 0;
             UpdateWeapons();
+            return 1;
+        }
+        if (storm::iEquals(msg, "SetAnimSpeed"))
+        {
+            // percent of the normal speed of the animation (the fatigue of a fighter slows his blows)
+            animSpeed = std::max(message.Long(), 1) * 0.01f;
             return 1;
         }
         if (storm::iEquals(msg, "LockFightMode"))

@@ -54,6 +54,7 @@ class BATTLE_INTERFACE : public Entity
     BATTLE_NAVIGATOR BattleNavigator; // navigation icons
     // MESSAGE_ICONS *        m_pMessageIcons;
     BIShipIcon *m_pShipIcon; // icons of commands and target pointers in the combat menu
+    BIShipIcon *m_pEnemyIcon; // the enemy ships with their hull and sails (the EnemyIcon attribute), optional
     bool m_bShowCommandMenu;
     bool m_bShowBattleNavigator;
     bool m_bYesShowAll;

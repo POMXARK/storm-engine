@@ -142,6 +142,14 @@ class BIShipIcon
     POINT m_ShipNameFontOffset;
 
     bool m_bMakeUpdate;
+    // the enemy ships only, without the command menu (the EnemyIcon of BATTLE_INTERFACE)
+    bool m_bEnemies;
+    // EnemyIcon: its attributes, "hide" read every frame; "rowright" = "x,y" the centre of the last icon and
+    // "rowstep" the step to the left, the row pressed to the right edge whatever the number of the ships
+    ATTRIBUTES *m_pAIcon;
+    bool m_bRowRight;
+    BIFPOINT m_pntRowRight;
+    float m_fRowStep;
 
     ATTRIBUTES *m_pARoot;
 

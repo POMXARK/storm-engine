@@ -485,6 +485,7 @@ class Character : public Entity
     float kSpd;           // Desired speed factor
     float kSpdCur;        // Current speed factor
     float kSpdDlt;        // Variation in speed for different characters
+    float animSpeed;      // Speed factor of the animation set by the script ("SetAnimSpeed"), e.g. by fatigue
     bool isMove;          // Are we standing or moving
     bool isBack;          // Go back
     bool isRun;           // Is running mode set

@@ -1266,6 +1266,15 @@ uint64_t SHIP::ProcessMessage(MESSAGE &message)
         pVData->Set(static_cast<int32_t>(aFirePlaces.size()));
     }
     break;
+    case MSG_SHIP_TELEPORT: {
+        const auto x = message.Float();
+        const auto z = message.Float();
+        State.vAng.y = message.Float();
+        SetPos(CVECTOR(x, 0.f, z));
+        if (const auto eidTmp = core.GetEntityId("ShipTracks"))
+            static_cast<ShipTracks *>(core.GetEntityPointer(eidTmp))->ResetTrack(this);
+    }
+    break;
     case MSG_SHIP_RESET_TRACK: {
         if (const auto eidTmp = core.GetEntityId("ShipTracks"))
         {

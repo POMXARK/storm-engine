@@ -29,6 +29,10 @@ BIShipIcon::BIShipIcon(entid_t BIEntityID, VDX9RENDER *pRS)
     m_nMaxSquareQ = 0;
 
     m_bMakeUpdate = true;
+    m_bEnemies = false;
+    m_pAIcon = nullptr;
+    m_bRowRight = false;
+    m_fRowStep = 0.f;
     m_nCommandMode = 0;
 
     m_nCommandListVerticalOffset = -48;
@@ -46,6 +50,9 @@ BIShipIcon::~BIShipIcon()
 
 void BIShipIcon::Draw()
 {
+    if (m_pAIcon && m_pAIcon->GetAttributeAsDword("hide", 0) != 0)
+        return;
+
     if (m_bMakeUpdate)
     {
         m_bMakeUpdate = false;
@@ -54,7 +61,7 @@ void BIShipIcon::Draw()
         UpdateCommandList();
         if (m_pCommandList)
             m_pCommandList->SetUpDown(m_nCurrentShipIndex > 0, m_nCurrentShipIndex < m_nShipQuantity - 1);
-        if (!IsActive())
+        if (!IsActive() && !m_bEnemies)
             core.Event("evntBISelectShip", "ll", -1, true);
     }
 
@@ -134,7 +141,16 @@ void BIShipIcon::Init(ATTRIBUTES *pRoot, ATTRIBUTES *pA)
 
     m_pARoot = pRoot;
 
-    m_pCommandList = new BIShipCommandList(m_idHostEntity, pRoot, m_pRS);
+    m_bEnemies = pA && pA->GetAttributeAsDword("enemies", 0) != 0;
+    if (!m_bEnemies)
+        m_pCommandList = new BIShipCommandList(m_idHostEntity, pRoot, m_pRS);
+    m_pAIcon = m_bEnemies ? pA : nullptr;
+    m_bRowRight = false;
+    if (m_pAIcon && m_pAIcon->GetAttribute("rowright"))
+    {
+        m_bRowRight = sscanf(m_pAIcon->GetAttribute("rowright"), "%f,%f", &m_pntRowRight.x, &m_pntRowRight.y) == 2;
+        m_fRowStep = m_pAIcon->GetAttributeAsFloat("rowstep", 0.f);
+    }
 
     // default value
     m_nBackTextureID = -1;
@@ -418,6 +434,8 @@ void BIShipIcon::ExecuteCommand(CommandType command)
         break;
 
     case Command_cancel:
+        if (!m_pCommandList)
+            break;
         m_nCommandMode = m_pCommandList->ExecuteCancel();
         if (m_nCommandMode == 0)
             SetActive(false);
@@ -465,6 +483,32 @@ int32_t BIShipIcon::CalculateShipQuantity()
         m_Ship[n].nMaxHP = 100;
         m_Ship[n].nMaxSP = 100;
         m_Ship[n].sShipName.clear();
+    }
+
+    // the enemy ships, in the order of the list
+    if (m_bEnemies)
+    {
+        for (pSD = g_ShipList.GetShipRoot(); pSD && m_nShipQuantity < MAX_SHIP_QUANTITY; pSD = pSD->next)
+        {
+            if (pSD->relation != BI_RELATION_ENEMY)
+                continue;
+            auto &ship = m_Ship[m_nShipQuantity++];
+            ship.nCharacterIndex = pSD->characterIndex;
+            ship.pASailorQuantity = GetSailorQuantityAttribute(pSD);
+            ship.pAShip = pSD->pAttr;
+            ship.nMaxHP = pSD->maxHP;
+            ship.nMaxSP = pSD->maxSP;
+            ship.nShipClass = GetShipClass(ship.nCharacterIndex);
+            GetShipUVFromPictureIndex(pSD->pictureNum, ship.rUV);
+            ship.sShipName = pSD->pAttr ? pSD->pAttr->GetAttribute("name") : "noname";
+        }
+        if (m_bRowRight)
+            for (int32_t i = 0; i < m_nShipQuantity; i++)
+            {
+                m_Ship[i].pntPos.x = m_pntRowRight.x - m_fRowStep * (m_nShipQuantity - 1 - i);
+                m_Ship[i].pntPos.y = m_pntRowRight.y;
+            }
+        return m_nShipQuantity;
     }
 
     // take the ship of the main character
@@ -711,7 +755,7 @@ void BIShipIcon::UpdateCommandList()
 {
     if (m_pCommandList)
         m_pCommandList->Update(GetCurrentCommandTopLine(), GetCurrentCommandCharacterIndex(), GetCurrentCommandMode());
-    else
+    else if (!m_bEnemies)
         core.Event("evntBISelectShip", "ll", -1, true);
 }
 

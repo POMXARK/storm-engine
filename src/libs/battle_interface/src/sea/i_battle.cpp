@@ -61,6 +61,7 @@ BATTLE_INTERFACE::BATTLE_INTERFACE()
     g_ShipList.ReleaseAll();
     // m_pMessageIcons = null;
     m_pShipIcon = nullptr;
+    m_pEnemyIcon = nullptr;
     rs = nullptr;
     m_bShowCommandMenu = true;
     m_bShowBattleNavigator = true;
@@ -78,6 +79,7 @@ BATTLE_INTERFACE::~BATTLE_INTERFACE()
 {
     // STORM_DELETE(m_pMessageIcons);
     STORM_DELETE(m_pShipIcon);
+    STORM_DELETE(m_pEnemyIcon);
     STORM_DELETE(m_pShipInfoImages);
 }
 
@@ -176,6 +178,8 @@ void BATTLE_INTERFACE::Realize(uint32_t delta_time)
 
             if (m_bShowCommandMenu)
                 m_pShipIcon->Draw();
+            if (m_pEnemyIcon)
+                m_pEnemyIcon->Draw();
             if (m_bShowBattleNavigator)
                 BattleNavigator.Draw();
             // if( m_pMessageIcons ) m_pMessageIcons->Draw();
@@ -232,6 +236,14 @@ void BATTLE_INTERFACE::LoadIniFile()
     m_pShipIcon->Init(AttributesPointer,
                       AttributesPointer ? AttributesPointer->GetAttributeClass("ShipIcon") : nullptr);
 
+    STORM_DELETE(m_pEnemyIcon);
+    if (auto *pAEnemy = AttributesPointer ? AttributesPointer->GetAttributeClass("EnemyIcon") : nullptr)
+    {
+        pAEnemy->SetAttributeUseDword("enemies", 1);
+        m_pEnemyIcon = new BIShipIcon(GetId(), rs);
+        m_pEnemyIcon->Init(AttributesPointer, pAEnemy);
+    }
+
     m_pShipInfoImages =
         new ShipInfoImages(rs, AttributesPointer ? AttributesPointer->GetAttributeClass("ShipInfoImages") : nullptr);
     if (m_pShipInfoImages)
@@ -268,17 +280,23 @@ uint64_t BATTLE_INTERFACE::ProcessMessage(MESSAGE &message)
                        pChAttr, pShipAttr, bMyShip, bTransferableShip, relation, dwShipColor);
         if (m_pShipIcon)
             m_pShipIcon->SetUpdate();
+        if (m_pEnemyIcon)
+            m_pEnemyIcon->SetUpdate();
     }
     break;
     case BI_IN_DELETE_SHIP: // "ll"
         g_ShipList.Release(message.Long());
         if (m_pShipIcon)
             m_pShipIcon->SetUpdate();
+        if (m_pEnemyIcon)
+            m_pEnemyIcon->SetUpdate();
         break;
     case BI_IN_DEAD_SHIP: // "l"
         g_ShipList.ShipSink(message.Long());
         if (m_pShipIcon)
             m_pShipIcon->SetUpdate();
+        if (m_pEnemyIcon)
+            m_pEnemyIcon->SetUpdate();
         break;
     case BI_IN_SET_COMMAND_MODE: // "lllll"
     {
@@ -303,6 +321,8 @@ uint64_t BATTLE_INTERFACE::ProcessMessage(MESSAGE &message)
         g_IslandDescr.Refresh();
         if (m_pShipIcon)
             m_pShipIcon->SetUpdate();
+        if (m_pEnemyIcon)
+            m_pEnemyIcon->SetUpdate();
         break;
 
     case BI_MSG_SET_MSG_ICONS:

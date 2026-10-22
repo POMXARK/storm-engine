@@ -73,6 +73,7 @@
 #define MSG_SHIP_SET_CUSTOM_FLAG 50313 // "li", flag entity - Specify a custom flag entity to use for this ship
 #define MSG_SHIP_SAFE_DELETE 50315
 #define MSG_SHIP_SET_DEAD 50316 // "l" - sink the ship, as SEA_AI does for a dead character
+#define MSG_SHIP_TELEPORT 50317 // "lfff" - x, z, ay: put the ship there at once (the "sail to" of the script)
 #define MSG_SHIP_GET_SAIL_STATE 50325
 #define MSG_SHIP_CURVES 50400
 #define MSG_SHIP_LIGHTSRESET 50402 // ugeen 25.12.19

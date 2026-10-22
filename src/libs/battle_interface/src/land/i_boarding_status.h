@@ -2,6 +2,8 @@
 
 #include "bi_defines.h"
 
+#include <vector>
+
 class IBoardingStatus : public Entity
 {
     VDX9RENDER *rs;
@@ -31,7 +33,10 @@ class IBoardingStatus : public Entity
 
   protected:
     void Create();
+    void CreateBars(ATTRIBUTES *pBars);
+    void CreateFrames(ATTRIBUTES *pFrames);
     void SetCharactersHP(float myHP, float enemyHP);
+    void SetBar(int32_t index, float value);
 
   protected:
     // show parameters
@@ -45,4 +50,24 @@ class IBoardingStatus : public Entity
 
     BI_COLORONLY_VERTEX m_MyChar[4];
     BI_COLORONLY_VERTEX m_EnemyChar[4];
+
+    // the bars of the attribute "bars" (health, energy, ...) in place of the two above, when it is set
+    struct Bar
+    {
+        FRECT rect;
+        bool fromRight; // the bar shrinks to its right side
+        BI_COLORONLY_VERTEX back[4];
+        BI_COLORONLY_VERTEX fill[4];
+    };
+    std::vector<Bar> m_bars;
+
+    // the pictures of the attribute "frames", drawn over the bars (their windows transparent)
+    struct Frame
+    {
+        int32_t texture;
+        BI_ONETEXTURE_VERTEX v[4];
+    };
+    std::vector<Frame> m_frames;
+
+    void ReleaseFrames();
 };
