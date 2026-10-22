@@ -11,6 +11,7 @@ CXI_PICTURE::CXI_PICTURE()
     m_pTex = nullptr;
     m_nNodeType = NODETYPE_PICTURE;
     m_pcGroupName = nullptr;
+    m_idFogTex = -1;
     m_bMakeBlind = false;
     m_fCurBlindTime = 0.f;
     m_bBlindUp = true;
@@ -58,6 +59,11 @@ void CXI_PICTURE::Draw(bool bSelected, uint32_t Delta_Time)
                 m_rs->TextureSet(0, m_idTex);
             else
                 m_rs->SetTexture(0, m_pTex ? m_pTex->m_pTexture : nullptr);
+            m_rs->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, XI_ONETEX_FVF, 2, m_v, sizeof(XI_ONETEX_VERTEX), "iVideo");
+        }
+        if (m_idFogTex != -1)
+        {
+            m_rs->TextureSet(0, m_idFogTex);
             m_rs->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, XI_ONETEX_FVF, 2, m_v, sizeof(XI_ONETEX_VERTEX), "iVideo");
         }
     }
@@ -123,11 +129,113 @@ void CXI_PICTURE::LoadIni(INIFILE *ini1, const char *name1, INIFILE *ini2, const
         m_fBlindDownSpeed = 0.001f / fTmp;
     m_dwBlindMin = GetIniARGB(ini1, name1, ini2, name2, "blindMinColor", ARGB(255, 128, 128, 128));
     m_dwBlindMax = GetIniARGB(ini1, name1, ini2, name2, "blindMaxColor", ARGB(255, 255, 255, 255));
+
+    LoadFog(ini1, name1, ini2, name2);
+}
+
+// fogTexture = a picture packed in the texture as the main one (A8R8G8B8): it covers the main one and the script
+// opens the main one burning its alpha with the stamps (fogStamp = texture, the alpha of each is taken off).
+// Like the world map of Sea Dogs (MAP.dll): the closed chart over the explored one, opened along the route.
+void CXI_PICTURE::LoadFog(INIFILE *ini1, const char *name1, INIFILE *ini2, const char *name2)
+{
+    char param[255];
+    ReleaseFog();
+    if (!ReadIniString(ini1, name1, ini2, name2, "fogTexture", param, sizeof(param), ""))
+        return;
+    m_idFogTex = m_rs->TextureCreate(param);
+    if (m_idFogTex == -1)
+        return;
+    if (ini1 && ini1->ReadString(name1, "fogStamp", param, sizeof(param), ""))
+    {
+        do
+        {
+            FogStamp stamp;
+            auto id = m_rs->TextureCreate(param);
+            auto *pTex = static_cast<IDirect3DTexture9 *>(m_rs->GetTextureFromID(id));
+            D3DSURFACE_DESC desc;
+            D3DLOCKED_RECT lock;
+            if (pTex && m_rs->GetLevelDesc(pTex, 0, &desc) == D3D_OK && desc.Format == D3DFMT_A8R8G8B8 &&
+                m_rs->LockRect(pTex, 0, &lock, nullptr, D3DLOCK_READONLY) == D3D_OK)
+            {
+                stamp.width = desc.Width;
+                stamp.height = desc.Height;
+                stamp.alpha.resize(desc.Width * desc.Height);
+                for (UINT y = 0; y < desc.Height; y++)
+                {
+                    const auto *line = reinterpret_cast<const uint32_t *>(static_cast<uint8_t *>(lock.pBits) + y * lock.Pitch);
+                    for (UINT x = 0; x < desc.Width; x++)
+                        stamp.alpha[y * desc.Width + x] = static_cast<uint8_t>(line[x] >> 24);
+                }
+                m_rs->UnlockRect(pTex, 0);
+            }
+            else
+                core.Trace("Warning! XINTERFACE: fog stamp %s is not an A8R8G8B8 texture", param);
+            TEXTURE_RELEASE(m_rs, id);
+            m_fogStamps.push_back(std::move(stamp));
+        } while (ini1->ReadStringNext(name1, "fogStamp", param, sizeof(param)));
+    }
+    ResetFog();
+}
+
+void CXI_PICTURE::ResetFog()
+{
+    auto *pTex = m_idFogTex != -1 ? static_cast<IDirect3DTexture9 *>(m_rs->GetTextureFromID(m_idFogTex)) : nullptr;
+    D3DSURFACE_DESC desc;
+    D3DLOCKED_RECT lock;
+    if (!pTex || m_rs->GetLevelDesc(pTex, 0, &desc) != D3D_OK || desc.Format != D3DFMT_A8R8G8B8 ||
+        m_rs->LockRect(pTex, 0, &lock, nullptr, 0) != D3D_OK)
+        return;
+    for (UINT y = 0; y < desc.Height; y++)
+    {
+        auto *line = reinterpret_cast<uint32_t *>(static_cast<uint8_t *>(lock.pBits) + y * lock.Pitch);
+        for (UINT x = 0; x < desc.Width; x++)
+            line[x] |= 0xFF000000;
+    }
+    m_rs->UnlockRect(pTex, 0);
+}
+
+// the stamp centred at x, y (pixels of the texture) takes its alpha off the fog
+void CXI_PICTURE::StampFog(int32_t stamp, int32_t x, int32_t y)
+{
+    if (stamp < 0 || stamp >= static_cast<int32_t>(m_fogStamps.size()) || m_fogStamps[stamp].alpha.empty())
+        return;
+    auto *pTex = m_idFogTex != -1 ? static_cast<IDirect3DTexture9 *>(m_rs->GetTextureFromID(m_idFogTex)) : nullptr;
+    D3DSURFACE_DESC desc;
+    D3DLOCKED_RECT lock;
+    if (!pTex || m_rs->GetLevelDesc(pTex, 0, &desc) != D3D_OK || desc.Format != D3DFMT_A8R8G8B8 ||
+        m_rs->LockRect(pTex, 0, &lock, nullptr, 0) != D3D_OK)
+        return;
+    const auto &s = m_fogStamps[stamp];
+    const auto left = x - s.width / 2;
+    const auto top = y - s.height / 2;
+    for (int32_t j = 0; j < s.height; j++)
+    {
+        const auto ty = top + j;
+        if (ty < 0 || ty >= static_cast<int32_t>(desc.Height))
+            continue;
+        auto *line = reinterpret_cast<uint32_t *>(static_cast<uint8_t *>(lock.pBits) + ty * lock.Pitch);
+        for (int32_t i = 0; i < s.width; i++)
+        {
+            const auto tx = left + i;
+            if (tx < 0 || tx >= static_cast<int32_t>(desc.Width))
+                continue;
+            const auto a = std::max(static_cast<int32_t>(line[tx] >> 24) - s.alpha[j * s.width + i], 0);
+            line[tx] = (line[tx] & 0xFFFFFF) | (static_cast<uint32_t>(a) << 24);
+        }
+    }
+    m_rs->UnlockRect(pTex, 0);
+}
+
+void CXI_PICTURE::ReleaseFog()
+{
+    TEXTURE_RELEASE(m_rs, m_idFogTex);
+    m_fogStamps.clear();
 }
 
 void CXI_PICTURE::ReleaseAll()
 {
     ReleasePicture();
+    ReleaseFog();
 }
 
 int CXI_PICTURE::CommandExecute(int wActCode)
@@ -349,6 +457,19 @@ uint32_t CXI_PICTURE::MessageProc(int32_t msgcode, MESSAGE &message)
         }
     }
     break;
+
+    case 9: // the fog: take the stamp off it, "lll" stamp index, x, y in pixels of the texture
+    {
+        const auto stamp = message.Long();
+        const auto x = message.Long();
+        const auto y = message.Long();
+        StampFog(stamp, x, y);
+    }
+    break;
+
+    case 10: // the fog: cover the whole picture again
+        ResetFog();
+        break;
     }
 
     return 0;

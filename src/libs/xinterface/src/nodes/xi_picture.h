@@ -2,6 +2,8 @@
 
 #include "../inode.h"
 
+#include <vector>
+
 class INIFILE;
 class XINTERFACE;
 
@@ -38,6 +40,11 @@ class CXI_PICTURE : public CINODE
     void SetNewPictureByGroup(const char *groupName, const char *picName);
     void SetNewPictureByPointer(int32_t pTex);
     void ReleasePicture();
+    // the fog: a picture packed as the main one, drawn over it, its alpha burnt away by the stamps (optional)
+    void LoadFog(INIFILE *ini1, const char *name1, INIFILE *ini2, const char *name2);
+    void ResetFog();
+    void StampFog(int32_t stamp, int32_t x, int32_t y);
+    void ReleaseFog();
 
     char *m_pcGroupName;
     int32_t m_idTex;
@@ -51,4 +58,13 @@ class CXI_PICTURE : public CINODE
     float m_fBlindDownSpeed;
     uint32_t m_dwBlindMin;
     uint32_t m_dwBlindMax;
+
+    struct FogStamp
+    {
+        int32_t width = 0;
+        int32_t height = 0;
+        std::vector<uint8_t> alpha;
+    };
+    int32_t m_idFogTex;
+    std::vector<FogStamp> m_fogStamps;
 };
