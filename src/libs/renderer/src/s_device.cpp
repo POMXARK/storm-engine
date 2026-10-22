@@ -17,6 +17,8 @@
 #include <SDL_timer.h>
 
 #include <algorithm>
+#include <fstream>
+#include <sstream>
 #include <imgui_impl_sdl2.h>
 
 #ifdef _WIN32
@@ -2780,8 +2782,89 @@ void DX9RENDER::SetGLOWParams(float _fBlurBrushSize, int32_t _GlowIntensity, int
     iBlurPasses = _GlowPasses;
 }
 
+// a key = value line of the keys before the first section of engine.ini, its comments and line ends kept
+static void WriteEngineIniKey(std::string &text, const std::string &key, const std::string &value)
+{
+    size_t at = 0;
+    while (at < text.size() && text[at] != '[')
+    {
+        size_t end = text.find('\n', at);
+        if (end == std::string::npos)
+            end = text.size();
+        const std::string line = text.substr(at, end - at);
+        const size_t eq = line.find('=');
+        if (eq != std::string::npos && line[0] != ';')
+        {
+            std::string name = line.substr(0, eq);
+            name.erase(name.find_last_not_of(" \t") + 1);
+            if (storm::iEquals(name, key))
+            {
+                const std::string tail = !line.empty() && line.back() == '\r' ? "\r" : "";
+                text.replace(at, end - at, key + " = " + value + tail);
+                return;
+            }
+        }
+        at = end + 1;
+    }
+    text.insert(std::min(at, text.size()), key + " = " + value + "\n");
+}
+
+// a script asks for another screen (Render.SetScreen.x, .y, .full_screen, the options of a game): the window and
+// the back buffer take it at once, engine.ini keeps it for the next launch. The device stays windowed, the window
+// covers the screen in the full screen: a Reset between the modes of D3D would need another back buffer format
+void DX9RENDER::SetScreen(int32_t width, int32_t height, bool fullscreen)
+{
+    auto *window = core.GetWindow();
+    if (window == nullptr || width <= 0 || height <= 0)
+        return;
+    if (!fullscreen)
+        window->SetFullscreen(false);
+    window->Resize(width, height);
+    if (fullscreen)
+        window->SetFullscreen(true);
+    if (!d3dpp.Windowed)
+    {
+        D3DDISPLAYMODE mode;
+        if (SUCCEEDED(d3d->GetAdapterDisplayMode(D3DADAPTER_DEFAULT, &mode)))
+            d3dpp.BackBufferFormat = mode.Format;
+        d3dpp.Windowed = TRUE;
+        d3dpp.FullScreen_RefreshRateInHz = 0;
+    }
+    bWindow = !fullscreen;
+    ResizeBackBuffer(width, height);
+    if (auto *pScriptRender = static_cast<VDATA *>(core.GetScriptVariable("Render")); pScriptRender != nullptr)
+        pScriptRender->GetAClass()->SetAttributeUseDword("full_screen", fullscreen);
+
+    std::string text;
+    if (std::ifstream in(core.EngineIniFileName(), std::ios::binary); in)
+    {
+        std::stringstream all;
+        all << in.rdbuf();
+        text = all.str();
+    }
+    WriteEngineIniKey(text, "full_screen", fullscreen ? "1" : "0");
+    WriteEngineIniKey(text, "screen_x", std::to_string(width));
+    WriteEngineIniKey(text, "screen_y", std::to_string(height));
+    if (std::ofstream out(core.EngineIniFileName(), std::ios::binary | std::ios::trunc); out)
+        out << text;
+    spdlog::info("Render: the screen {}x{}{}", width, height, fullscreen ? ", full screen" : "");
+}
+
 void DX9RENDER::RunStart()
 {
+    if (auto *pScriptRender = static_cast<VDATA *>(core.GetScriptVariable("Render")); pScriptRender != nullptr)
+    {
+        ATTRIBUTES *pARender = pScriptRender->GetAClass();
+        if (ATTRIBUTES *pScreen = pARender->GetAttributeClass("SetScreen"); pScreen != nullptr)
+        {
+            const auto width = static_cast<int32_t>(pScreen->GetAttributeAsDword("x", 0));
+            const auto height = static_cast<int32_t>(pScreen->GetAttributeAsDword("y", 0));
+            const bool fullscreen = pScreen->GetAttributeAsDword("full_screen", 0) != 0;
+            pARender->DeleteAttributeClassX(pScreen);
+            SetScreen(width, height, fullscreen);
+        }
+    }
+
     if (bWindow && core.GetWindow() != nullptr)
     {
         const storm::WindowSize size = core.GetWindow()->GetWindowSize();
