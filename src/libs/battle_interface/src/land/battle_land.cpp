@@ -110,6 +110,12 @@ uint64_t BATTLE_LAND_INTERFACE::ProcessMessage(MESSAGE &message)
             if (m_pManSign)
                 m_pManSign->ExecuteCommand(BI_MSG_COMMAND_DEACTIVATE);
         }
+        // ours: opens the menu as LICommandsActivate does, for a script that shows it without the key
+        else if (storm::iEquals(param, "activate"))
+        {
+            if (m_bShowCommandos && m_pManSign)
+                m_pManSign->SetActive(true);
+        }
     }
     break;
 
