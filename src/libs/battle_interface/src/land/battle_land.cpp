@@ -116,6 +116,16 @@ uint64_t BATTLE_LAND_INTERFACE::ProcessMessage(MESSAGE &message)
             if (m_bShowCommandos && m_pManSign)
                 m_pManSign->SetActive(true);
         }
+        // ours: the steps of the keys BICommandsLeft/Right/Confirm, for a script that drives the open menu
+        else if (m_pManSign && m_pManSign->IsActive())
+        {
+            if (storm::iEquals(param, "left"))
+                m_pManSign->ExecuteCommand(BI_MSG_COMMAND_LEFT);
+            else if (storm::iEquals(param, "right"))
+                m_pManSign->ExecuteCommand(BI_MSG_COMMAND_RIGHT);
+            else if (storm::iEquals(param, "confirm"))
+                m_pManSign->ExecuteCommand(BI_MSG_COMMAND_ACTIVATE);
+        }
     }
     break;
 
