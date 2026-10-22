@@ -204,10 +204,17 @@ void SHIP_CAMERA::FollowTarget(float fDeltaTime)
 {
     if (fabsf(fAngleYDlt) > 0.01f)
         return;
-    auto *target = FindTargetShip();
-    if (!target || !target->GetMatrix() || !GetAIObj()->GetMatrix())
+    if (!GetAIObj()->GetMatrix())
         return;
-    const auto d = GetAIObj()->GetMatrix()->Pos() - target->GetMatrix()->Pos();
+    auto *target = FindTargetShip();
+    CVECTOR vTarget;
+    if (target && target->GetMatrix())
+        vTarget = target->GetMatrix()->Pos();
+    else if (bTargetPoint)
+        vTarget = CVECTOR(fTargetX, 0.0f, fTargetZ);
+    else
+        return;
+    const auto d = GetAIObj()->GetMatrix()->Pos() - vTarget;
     // the camera sits at the angle vAng.y + fModelAy around the ship (see Move). Right on the line the
     // ship hides the target, so the camera stands fTargetOffset aside, on the side it is nearer to.
     const auto wrap = [](float a) {
@@ -230,6 +237,16 @@ uint32_t SHIP_CAMERA::AttributeChanged(ATTRIBUTES *pAttr)
 {
     if (*pAttr == "Target")
         iTargetIndex = static_cast<int32_t>(pAttr->GetAttributeAsFloat());
+    if (*pAttr == "TargetX")
+    {
+        fTargetX = pAttr->GetAttributeAsFloat();
+        bTargetPoint = true;
+    }
+    if (*pAttr == "TargetZ")
+    {
+        fTargetZ = pAttr->GetAttributeAsFloat();
+        bTargetPoint = true;
+    }
     if (*pAttr == "TargetInertia")
         fTargetInertia = pAttr->GetAttributeAsFloat();
     if (*pAttr == "TargetOffset")

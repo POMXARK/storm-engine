@@ -28,6 +28,10 @@ class SHIP_CAMERA : public COMMON_CAMERA
     float fModelAy;
     // "Target": the index of a character whose ship the camera keeps in view past its own, -1 for none
     int32_t iTargetIndex = -1;
+    // "TargetX", "TargetZ": a point (a fort) kept in view the same way while there is no target ship
+    bool bTargetPoint = false;
+    float fTargetX = 0.0f;
+    float fTargetZ = 0.0f;
     float fTargetInertia = 1.5f;
     float fTargetOffset = 0.3f;
 
