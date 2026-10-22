@@ -524,6 +524,15 @@ bool DX9RENDER::Init()
 
         screen_size.x = ini->GetInt(nullptr, "screen_x", 1024);
         screen_size.y = ini->GetInt(nullptr, "screen_y", 768);
+        // main.cpp made the window from engine.ini and the launch options (--size, --fullscreen, --windowed):
+        // the device starts at the size and mode of the window, not reset to them at the first frame, which
+        // lost the pictures of the interface buttons
+        if (auto *window = core.GetWindow(); window != nullptr && window->Width() > 0 && window->Height() > 0)
+        {
+            screen_size.x = window->Width();
+            screen_size.y = window->Height();
+            bWindow = !window->Fullscreen();
+        }
         fNearClipPlane = ini->GetFloat(nullptr, "NearClipPlane", 0.1f);
         fFarClipPlane = ini->GetFloat(nullptr, "FarClipPlane", 4000.0f);
         bBackBufferCanLock = ini->GetInt(nullptr, "lockable_back_buffer", 0) != 0;
