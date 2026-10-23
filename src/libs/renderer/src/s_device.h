@@ -14,7 +14,10 @@
 #include "d3d9types.h"
 #include "script_libriary.h"
 
+#include "loopback_recorder.h"
+
 #include <stack>
+#include <thread>
 #include <vector>
 
 #define MAX_STEXTURES 10240
@@ -605,6 +608,12 @@ private:
     std::string recordAudioInput;
     FILE *recorder = nullptr;
     std::string recordName;
+    // Windows: the sound of the game from the WASAPI loopback, put to the video with ffmpeg when the recording ends
+    bool recordLoopback = false;
+    int recordAudioSkipMs = 300;
+    LoopbackRecorder loopback;
+    std::string recordVideoPart, recordPcm, recordLog;
+    std::thread recordMux;
     void ToggleRecording();
     void StopRecording();
 

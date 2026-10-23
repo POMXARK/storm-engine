@@ -14,6 +14,8 @@
 #include "v_s_stack.h"
 
 #include <fmt/chrono.h>
+#include "loopback_recorder.h"
+
 #include <SDL_keyboard.h>
 #include <SDL_timer.h>
 #include <SDL_video.h>
@@ -506,6 +508,10 @@ bool DX9RENDER::Init()
         ffmpegPath = str;
         ini->ReadString(nullptr, "record_audio_input", str, sizeof(str), "");
         recordAudioInput = str;
+        // Windows: record_audio_loopback = 1 takes the sound of the game itself, no virtual device is needed;
+        // record_audio_skip_ms is how much of its start is cut, as ffmpeg needs time to start the video
+        recordLoopback = ini->GetInt(nullptr, "record_audio_loopback", 0) != 0;
+        recordAudioSkipMs = ini->GetInt(nullptr, "record_audio_skip_ms", 300);
 
         // screenshot format and extension
         ini->ReadString(nullptr, "screenshot_format", str, sizeof(str), "jpg");
@@ -685,6 +691,8 @@ bool DX9RENDER::Init()
 DX9RENDER::~DX9RENDER()
 {
     StopRecording();
+    if (recordMux.joinable())
+        recordMux.join();
     // d3d9->SetRenderTarget(NULL, NULL); //~!~
 
     S_RELEASE(pSmallPostProcessSurface2, 0);
@@ -3510,6 +3518,36 @@ void DX9RENDER::StopRecording()
     pclose(recorder);
 #endif
     recorder = nullptr;
+    if (!recordPcm.empty())
+    {
+        loopback.Stop();
+        // the video and the sound are put together beside the game
+        const auto command = fmt::format(
+            "\"{}\" -y -loglevel error -i \"{}\" -ss {:.3f} -f {} -ar {} -ac {} -i \"{}\" -map 0:v -map 1:a "
+            "-c:v copy -c:a aac -shortest \"{}\" 2>> \"{}\"",
+            ffmpegPath, recordVideoPart, recordAudioSkipMs / 1000.0, loopback.Format(), loopback.Rate(),
+            loopback.Channels(), recordPcm, recordName, recordLog);
+        if (recordMux.joinable())
+            recordMux.join();
+        recordMux = std::thread([command, part = recordVideoPart, pcm = recordPcm, name = recordName] {
+#ifdef _WIN32
+            const int code = std::system(("\"" + command + "\"").c_str());
+#else
+            const int code = std::system(command.c_str());
+#endif
+            if (code == 0)
+            {
+                std::remove(part.c_str());
+                std::remove(pcm.c_str());
+                spdlog::info("Render: the video with the sound is saved to {}", name);
+            }
+            else
+                spdlog::info("Render: ffmpeg did not join the sound, the parts stay: {}", part);
+        });
+        recordPcm.clear();
+        spdlog::info("Render: the video is stopped, the sound is being joined");
+        return;
+    }
     spdlog::info("Render: the video is saved");
 }
 
@@ -3522,6 +3560,8 @@ void DX9RENDER::ToggleRecording()
         StopRecording();
         return;
     }
+    if (recordMux.joinable())
+        recordMux.join();
     auto *window = core.GetWindow();
     if (window == nullptr)
         return;
@@ -3533,6 +3573,15 @@ void DX9RENDER::ToggleRecording()
 
     auto path = storm::GetEngineSettings().GetEnginePath(storm::EngineSettingsPathType::Screenshots) /
                 fmt::format("{:%Y-%m-%d_%H-%M-%S}.mp4", fmt::localtime(std::time(nullptr)));
+    recordName = path.string();
+    auto log = path;
+    log.replace_extension(".log");
+    recordLog = log.string();
+    // the loopback sound replaces the dshow input: the video goes to a part, the two are joined when it ends
+    const bool loopbackSound = recordLoopback && recordAudioInput.empty();
+    auto videoPath = path;
+    if (loopbackSound)
+        videoPath.replace_extension(".video.mp4");
     std::string grab;
 #ifdef _WIN32
     grab = fmt::format("-f gdigrab -framerate 30 -video_size {}x{} -offset_x {} -offset_y {} -i desktop", width, height,
@@ -3544,10 +3593,8 @@ void DX9RENDER::ToggleRecording()
 #endif
     auto command = fmt::format("\"{}\" -y -loglevel error {} {} -c:v libx264 -preset veryfast -crf 20 -pix_fmt yuv420p "
                                      "-c:a aac \"{}\"",
-                                     ffmpegPath, grab, recordAudioInput, path.string());
+                                     ffmpegPath, grab, recordAudioInput, videoPath.string());
     // the errors of ffmpeg (no such program, a bad audio device) go to the log next to the video
-    auto log = path;
-    log.replace_extension(".log");
 #ifdef _WIN32
     // cmd /c drops the outer quotes of a command that begins and ends with a quote
     command = "\"" + command + " 2> \"" + log.string() + "\"\"";
@@ -3561,7 +3608,16 @@ void DX9RENDER::ToggleRecording()
         spdlog::info("Render: the video is not started: {}", command);
         return;
     }
-    recordName = path.string();
+    if (loopbackSound)
+    {
+        recordVideoPart = videoPath.string();
+        auto pcm = path;
+        pcm.replace_extension(".pcm");
+        if (loopback.Start(pcm.string()))
+            recordPcm = pcm.string();
+        else
+            spdlog::info("Render: the sound of the game is not captured, the video goes without it");
+    }
     spdlog::info("Render: the video {}x{} to {}", width, height, recordName);
 }
 
