@@ -1239,6 +1239,11 @@ bool DX9RENDER::DX9EndScene()
         Print(screen_size.x - 100, screen_size.y - 50, "FPS %d", core.EngineFps());
     }
 
+    if (recorder != nullptr)
+    {
+        Print(10, 10, "REC (F9 - stop) %s", recordName.c_str());
+    }
+
     if (bShowExInfo)
     {
         uint32_t dwTotalTexSize = 0;
@@ -3535,12 +3540,18 @@ void DX9RENDER::ToggleRecording()
     grab = fmt::format("-f x11grab -framerate 30 -video_size {}x{} -i {}+{},{}", width, height,
                        display != nullptr ? display : ":0", x, y);
 #endif
-    const auto command = fmt::format("\"{}\" -y -loglevel error {} {} -c:v libx264 -preset veryfast -crf 20 -pix_fmt yuv420p "
+    auto command = fmt::format("\"{}\" -y -loglevel error {} {} -c:v libx264 -preset veryfast -crf 20 -pix_fmt yuv420p "
                                      "-c:a aac \"{}\"",
                                      ffmpegPath, grab, recordAudioInput, path.string());
+    // the errors of ffmpeg (no such program, a bad audio device) go to the log next to the video
+    auto log = path;
+    log.replace_extension(".log");
 #ifdef _WIN32
+    // cmd /c drops the outer quotes of a command that begins and ends with a quote
+    command = "\"" + command + " 2> \"" + log.string() + "\"\"";
     recorder = _popen(command.c_str(), "w");
 #else
+    command += " 2> \"" + log.string() + "\"";
     recorder = popen(command.c_str(), "w");
 #endif
     if (recorder == nullptr)
@@ -3548,7 +3559,8 @@ void DX9RENDER::ToggleRecording()
         spdlog::info("Render: the video is not started: {}", command);
         return;
     }
-    spdlog::info("Render: the video {}x{} to {}", width, height, path.string());
+    recordName = path.string();
+    spdlog::info("Render: the video {}x{} to {}", width, height, recordName);
 }
 
 void DX9RENDER::SaveShoot()

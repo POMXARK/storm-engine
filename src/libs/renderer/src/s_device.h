@@ -604,6 +604,7 @@ private:
     std::string ffmpegPath = "ffmpeg";
     std::string recordAudioInput;
     FILE *recorder = nullptr;
+    std::string recordName;
     void ToggleRecording();
     void StopRecording();
 
