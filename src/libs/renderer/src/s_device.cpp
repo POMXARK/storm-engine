@@ -14,6 +14,7 @@
 #include "v_s_stack.h"
 
 #include <fmt/chrono.h>
+#include <SDL_keyboard.h>
 #include <SDL_timer.h>
 #include <SDL_video.h>
 
@@ -45,7 +46,6 @@ CREATE_SCRIPTLIBRIARY(DX9RENDER_SCRIPT_LIBRIARY)
 namespace
 {
 constexpr auto kKeyTakeScreenshot = "TakeScreenshot";
-constexpr auto kKeyRecordVideo = "RecordVideo";
 
 #ifdef _WIN32 // Screenshot
 D3DXIMAGE_FILEFORMAT GetScreenshotFormat(const std::string &fmt)
@@ -676,8 +676,6 @@ bool DX9RENDER::Init()
 
     const auto ctrl = core.Controls->CreateControl(kKeyTakeScreenshot);
     core.Controls->MapControl(ctrl, VK_F8);
-    if (recordVideo)
-        core.Controls->MapControl(core.Controls->CreateControl(kKeyRecordVideo), VK_F9);
 
     // UNGUARD
     return true;
@@ -3027,8 +3025,12 @@ void DX9RENDER::RunStart()
     }
     if (recordVideo)
     {
-        if (CONTROL_STATE cs; core.Controls->GetControlState(kKeyRecordVideo, cs) && cs.state == CST_ACTIVATED)
+        // the keyboard state of SDL, not a control: the game's own controls module may not pass F9 on
+        static bool f9Down = false;
+        const bool down = SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_F9] != 0;
+        if (down && !f9Down)
             ToggleRecording();
+        f9Down = down;
     }
 }
 
