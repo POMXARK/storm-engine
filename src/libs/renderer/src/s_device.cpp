@@ -2848,16 +2848,23 @@ void DX9RENDER::SetScreen(int32_t width, int32_t height, bool fullscreen)
     }
     const bool wasWindow = bWindow;
     bWindow = !fullscreen;
-    if (!ResizeBackBuffer(width, height))
+    auto *pScriptRender = static_cast<VDATA *>(core.GetScriptVariable("Render"));
+    const bool taken = ResizeBackBuffer(width, height);
+    if (!taken)
     {
-        // not taken: the window and engine.ini keep the screen that works
+        // a device that cannot Reset (the default pool of a scene still holds resources on native D3D9): the window
+        // keeps the screen that works, engine.ini takes the new one for the next launch, Render.restart tells the script
         bWindow = wasWindow;
         window->SetFullscreen(!wasWindow);
         window->Resize(screen_size.x, screen_size.y);
-        return;
+        if (pScriptRender != nullptr)
+            pScriptRender->GetAClass()->SetAttributeUseDword("restart", 1);
     }
-    if (auto *pScriptRender = static_cast<VDATA *>(core.GetScriptVariable("Render")); pScriptRender != nullptr)
+    else if (pScriptRender != nullptr)
+    {
         pScriptRender->GetAClass()->SetAttributeUseDword("full_screen", fullscreen);
+        pScriptRender->GetAClass()->SetAttributeUseDword("restart", 0);
+    }
 
     std::string text;
     if (std::ifstream in(core.EngineIniFileName(), std::ios::binary); in)
@@ -2871,6 +2878,12 @@ void DX9RENDER::SetScreen(int32_t width, int32_t height, bool fullscreen)
     WriteEngineIniKey(text, "screen_y", std::to_string(height));
     if (std::ofstream out(core.EngineIniFileName(), std::ios::binary | std::ios::trunc); out)
         out << text;
+    if (!taken)
+    {
+        spdlog::info("Render: the screen {}x{}{} comes with the next launch", width, height,
+                     fullscreen ? ", full screen" : "");
+        return;
+    }
     spdlog::info("Render: the screen {}x{}{}", width, height, fullscreen ? ", full screen" : "");
 }
 
