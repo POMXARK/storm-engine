@@ -80,7 +80,9 @@ std::string SDLWindow::Title() const
 void SDLWindow::SetFullscreen(bool fullscreen)
 {
     fullscreen_ = fullscreen;
-    SDL_SetWindowFullscreen(window_.get(), fullscreen_ ? SDL_WINDOW_FULLSCREEN : 0);
+    // at run time the window covers the desktop and keeps its mode: the exclusive SDL_WINDOW_FULLSCREEN changes the
+    // display mode under a windowed D3D9 device, whose Reset then fails and the lost device crashes the renderer
+    SDL_SetWindowFullscreen(window_.get(), fullscreen_ ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
 }
 
 void SDLWindow::Resize(int width, int height)
