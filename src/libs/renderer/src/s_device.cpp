@@ -15,6 +15,7 @@
 
 #include <fmt/chrono.h>
 #include <SDL_timer.h>
+#include <SDL_video.h>
 
 #include <algorithm>
 #include <fstream>
@@ -44,6 +45,7 @@ CREATE_SCRIPTLIBRIARY(DX9RENDER_SCRIPT_LIBRIARY)
 namespace
 {
 constexpr auto kKeyTakeScreenshot = "TakeScreenshot";
+constexpr auto kKeyRecordVideo = "RecordVideo";
 
 #ifdef _WIN32 // Screenshot
 D3DXIMAGE_FILEFORMAT GetScreenshotFormat(const std::string &fmt)
@@ -497,6 +499,14 @@ bool DX9RENDER::Init()
         // bPostProcessEnabled = ini->GetInt(0, "PostProcess", 0) == 1;
         bPostProcessEnabled = false; //~!~
 
+        // the video of the window on F9 (opt-in): the ffmpeg to run and its input of the sound, e.g. "-f pulse -i
+        // <sink>.monitor" (Linux) or "-f dshow -i audio=<device>" (Windows)
+        recordVideo = ini->GetInt(nullptr, "record_video", 0) != 0;
+        ini->ReadString(nullptr, "ffmpeg_path", str, sizeof(str), "ffmpeg");
+        ffmpegPath = str;
+        ini->ReadString(nullptr, "record_audio_input", str, sizeof(str), "");
+        recordAudioInput = str;
+
         // screenshot format and extension
         ini->ReadString(nullptr, "screenshot_format", str, sizeof(str), "jpg");
         screenshotExt = str;
@@ -666,6 +676,8 @@ bool DX9RENDER::Init()
 
     const auto ctrl = core.Controls->CreateControl(kKeyTakeScreenshot);
     core.Controls->MapControl(ctrl, VK_F8);
+    if (recordVideo)
+        core.Controls->MapControl(core.Controls->CreateControl(kKeyRecordVideo), VK_F9);
 
     // UNGUARD
     return true;
@@ -674,6 +686,7 @@ bool DX9RENDER::Init()
 //################################################################################
 DX9RENDER::~DX9RENDER()
 {
+    StopRecording();
     // d3d9->SetRenderTarget(NULL, NULL); //~!~
 
     S_RELEASE(pSmallPostProcessSurface2, 0);
@@ -3007,6 +3020,11 @@ void DX9RENDER::RunStart()
     {
         SaveShoot();
     }
+    if (recordVideo)
+    {
+        if (CONTROL_STATE cs; core.Controls->GetControlState(kKeyRecordVideo, cs) && cs.state == CST_ACTIVATED)
+            ToggleRecording();
+    }
 }
 
 void DX9RENDER::RunEnd()
@@ -3471,6 +3489,67 @@ using TGA_H = struct tagTGA_H
 };
 
 // WORD Temp[1600*4];
+
+void DX9RENDER::StopRecording()
+{
+    if (recorder == nullptr)
+        return;
+    // ffmpeg ends the file when it reads q
+    fputs("q\n", recorder);
+    fflush(recorder);
+#ifdef _WIN32
+    _pclose(recorder);
+#else
+    pclose(recorder);
+#endif
+    recorder = nullptr;
+    spdlog::info("Render: the video is saved");
+}
+
+// F9: the window is grabbed by ffmpeg into Screenshots/<date>.mp4, F9 again ends it. The sound comes with
+// record_audio_input of engine.ini
+void DX9RENDER::ToggleRecording()
+{
+    if (recorder != nullptr)
+    {
+        StopRecording();
+        return;
+    }
+    auto *window = core.GetWindow();
+    if (window == nullptr)
+        return;
+    const auto size = window->GetWindowSize();
+    // libx264 wants even sizes
+    const int width = size.width & ~1, height = size.height & ~1;
+    int x = 0, y = 0;
+    SDL_GetWindowPosition(window->SDLHandle(), &x, &y);
+
+    auto path = storm::GetEngineSettings().GetEnginePath(storm::EngineSettingsPathType::Screenshots) /
+                fmt::format("{:%Y-%m-%d_%H-%M-%S}.mp4", fmt::localtime(std::time(nullptr)));
+    std::string grab;
+#ifdef _WIN32
+    grab = fmt::format("-f gdigrab -framerate 30 -video_size {}x{} -offset_x {} -offset_y {} -i desktop", width, height,
+                       x, y);
+#else
+    const char *display = std::getenv("DISPLAY");
+    grab = fmt::format("-f x11grab -framerate 30 -video_size {}x{} -i {}+{},{}", width, height,
+                       display != nullptr ? display : ":0", x, y);
+#endif
+    const auto command = fmt::format("\"{}\" -y -loglevel error {} {} -c:v libx264 -preset veryfast -crf 20 -pix_fmt yuv420p "
+                                     "-c:a aac \"{}\"",
+                                     ffmpegPath, grab, recordAudioInput, path.string());
+#ifdef _WIN32
+    recorder = _popen(command.c_str(), "w");
+#else
+    recorder = popen(command.c_str(), "w");
+#endif
+    if (recorder == nullptr)
+    {
+        spdlog::info("Render: the video is not started: {}", command);
+        return;
+    }
+    spdlog::info("Render: the video {}x{} to {}", width, height, path.string());
+}
 
 void DX9RENDER::SaveShoot()
 {

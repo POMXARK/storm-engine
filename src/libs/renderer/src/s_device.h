@@ -599,6 +599,14 @@ private:
 #endif
     std::string screenshotExt;
 
+    // the video of the window (F9, engine.ini record_video = 1): ffmpeg grabs the window, the engine only starts it
+    bool recordVideo = false;
+    std::string ffmpegPath = "ffmpeg";
+    std::string recordAudioInput;
+    FILE *recorder = nullptr;
+    void ToggleRecording();
+    void StopRecording();
+
     bool TextureLoad(int32_t texid);
     bool TextureLoadUsingD3DX(const char *path, int32_t texid);
 };
