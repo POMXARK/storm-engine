@@ -1239,7 +1239,7 @@ bool DX9RENDER::DX9EndScene()
 
     if (recorder != nullptr)
     {
-        Print(10, 10, "REC (F9 - stop) %s", recordName.c_str());
+        Print(10, 10, "REC (F9 - stop) %s", std::filesystem::path(recordName).filename().string().c_str());
     }
 
     if (bShowExInfo)
