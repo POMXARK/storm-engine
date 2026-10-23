@@ -1,5 +1,7 @@
 #include "logging.hpp"
 
+#include <cstdlib>
+
 #include <spdlog/spdlog.h>
 
 #include "spdlog_sinks/syncable_sink.hpp"
@@ -30,6 +32,9 @@ logger_ptr getOrCreateLogger(const std::string &name, const spdlog::level::level
 
     logger = spdlog::create<sinks::syncable_sink>(name, path.string(), truncate);
     logger->set_level(level);
+    // STORM_LOG_FLUSH=1: every message reaches the file at once, so a crash leaves the last lines (opt-in, slower)
+    if (const char *flush = std::getenv("STORM_LOG_FLUSH"); flush != nullptr && flush[0] == '1')
+        logger->flush_on(spdlog::level::trace);
 
     return logger;
 }
