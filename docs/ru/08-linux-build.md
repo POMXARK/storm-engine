@@ -25,6 +25,7 @@ $W/
 |---|---|---|
 | conan | 2.33.0 | зависимости C++ |
 | cmake | 3.31.10 | системный 3.22 не поддерживает `CMAKE_PROJECT_TOP_LEVEL_INCLUDES` (нужен ≥ 3.24, им подключается cmake-conan) |
+| fast-simplification | 0.2.0 | `corsairs-remake/tools/pdm_glb_optimize.py`: упрощение мешей, сгенерированных нейросетью (`pip3 install --user fast-simplification`; ещё нужны trimesh, scipy, numpy, Pillow). Пакет `meshoptimizer` с PyPI на этой машине не собирается |
 
 ```bash
 pip3 install --user "conan>=2,<3" "cmake>=3.28,<4"
