@@ -1,7 +1,9 @@
 #include "compiler.h"
 
 #include <chrono>
+#include <algorithm>
 #include <cstdio>
+#include <cstring>
 
 #include <zlib.h>
 
@@ -40,6 +42,17 @@ S_DEBUG s_debug;
 
 namespace
 {
+// the header of a save file holds 31 characters: a longer text (a Russian one takes two bytes a letter) is cut, not
+// written over the buffer (sprintf_s stops a debug build there), and not in the middle of a UTF-8 letter
+void CopySaveInfo(char (&dest)[32], const char *info)
+{
+    size_t len = std::min(std::strlen(info), sizeof(dest) - 1);
+    while (len > 0 && len < std::strlen(info) && (static_cast<uint8_t>(info[len]) & 0xC0) == 0x80)
+        --len;
+    std::memcpy(dest, info, len);
+    std::memset(dest + len, 0, sizeof(dest) - len);
+}
+
 enum CacheMode : int
 {
     kCacheDisabled = 0,             // Disable script caching
@@ -6743,7 +6756,7 @@ bool COMPILER::SaveState(std::fstream &fileS)
     EXTDATA_HEADER edh;
     auto *pVDat = static_cast<VDATA *>(core_internal.GetScriptVariable("savefile_info"));
     if (pVDat && pVDat->GetString())
-        sprintf_s(edh.sFileInfo, sizeof(edh.sFileInfo), "%s", pVDat->GetString());
+        CopySaveInfo(edh.sFileInfo, pVDat->GetString());
     else
         sprintf_s(edh.sFileInfo, sizeof(edh.sFileInfo), "save");
     edh.dwExtDataOffset = 0;
@@ -6999,7 +7012,7 @@ bool COMPILER::SetSaveData(const char *file_name, void *save_data, int32_t data_
     const uint32_t dwFileSize = fio->_GetFileSize(file_name);
     auto *pVDat = static_cast<VDATA *>(core_internal.GetScriptVariable("savefile_info"));
     if (pVDat && pVDat->GetString())
-        sprintf_s(exdh.sFileInfo, sizeof(exdh.sFileInfo), "%s", pVDat->GetString());
+        CopySaveInfo(exdh.sFileInfo, pVDat->GetString());
     else
         sprintf_s(exdh.sFileInfo, sizeof(exdh.sFileInfo), "save");
     exdh.dwExtDataOffset = dwFileSize;
