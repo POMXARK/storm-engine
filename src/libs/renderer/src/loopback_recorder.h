@@ -10,10 +10,10 @@
 #include <vector>
 
 #ifdef _WIN32
-#include <audioclient.h>
-#include <mmdeviceapi.h>
 #include <windows.h>
 #include <mmreg.h>
+#include <audioclient.h>
+#include <mmdeviceapi.h>
 
 #pragma comment(lib, "ole32.lib")
 #endif
