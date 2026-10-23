@@ -296,6 +296,13 @@ void Fader::Execute(uint32_t delta_time)
     }
 }
 
+void Fader::LostRender()
+{
+    if (tex)
+        rs->Release(tex);
+    tex = nullptr;
+}
+
 void Fader::Realize(uint32_t delta_time)
 {
     if (!isWork)
@@ -315,7 +322,7 @@ void Fader::Realize(uint32_t delta_time)
                     core.Trace("Fader: GetRenderTargetAsTexture failed");
                 }
             }
-            else {
+            else if (tex) {
                 rs->SetTexture(0, tex);
                 rs->DrawPrimitiveUP(D3DPT_TRIANGLELIST,
                                     D3DFVF_XYZRHW  | D3DFVF_TEX1 | D3DFVF_TEXTUREFORMAT2, 2, drawbuf_base, sizeof(drawbuf_base[0]), "Fader");

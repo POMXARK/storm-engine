@@ -2739,8 +2739,10 @@ void DX9RENDER::RecompileEffects()
 }
 
 // the window was resized (it is with --editor): the back buffer takes its size, the scripts see it in Render
-void DX9RENDER::ResizeBackBuffer(int32_t width, int32_t height)
+bool DX9RENDER::ResizeBackBuffer(int32_t width, int32_t height)
 {
+    const auto oldWidth = static_cast<int32_t>(d3dpp.BackBufferWidth);
+    const auto oldHeight = static_cast<int32_t>(d3dpp.BackBufferHeight);
     d3dpp.BackBufferWidth = width;
     d3dpp.BackBufferHeight = height;
     screen_size.x = width;
@@ -2752,7 +2754,20 @@ void DX9RENDER::ResizeBackBuffer(int32_t width, int32_t height)
     if (!ResetDevice())
     {
         core.Trace("Render: the back buffer is not resized to %dx%d", width, height);
-        return;
+        // the lost device would fail every call after it: back to the size it had
+        if (oldWidth > 0 && oldHeight > 0 && (oldWidth != width || oldHeight != height))
+        {
+            d3dpp.BackBufferWidth = oldWidth;
+            d3dpp.BackBufferHeight = oldHeight;
+            screen_size.x = oldWidth;
+            screen_size.y = oldHeight;
+            m_fHeightDeformator = static_cast<float>(oldHeight * 4.0f) / static_cast<float>(oldWidth * 3.0f);
+            OriginalViewPort.Width = oldWidth;
+            OriginalViewPort.Height = oldHeight;
+            if (ResetDevice())
+                spdlog::info("Render: back buffer {}x{} again", oldWidth, oldHeight);
+        }
+        return false;
     }
     spdlog::info("Render: back buffer {}x{}", width, height);
     if (auto *pScriptRender = static_cast<VDATA *>(core.GetScriptVariable("Render")); pScriptRender != nullptr)
@@ -2761,6 +2776,7 @@ void DX9RENDER::ResizeBackBuffer(int32_t width, int32_t height)
         pARender->SetAttributeUseDword("screen_x", screen_size.x);
         pARender->SetAttributeUseDword("screen_y", screen_size.y);
     }
+    return true;
 }
 
 bool DX9RENDER::ResetDevice()
@@ -2830,8 +2846,16 @@ void DX9RENDER::SetScreen(int32_t width, int32_t height, bool fullscreen)
         d3dpp.Windowed = TRUE;
         d3dpp.FullScreen_RefreshRateInHz = 0;
     }
+    const bool wasWindow = bWindow;
     bWindow = !fullscreen;
-    ResizeBackBuffer(width, height);
+    if (!ResizeBackBuffer(width, height))
+    {
+        // not taken: the window and engine.ini keep the screen that works
+        bWindow = wasWindow;
+        window->SetFullscreen(!wasWindow);
+        window->Resize(screen_size.x, screen_size.y);
+        return;
+    }
     if (auto *pScriptRender = static_cast<VDATA *>(core.GetScriptVariable("Render")); pScriptRender != nullptr)
         pScriptRender->GetAClass()->SetAttributeUseDword("full_screen", fullscreen);
 

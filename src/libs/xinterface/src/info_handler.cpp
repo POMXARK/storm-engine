@@ -14,6 +14,13 @@ InfoHandler::~InfoHandler()
         m_rs->Release(tex);
 }
 
+void InfoHandler::LostRender()
+{
+    if (tex)
+        m_rs->Release(tex);
+    tex = nullptr;
+}
+
 bool InfoHandler::Init()
 {
     // get render service

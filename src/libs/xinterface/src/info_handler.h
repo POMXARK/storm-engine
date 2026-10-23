@@ -12,6 +12,8 @@ class InfoHandler : public Entity
     bool Init() override;
     void Execute(uint32_t delta_time);
     void Realize(uint32_t delta_time) const;
+    // the captured frame lives in the default pool: the native D3D9 Reset fails while it does
+    void LostRender();
     uint64_t ProcessMessage(MESSAGE &message) override;
 
     void ProcessStage(Stage stage, uint32_t delta) override
@@ -24,9 +26,10 @@ class InfoHandler : public Entity
         case Stage::realize:
             Realize(delta);
             break;
-            /*case Stage::lost_render:
-              LostRender(delta); break;
-            case Stage::restore_render:
+        case Stage::lost_render:
+            LostRender();
+            break;
+            /*case Stage::restore_render:
               RestoreRender(delta); break;*/
         }
     }

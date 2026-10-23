@@ -410,7 +410,7 @@ class DX9RENDER : public VDX9RENDER
 
     void SetLoadTextureEnable(bool bEnable = true) override;
     bool ResetDevice();
-    void ResizeBackBuffer(int32_t width, int32_t height);
+    bool ResizeBackBuffer(int32_t width, int32_t height);
     void SetScreen(int32_t width, int32_t height, bool fullscreen);
 
     void MakeDrawVector(RS_LINE *pLines, uint32_t dwNumSubLines, const CMatrix &mMatrix, CVECTOR vUp, CVECTOR v1,

@@ -37,9 +37,10 @@ class Fader : public Entity
         case Stage::realize:
             Realize(delta);
             break;
-            /*case Stage::lost_render:
-              LostRender(delta); break;
-            case Stage::restore_render:
+        case Stage::lost_render:
+            LostRender();
+            break;
+            /*case Stage::restore_render:
               RestoreRender(delta); break;*/
         }
     }
@@ -47,6 +48,8 @@ class Fader : public Entity
     // Work
     void Execute(uint32_t delta_time);
     void Realize(uint32_t delta_time);
+    // the captured frame lives in the default pool: the native D3D9 Reset fails while it does
+    void LostRender();
 
     // --------------------------------------------------------------------------------------------
     // Encapsulation
