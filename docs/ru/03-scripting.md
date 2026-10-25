@@ -61,6 +61,8 @@
 
 Пример: `SendMessage(&GameInterface, "ls", MSG_INTERFACE_INIT, "resource\ini\interfaces\mainmenu.ini");`
 
+Interface не требует клави и cursor: скриптa send сообщенение в енток его (`XINTERFACE::ProcessMessage`, xinterface.cpp:1078). Test-сценарий не симулигосно клавми (the rule): один пресс команд узела — `SendMessage(&GameInterface, "lss", MSG_INTERFACE_MENU_ACTION, "downstep", "")` (`""` = узел с фокусом), selection мяня узела — `SendMessage(&GameInterface, "lss", MSG_INTERFACE_MENU_ACTION, "activate", "B_OPTIONS")`. `activate` не движется узел с фокусом (no ret control), it fires only `Event("ievnt_command","ss",cmd,node)` (inode.cpp:142). Узел с фокусом обратно по штот `MSG_INTERFACE_GET_CURRENT_NODE 45028` (`"le"`, xinterface.cpp:762): `SendMessage(&GameInterface, "le", MSG_INTERFACE_GET_CURRENT_NODE, &nodeName)`. Формат string обяз: `"lss"` = два string, иначе втораа dropped и сообщенение ничего — the same trap as in the `storm-land-scenario-control` skill. Traps VM: prefix `++x` on an integer global савpilet молща and dies runtime `RUNTIME ERROR in <file>(<line>): no Lvalue` (error.log), writes `x = x + 1`; the `S SendMessage(...)` prefix of the old TEHO programs does not exist in this VM (`Undeclared identifier: S`).
+
 ## 3.4 События
 
 | Вызов | Поведение |

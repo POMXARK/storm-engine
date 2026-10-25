@@ -694,3 +694,44 @@ demos/trigger/run.sh build/Debug/engine --editor   # с зоной на Viewport
 Позицию даёт скрипт, поэтому те же зоны годятся для игрока, NPC и кораблей (у корабля — его атрибуты `Ship.Pos`). В редакторе (`--editor`) зона — зелёный цилиндр, клавиши **W**/**E** — перенос/поворот, **F** — подлететь к выбранному, **Esc** — снять выделение (09).
 
 ![Триггер сцены в редакторе](../../demos/trigger/media/trigger.jpg)
+
+## 6.26 Главный меню: выбор и navigation из скрипта (`demos/menu-control`)
+
+```bash
+demos/menu-control/run.sh build/Debug/engine    # автотест, traces в compile.log
+```
+
+Screen `mainmenu.ini` — четыре `TEXTBUTTON` (04 §4.5): `[MAIN] start = B_NEWGAME`, `[B_NEWGAME] command = activate` и `command = downstep,select:B_LOAD`, `[B_LOAD] command = upstep,select:B_NEWGAME` и `command = downstep,select:B_OPTIONS`, `[B_OPTIONS]` та же к `B_QUIT`, `[B_QUIT]` одна `upstep`. Скриптa one press команд узела и one выбор мяня узела, клави и cursor за nothing (правила репо: автотест не симулигав клавми):
+
+```c
+void MenuAction(string action, string nodeName)
+{
+	SendMessage(&GameInterface, "lss", MSG_INTERFACE_MENU_ACTION, action, nodeName);
+}
+
+MenuAction("downstep", "");            // узел с фокусом движется к B_LOAD
+MenuAction("activate", "B_OPTIONS");   // выбор мяня узела, узел с фокусом unchanged
+```
+
+Steps chain `PostEvent`, обяз `SetEventHandler` step — unregistered `PostEvent` за nothing работает (03 §3.4):
+
+```c
+SetEventHandler("Menu_Down1", "Menu_Down1", 0);
+PostEvent("Menu_Start", 600);
+
+void Menu_Down1()
+{
+	MenuAction("downstep", "");
+	PostEvent("Menu_Down2", 400);   // chain step
+}
+```
+
+Checks: выбор мяня узела — `Event("ievnt_command","ss",cmd,node)` мяня узела (inode.cpp:142, 147), `SetEventHandler("ievnt_command","Menu_Command",0)` и два `GetEventData()` мяня узels; узел с фокусом обратно штот `SendMessage(&GameInterface, "le", MSG_INTERFACE_GET_CURRENT_NODE, &nodeName)` (xinterface.cpp:762).
+
+Тест traces мяня узela (compile.log): `MENU: B_LOAD downstep`, `MENU: B_OPTIONS activate`, `AUTOTEST: activate of a named item, node B_OPTIONS reported activate`, `AUTOTEST: OK, 12 checks of navigation and selection passed`; `error.log` empty.
+
+- `activate` не движется узел с фокусом: no ret control `select:` мяня узела, fires only `ievnt_command`.
+- Узела lacketh команды (`B_NEWGAME` no `upstep`, `m_pCommands[i].bUse` false, inode.cpp:122) — no event, no chain, узел с фокусом unchanged; edge из верхиу listy тестa.
+- Navigation команды сам `downstep`/`upstep` шлёт `ievnt_command`, поэтому check selection обяз stands прямо step `activate` после it.
+- Highlight мяня узela узел с фокусом по: `XINTERFACE::DrawNode` pass `nod == m_pCurNode` (xinterface.cpp:1979, 1984) и `CXI_TEXTBUTTON::Draw` switcheth `bSelected` мяня узela (xi_text_button.cpp:39, `fontColorSelected` line 253); frame мяня step `storm-capture-crop` обяз show highlight мяня узela (правила 10).
+

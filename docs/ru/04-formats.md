@@ -149,7 +149,7 @@ command = deactivate,event:Menu_Quit
 
 В TEXTBUTTON `string` — ключ в таблице строк. В других узлах строка с `#` в начале — литерал.
 
-Коды сообщений GUI: `MSG_INTERFACE_INIT 45010` (`"ls"`, путь к ini), остальные 45011–45053 — в `shared/interface/messages.h`.
+Коды сообщений GUI: `MSG_INTERFACE_INIT 45010` (`"ls"`, путь к ini), остальные 45011–45062 — в `shared/interface/messages.h`. ours: `MSG_INTERFACE_MENU_ACTION 45062` (`"lss"`, имя команды из `xutil.cpp` + имя узела, `""` = узел с фокусом) сравитавая один команд-пресс узела как клавиатура branch `XINTERFACE::DoControl` (xinterface.cpp:1992), только вместо клапы — без клави и без cursor: `CINODE::DoAction` (inode.cpp:106) срезавяет координат chain, ret control узла шлёт `MSG_INTERFACE_SET_CURRENT_NODE` (inode.cpp:92, `"lp"`) и узела с фокусом движется; `activate` has no ret control и не движется узела, it fires only `Event("ievnt_command","ss",cmd,node)`. Узел с фокусом обратно по штот reads: `MSG_INTERFACE_GET_CURRENT_NODE 45028` (`"le"`, xinterface.cpp:762).
 
 ## 4.6 Строки и языки (string_service/str_service.cpp)
 

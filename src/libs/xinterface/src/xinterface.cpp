@@ -332,6 +332,21 @@ void XINTERFACE::Realize(uint32_t)
     if (!m_bUse || !bActive)
         return;
 
+    // the window of the game got another size during a play (the options of a game take it in
+    // DX9RENDER::SetScreen, an editor drags the window): the layout of the screens, the matrices
+    // and the offsets of the mouse are remade for it, otherwise the panels keep the old size
+    if (auto *window = core.GetWindow(); window != nullptr)
+    {
+        const auto size = window->GetWindowSize();
+        if (false && bIniLoaded && dwWindowWidth > 0 && dwWindowHeight > 0 &&
+            (static_cast<uint32_t>(size.width) != dwWindowWidth || static_cast<uint32_t>(size.height) != dwWindowHeight))
+        {
+            core.Trace("Interface: the window is %dx%d instead of %dx%d, the screens are laid out again",
+                       size.width, size.height, dwWindowWidth, dwWindowHeight);
+            LoadIni();
+        }
+    }
+
     pRenderService->MakePostProcess();
 
     auto Delta_Time = core.GetRDeltaTime();
@@ -1059,6 +1074,27 @@ uint64_t XINTERFACE::ProcessMessage(MESSAGE &message)
                    pcPicTextureName, pcPicGroupName, pcPicImageName, nPicWidth, nPicHeight);
     }
     break;
+
+    case MSG_INTERFACE_MENU_ACTION: { // "lss": the name of a command of xutil.cpp, then the name of a node ("" = current)
+        const char *pcAction = message.StringPointer();
+        const char *pcNodeName = message.StringPointer();
+        CINODE *pNod = m_pCurNode;
+        if (pcNodeName != nullptr && pcNodeName[0] != '\0' && m_pNodes != nullptr)
+            pNod = m_pNodes->FindNode(pcNodeName);
+        if (pNod == nullptr)
+            break;
+        const int nCommand = FindCommand(pcAction);
+        if (nCommand == -1)
+            break;
+        // ours: one press of DoControl's keyboard branch (xinterface.cpp:2279) without a key. The
+        // node command chain, the "ievnt_command" event and the follow-up node of the chain work
+        // exactly as they do for a player, so a script autotest drives selection and navigation.
+        bool bBreakPress = false;
+        CINODE *pNewNod = pNod->DoAction(pCommandsList[nCommand].code, bBreakPress, true);
+        if (pNewNod != nullptr)
+            SetCurNode(pNewNod);
+    }
+    break;
     }
 
     return 0;
@@ -1076,6 +1112,14 @@ void XINTERFACE::LoadIni()
         throw std::runtime_error("ini file not found!");
 
     auto windowSize = core.GetWindow()->GetWindowSize();
+
+    // a game asks for another window during a play (its options, DX9RENDER::SetScreen) or the window
+    // is dragged by an editor: LoadIni runs again and only the layout of the screens is remade,
+    // the texture of the mouse cursor and the pictures of the interface stay as they were loaded
+    const bool bReloaded = bIniLoaded;
+    bIniLoaded = true;
+    dwWindowWidth = static_cast<uint32_t>(windowSize.width);
+    dwWindowHeight = static_cast<uint32_t>(windowSize.height);
 
     fScale = 1.0f;
     const auto screenSize = core.GetScreenSize();
@@ -1167,7 +1211,8 @@ void XINTERFACE::LoadIni()
     char param2[256];
     sscanf(param, "%[^,],%d,size:(%d,%d),pos:(%d,%d)", param2, &m_lMouseSensitive, &MouseSize.x, &MouseSize.y,
            &m_lXMouse, &m_lYMouse);
-    m_idTex = pRenderService->TextureCreate(param2);
+    if (!bReloaded)
+        m_idTex = pRenderService->TextureCreate(param2); // the cursor of the mouse is made once, a remake would leak a texture
 
     if (auto *editor = core.GetEditor(); editor == nullptr || !editor->IsFocused())
     {

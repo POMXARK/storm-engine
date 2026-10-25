@@ -16,6 +16,7 @@ Each demo is started with `run.sh <path to built engine executable>` from its fo
 | Bitmap fonts and localized strings (`fonts.ini`, `language.ini`, `common.ini`) | [`interface`](interface) | done |
 | Input: keyboard and mouse controls (`pcs_controls`, `MapControl`) | [`interface`](interface) | done |
 | Textures in `.tx` format | [`interface`](interface) | done |
+| Main menu of the interface: `activate`/`upstep`/`downstep` of `mainmenu.ini` items sent by script (`MSG_INTERFACE_MENU_ACTION`), the current item read back, an autotest of selection and navigation with `PostEvent` | [`menu-control`](menu-control) | done |
 | Static 3D models (`.gm`) with textures and materials, placed and rotated by script | [`model`](model) | done |
 | Free camera (`FREE_CAMERA` run by the `Scene` entity) | [`model`](model) | done |
 | Dynamic sun light, ambient and fog (`weather` attributes + `DLightModel` technique) | [`model`](model) | done |
