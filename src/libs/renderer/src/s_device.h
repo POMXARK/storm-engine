@@ -153,6 +153,7 @@ class DX9RENDER : public VDX9RENDER
     bool SetCamera(const CVECTOR &pos, const CVECTOR &ang) override;
     bool SetCamera(CVECTOR lookFrom, CVECTOR lookTo, CVECTOR up) override;
     bool SetPerspective(float perspective, float fAspectRatio = -1.0f) override;
+    bool SetPerspectiveMatrix(float perspective, float fAspectRatio);
     void GetCamera(CVECTOR &pos, CVECTOR &ang, float &perspective) override;
 
     bool SetCurrentMatrix(D3DMATRIX *mtx) override;

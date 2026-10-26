@@ -2183,8 +2183,14 @@ void DX9RENDER::SetNearFarPlane(float fNear, float fFar)
 
 bool DX9RENDER::SetPerspective(float perspective, float fAspectRatio)
 {
-    perspective *= FovMultiplier;
+    return SetPerspectiveMatrix(perspective * FovMultiplier, fAspectRatio);
+}
 
+// the matrix of a field of view that is already multiplied by FovMultiplier: SetPerspective gets the
+// angle from a camera and folds the multiplier into it, the rest of the callers (RestoreRender) ask for
+// the angle the renderer already keeps in Fov, so the multiplier must not be applied to it again
+bool DX9RENDER::SetPerspectiveMatrix(float perspective, float fAspectRatio)
+{
     const float near_plane = fNearClipPlane; // Distance to near clipping
     const float far_plane = fFarClipPlane;   // Distance to far clipping
     const float fov_horiz = perspective;     // Horizontal field of view  angle, in radians
@@ -2735,6 +2741,14 @@ void DX9RENDER::RestoreRender()
         CHECKD3DERR(d3d9->LightEnable(i, false));
     }
     SetCommonStates();
+
+    // a Reset of the device puts WORLD, VIEW and PROJECTION back to identity. The camera of the scene
+    // sets VIEW and every module sets WORLD on every draw, but the projection is asked for by the
+    // camera at its Init() once (or by a script message, or by a dynamic fog event), nothing sets it
+    // again on an ordinary frame. So after the screen changed its size the world was drawn in clip
+    // units: the objects of one unit around the camera filled the screen and everything past it was
+    // clipped away. The projection of the kept field of view is made again for the new screen size
+    SetPerspectiveMatrix(Fov, -1.0f);
 
 #ifdef _WIN32 // Effects
     RecompileEffects();
