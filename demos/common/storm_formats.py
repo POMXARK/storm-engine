@@ -103,6 +103,7 @@ class Mesh:
         self.texture = texture
         self.vertices = []
         self.triangles = []
+        self.colors = None  # optional per-vertex colours aligned with vertices; None -> VERTEX_COLOR
 
     def vertex(self, pos, normal, uv, bone=0):
         self.vertices.append((tuple(pos), tuple(normal), tuple(uv), bone))
@@ -205,15 +206,27 @@ def write_gm(meshes, path, skinned=False, bsp=False, labels=()):
                                0, len(mesh.triangles), striangle, len(mesh.vertices), svertex, o,
                                *([-1] * 8), *([-1] * 4), 0)
         # indices are relative to the object's first vertex (DrawIndexedPrimitive BaseVertexIndex)
-        for tri in mesh.triangles:
-            triangles += struct.pack("<3H", *tri)
-        for p, n, uv, bone in mesh.vertices:
+        # indices are relative to the object's first vertex (DrawIndexedPrimitive BaseVertexIndex)
+        flat = [i for tri in mesh.triangles for i in tri]
+        for start in range(0, len(flat), 3 * 4096):
+            take = flat[start:start + 3 * 4096]
+            triangles += struct.pack("<" + "3H" * (len(take) // 3), *take)
+        # per-vertex albedo when the mesh carries one (the CFF per-vertex RGB of the
+        # original characters, its 0..127 half-range is exactly what MODULATE2X expects)
+        args = []
+        for i, (p, n, uv, bone) in enumerate(mesh.vertices):
+            color = mesh.colors[i] if mesh.colors else VERTEX_COLOR
             if skinned:
-                # weight applies to the bone in the low byte, 1 - weight to the next byte
-                vertices += struct.pack("<3ffI3fI2f", *store(p), 1.0, bone | bone << 8, *store(n),
-                                        VERTEX_COLOR, *uv)
+                sp, sn = store(p), store(n)
+                args += (sp[0], sp[1], sp[2], 1.0, bone | bone << 8,
+                         sn[0], sn[1], sn[2], color, uv[0], uv[1])
             else:
-                vertices += struct.pack("<3f3fI2f", *p, *n, VERTEX_COLOR, *uv)
+                args += (p[0], p[1], p[2], n[0], n[1], n[2], color, uv[0], uv[1])
+        per = 11 if skinned else 9
+        one = "3ffI3fI2f" if skinned else "3f3fI2f"
+        for start in range(0, len(args), per * 4096):
+            take = args[start:start + per * 4096]
+            vertices += struct.pack("<" + one * (len(take) // per), *take)
         assert len(mesh.vertices) <= 65536, f"16-bit indices: {mesh.name} has {len(mesh.vertices)} vertices"
         striangle += len(mesh.triangles)
         svertex += len(mesh.vertices)
