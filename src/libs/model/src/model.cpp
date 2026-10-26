@@ -756,13 +756,19 @@ void MODELR::FindPlanes(const CMatrix &view, const CMatrix &proj)
 
 void MODELR::LostRender()
 {
-    root->ReleaseGeometry();
+    // a modelr entity whose geometry failed to load (SHIP::Mount of a missing .gm) keeps root null,
+    // the same way as MSG_MODEL_LOAD_GEO leaves it: the guard is the one MSG_MODEL_RELEASE makes
+    if (root)
+        root->ReleaseGeometry();
     rs->Release(d3dDestVB);
 }
 
 void MODELR::RestoreRender()
 {
-    root->RestoreGeometry();
+    // the same null root as in LostRender: MSG_MODEL_LOAD_GEO leaves root null for a model the
+    // loader refused and MSG_MODEL_RESTORE guards it the same way
+    if (root)
+        root->RestoreGeometry();
     const int32_t fvf = D3DFVF_XYZ | D3DFVF_NORMAL | D3DFVF_DIFFUSE | D3DFVF_TEXTUREFORMAT2 | D3DFVF_TEX1;
     if (nAniVerts)
         rs->CreateVertexBuffer(sizeof(GEOS::VERTEX0) * nAniVerts, D3DUSAGE_WRITEONLY | D3DUSAGE_DYNAMIC, fvf,
