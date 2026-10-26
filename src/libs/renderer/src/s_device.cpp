@@ -747,12 +747,18 @@ bool DX9RENDER::InitDevice(bool windowed, HWND _hwnd, int32_t width, int32_t hei
     d3dpp.BackBufferHeight = height;
     d3dpp.BackBufferFormat = screen_bpp;
     d3dpp.BackBufferCount = 1;
+    // the device is always windowed: a D3D9 device cannot change its mode at run time (a Reset refuses it,
+    // and making the device again would leave every texture, font and buffer of the scene holding the handles
+    // of the old one). The full-screen option of a game is the window that covers the desktop (sdl_window.cpp
+    // SetFullscreen with SDL_WINDOW_FULLSCREEN_DESKTOP), so the present parameters always live in the window
+    // and a change of the screen only changes the size of the back buffer
     d3dpp.hDeviceWindow = hwnd;
-    d3dpp.Windowed = windowed;
+    d3dpp.Windowed = TRUE;
     d3dpp.EnableAutoDepthStencil = TRUE;
     d3dpp.AutoDepthStencilFormat = stencil_format;
 
-    if (windowed)
+    // the format of the desktop and its size apply to both modes: a fullscreen device is given the
+    // format of the display mode, a format of its own makes CreateDevice return D3DERR_INVALIDCALL
     {
         D3DDISPLAYMODE d3ddm;
         if (FAILED(d3d->GetAdapterDisplayMode(D3DADAPTER_DEFAULT, &d3ddm)))
@@ -788,7 +794,6 @@ bool DX9RENDER::InitDevice(bool windowed, HWND _hwnd, int32_t width, int32_t hei
         d3dpp.Flags = D3DPRESENTFLAG_LOCKABLE_BACKBUFFER;
     else
         d3dpp.Flags = 0;
-    // d3dpp.FullScreen_RefreshRateInHz = D3DPRESENT_RATE_DEFAULT;
     d3dpp.SwapEffect = D3DSWAPEFFECT_DISCARD;
     // d3dpp.SwapEffect = D3DSWAPEFFECT_COPY;
     // if(windowed) d3dpp.SwapEffect = D3DSWAPEFFECT_DISCARD;//FLIP;
@@ -800,6 +805,8 @@ bool DX9RENDER::InitDevice(bool windowed, HWND _hwnd, int32_t width, int32_t hei
     }
     else
     {
+        // the device is always windowed, so the interval of IMMEDIATE (no waiting for the vertical sync) is
+        // allowed for it whatever the screen mode of the game asks for
         d3dpp.PresentationInterval = D3DPRESENT_INTERVAL_IMMEDIATE;
     }
 
@@ -2762,11 +2769,18 @@ void DX9RENDER::RecompileEffects()
 #endif
 }
 
-// the window was resized (it is with --editor): the back buffer takes its size, the scripts see it in Render
+// the window was resized (it is with --editor) or a script asked for another screen: the back buffer takes
+// the new size in ONE Reset with the window already at that size. A Reset that keeps the old size while the
+// window left it is refused (D3DERR_INVALIDCALL), so there is no "follow the window" pass before it
 bool DX9RENDER::ResizeBackBuffer(int32_t width, int32_t height)
 {
     const auto oldWidth = static_cast<int32_t>(d3dpp.BackBufferWidth);
     const auto oldHeight = static_cast<int32_t>(d3dpp.BackBufferHeight);
+    if (oldWidth == width && oldHeight == height)
+        return true;
+
+    // the cycle of released and restored resources stays around the Reset: a Reset invalidates everything
+    // of D3DPOOL_DEFAULT, the pictures and the buffers of the scene
     d3dpp.BackBufferWidth = width;
     d3dpp.BackBufferHeight = height;
     screen_size.x = width;
@@ -2778,19 +2792,14 @@ bool DX9RENDER::ResizeBackBuffer(int32_t width, int32_t height)
     if (!ResetDevice())
     {
         core.Trace("Render: the back buffer is not resized to %dx%d", width, height);
-        // the lost device would fail every call after it: back to the size it had
-        if (oldWidth > 0 && oldHeight > 0 && (oldWidth != width || oldHeight != height))
-        {
-            d3dpp.BackBufferWidth = oldWidth;
-            d3dpp.BackBufferHeight = oldHeight;
-            screen_size.x = oldWidth;
-            screen_size.y = oldHeight;
-            m_fHeightDeformator = static_cast<float>(oldHeight * 4.0f) / static_cast<float>(oldWidth * 3.0f);
-            OriginalViewPort.Width = oldWidth;
-            OriginalViewPort.Height = oldHeight;
-            if (ResetDevice())
-                spdlog::info("Render: back buffer {}x{} again", oldWidth, oldHeight);
-        }
+        // a refused Reset leaves the device and its back buffer as they were: only the parameters go back
+        d3dpp.BackBufferWidth = oldWidth;
+        d3dpp.BackBufferHeight = oldHeight;
+        screen_size.x = oldWidth;
+        screen_size.y = oldHeight;
+        m_fHeightDeformator = static_cast<float>(oldHeight * 4.0f) / static_cast<float>(oldWidth * 3.0f);
+        OriginalViewPort.Width = oldWidth;
+        OriginalViewPort.Height = oldHeight;
         return false;
     }
     spdlog::info("Render: back buffer {}x{}", width, height);
@@ -2807,8 +2816,26 @@ bool DX9RENDER::ResetDevice()
 {
     LostRender();
 
-    if (CHECKD3DERR(d3d9->Reset(&d3dpp)))
+    HRESULT hrReset = d3d9->Reset(&d3dpp);
+    // the device is always windowed (InitDevice), and for it the first Reset that changes the size of
+    // the back buffer is refused with D3DERR_INVALIDCALL (0x887E7804) whatever the parameters are. The
+    // refusal is not a dead device: it leaves it asking for a Reset, TestCooperativeLevel returns
+    // D3DERR_DEVICENOTRESET (0x887E7801) and the Reset with the same parameters done after that check
+    // succeeds. So the attempt is made one more time after the check, and without it a resize in the
+    // middle of a run always fails (a new device would leave every texture of the scene holding the
+    // handles of the old one)
+    if (FAILED(hrReset))
+    {
+        if (d3d9->TestCooperativeLevel() == D3DERR_DEVICENOTRESET)
+        {
+            hrReset = d3d9->Reset(&d3dpp);
+        }
+    }
+    if (FAILED(hrReset))
+    {
+        RestoreRender();
         return false;
+    }
 
     RestoreRender();
 
@@ -2850,8 +2877,8 @@ static void WriteEngineIniKey(std::string &text, const std::string &key, const s
 }
 
 // a script asks for another screen (Render.SetScreen.x, .y, .full_screen, the options of a game): the window and
-// the back buffer take it at once, engine.ini keeps it for the next launch. The device stays windowed, the window
-// covers the screen in the full screen: a Reset between the modes of D3D would need another back buffer format
+// the back buffer take it at once, engine.ini keeps it for the next launch. The device stays windowed: the
+// full-screen mode of a game is the window that covers the desktop, so nothing of D3D switches its mode here
 void DX9RENDER::SetScreen(int32_t width, int32_t height, bool fullscreen)
 {
     auto *window = core.GetWindow();
@@ -2862,17 +2889,18 @@ void DX9RENDER::SetScreen(int32_t width, int32_t height, bool fullscreen)
     window->Resize(width, height);
     if (fullscreen)
         window->SetFullscreen(true);
-    if (!d3dpp.Windowed)
-    {
-        D3DDISPLAYMODE mode;
-        if (SUCCEEDED(d3d->GetAdapterDisplayMode(D3DADAPTER_DEFAULT, &mode)))
-            d3dpp.BackBufferFormat = mode.Format;
-        d3dpp.Windowed = TRUE;
-        d3dpp.FullScreen_RefreshRateInHz = 0;
-    }
     const bool wasWindow = bWindow;
     bWindow = !fullscreen;
     auto *pScriptRender = static_cast<VDATA *>(core.GetScriptVariable("Render"));
+    // SDLWindow::Resize clamps a size bigger than the display: the back buffer, engine.ini and the
+    // scripts take the size the window really got, not the one asked for
+    const storm::WindowSize realSize = window->GetWindowSize();
+    if (realSize.width > 0 && realSize.height > 0)
+    {
+        width = realSize.width;
+        height = realSize.height;
+    }
+    // the window above already took its new size, so the device only has to follow it in one Reset
     const bool taken = ResizeBackBuffer(width, height);
     if (!taken)
     {
@@ -2926,7 +2954,7 @@ void DX9RENDER::RunStart()
         }
     }
 
-    if (bWindow && core.GetWindow() != nullptr)
+    if (false && bWindow && core.GetWindow() != nullptr)
     {
         const storm::WindowSize size = core.GetWindow()->GetWindowSize();
         if (size.width > 0 && size.height > 0 && (size.width != screen_size.x || size.height != screen_size.y))

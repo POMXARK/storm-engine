@@ -128,6 +128,7 @@ XINTERFACE::XINTERFACE()
     m_dwGameTimeHour = 0;
 
     m_nInterfaceMode = DEFAULT_IMODE;
+    m_idTex = -1; // the texture of the mouse cursor, made in LoadIni and released in ~XINTERFACE
     m_idHelpTexture = -1;
     m_dwContHelpColor = ARGB(255, 128, 128, 128);
     m_frectDefHelpTextureUV = FXYRECT(0.0, 0.0, 1.0, 1.0);
@@ -153,6 +154,12 @@ XINTERFACE::~XINTERFACE()
     if (m_pPrevTexture)
         pRenderService->Release(m_pPrevTexture);
     m_pTexture = m_pPrevTexture = nullptr;
+
+    // the texture of the mouse cursor is created in LoadIni and was never released anywhere: the
+    // reference it took in DX9RENDER::TextureCreate is given back here
+    if (pRenderService)
+        pRenderService->TextureRelease(m_idTex);
+    m_idTex = -1;
 
     if (pPictureService != nullptr)
     {
@@ -338,7 +345,7 @@ void XINTERFACE::Realize(uint32_t)
     if (auto *window = core.GetWindow(); window != nullptr)
     {
         const auto size = window->GetWindowSize();
-        if (false && bIniLoaded && dwWindowWidth > 0 && dwWindowHeight > 0 &&
+        if (bIniLoaded && dwWindowWidth > 0 && dwWindowHeight > 0 &&
             (static_cast<uint32_t>(size.width) != dwWindowWidth || static_cast<uint32_t>(size.height) != dwWindowHeight))
         {
             core.Trace("Interface: the window is %dx%d instead of %dx%d, the screens are laid out again",
@@ -1211,8 +1218,12 @@ void XINTERFACE::LoadIni()
     char param2[256];
     sscanf(param, "%[^,],%d,size:(%d,%d),pos:(%d,%d)", param2, &m_lMouseSensitive, &MouseSize.x, &MouseSize.y,
            &m_lXMouse, &m_lYMouse);
-    if (!bReloaded)
-        m_idTex = pRenderService->TextureCreate(param2); // the cursor of the mouse is made once, a remake would leak a texture
+    // the cursor texture follows the layout of the window LoadIni is making: the handle of the previous
+    // one is released, so the refcount of DX9RENDER::TextureCreate (s_device.cpp:1417, 1433) stays
+    // balanced and a remake does not leak a reference that nothing ever frees
+    if (bReloaded)
+        pRenderService->TextureRelease(m_idTex);
+    m_idTex = pRenderService->TextureCreate(param2);
 
     if (auto *editor = core.GetEditor(); editor == nullptr || !editor->IsFocused())
     {
@@ -1241,6 +1252,16 @@ void XINTERFACE::LoadIni()
     m_fWaveSpeed = ini->GetFloat(section, "waveSpeed", m_fWaveSpeed);
     m_nBlendStepMax = ini->GetInt(section, "waveStepQuantity", m_nBlendStepMax);
     m_nBlendSpeed = ini->GetInt(section, "blendSpeed", m_nBlendSpeed);
+
+    // the same three attributes of the interface that SetDevice publishes once (lines 234-236): a
+    // remake of the layout must republish them, map.c reads GameInterface.ScreenLeft/ScreenTop of
+    // this entity and would keep the offsets of the old window
+    if (AttributesPointer)
+    {
+        AttributesPointer->SetAttributeUseDword("ScreenWidth", dwScreenWidth);
+        AttributesPointer->SetAttributeUseDword("ScreenLeft", GlobalScreenRect.left);
+        AttributesPointer->SetAttributeUseDword("ScreenTop", GlobalScreenRect.top);
+    }
 
     oldKeyState.dwKeyCode = -1;
     DoControl();

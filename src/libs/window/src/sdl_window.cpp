@@ -87,7 +87,29 @@ void SDLWindow::SetFullscreen(bool fullscreen)
 
 void SDLWindow::Resize(int width, int height)
 {
+    // the options of a game can ask for a size bigger than the monitor (2560x1440 on a 1080p desktop):
+    // the window is clamped to the display it stands on, so it never goes over the edges of the screen
+    const int display = SDL_GetWindowDisplayIndex(window_.get());
+    if (display >= 0)
+    {
+        SDL_Rect bounds{};
+        if (SDL_GetDisplayBounds(display, &bounds) == 0 && bounds.w > 0 && bounds.h > 0)
+        {
+            if (width > bounds.w)
+                width = bounds.w;
+            if (height > bounds.h)
+                height = bounds.h;
+        }
+    }
     SDL_SetWindowSize(window_.get(), width, height);
+    // SDL keeps the left upper corner of the window, so only its size grows: the right and lower
+    // edges of a bigger window hang over the desktop. The window is put into the center of the
+    // display it stands on, the same way it is made centered in the constructor
+    if (display >= 0)
+    {
+        SDL_SetWindowPosition(window_.get(), SDL_WINDOWPOS_CENTERED_DISPLAY(display),
+                              SDL_WINDOWPOS_CENTERED_DISPLAY(display));
+    }
 }
 
 void SDLWindow::WarpMouseInWindow(int x, int y)

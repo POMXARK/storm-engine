@@ -20,6 +20,10 @@
 #define STEP_MS 400
 
 object GameInterface;
+// the class of the renderer, the same one the smoke test and the game options use: its
+// SetScreen message resizes the window of the run (s_device.cpp:SetScreen,
+// s_device.cpp:ResizeBackBuffer)
+object Render;
 
 // the counters of the checks, the last report of a node command
 int checksDone = 0;
@@ -112,6 +116,9 @@ void Main()
     SetEventHandler("Menu_Up1", "Menu_Up1", 0);
     SetEventHandler("Menu_Up2", "Menu_Up2", 0);
     SetEventHandler("Menu_TopEdge", "Menu_TopEdge", 0);
+    // the window of the run is asked for another size in the middle of the scenario
+    SetEventHandler("Resize_Wide", "Resize_Wide", 0);
+    SetEventHandler("Resize_Done", "Resize_Done", 0);
     SetEventHandler("Menu_StayTop", "Menu_StayTop", 0);
     SetEventHandler("Menu_SelNamed", "Menu_SelNamed", 0);
     SetEventHandler("Menu_SelCurrent", "Menu_SelCurrent", 0);
@@ -155,6 +162,28 @@ void Menu_Down3()
     CheckNode("down 3", "B_QUIT");
     // "upstep,select:B_OPTIONS" of B_QUIT (mainmenu.ini: B_QUIT): one item back up
     MenuAction("upstep", "");
+    // the hold of 2.5 s is the menu of the window the layout was made for: the frames of a
+    // capture are taken in it (see the rules of the repo, the change must be seen)
+    PostEvent("Resize_Wide", 2500);
+}
+
+// the window of the run changes in the middle of it: the interface must lay the screens out
+// again for the new size (XINTERFACE::Realize compares the window with the size the layout was
+// made for and calls LoadIni again, xinterface.cpp:Realize, xinterface.cpp:LoadIni). The engine
+// clamps the size it can use and writes it back into the attributes of Render.
+void Resize_Wide()
+{
+    Trace("RESIZE: the window is asked for 1280x720 in the middle of the run");
+    Render.SetScreen.x = 1280;
+    Render.SetScreen.y = 720;
+    Render.SetScreen.full_screen = 0;
+    // the hold of 3 s is the menu in the new window: the frames of a capture are taken in it
+    PostEvent("Resize_Done", 3000);
+}
+
+void Resize_Done()
+{
+    Trace("RESIZE: the window is " + Render.screen_x + " by " + Render.screen_y);
     PostEvent("Menu_Up1", STEP_MS);
 }
 

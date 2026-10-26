@@ -42,6 +42,10 @@ class XINTERFACE : public XINTERFACE_BASE
     XYRECT GlobalScreenRect;
     uint32_t dwScreenWidth;
     uint32_t dwScreenHeight;
+    // the window the layout of the screens was made for: another size during a play asks for a remake
+    uint32_t dwWindowWidth = 0;
+    uint32_t dwWindowHeight = 0;
+    bool bIniLoaded = false;
     int m_nColumnQuantity; // Column quantity for grid of the previouse texture
     float m_fWaveAmplitude;
     float m_fWavePhase;
