@@ -18,24 +18,6 @@
 // Animation Service Pointer
 AnimationServiceImp *AnimationImp::aniService = nullptr;
 
-// Turns a bone about its joint (its origin in the parent's space), so the turn is made in the parent's frame.
-// A turn in the bone's own frame looks like a nod in converted models, where the bone's axes are tilted
-static CMatrix TurnAboutJoint(CMatrix m, float ax, float ay)
-{
-    const CVECTOR joint = m.Pos();
-    CMatrix turnX;
-    turnX.BuildRotateX(ax);
-    CMatrix turnY;
-    turnY.BuildRotateY(ay);
-    CMatrix toOrigin;
-    toOrigin.SetIdentity();
-    toOrigin.Pos() = CVECTOR(-joint.x, -joint.y, -joint.z);
-    CMatrix fromOrigin;
-    fromOrigin.SetIdentity();
-    fromOrigin.Pos() = joint;
-    return m * toOrigin * (turnX * turnY) * fromOrigin;
-}
-
 // ============================================================================================
 // Construction, destruction
 // ============================================================================================
@@ -322,9 +304,12 @@ void AnimationImp::BuildAnimationMatrices()
                     inmtx.Pos() = p0 + kBlend * (p1 - p0);
                 }
 
-                // Procedural head look: the head turns about its joint, which stays where the parent puts it
+                // Procedural head look
                 if (j == headBoneIndex && isControllableHead)
-                    inmtx = TurnAboutJoint(inmtx, customHeadAX, customHeadAY);
+                {
+                    inmtx.RotateX(customHeadAX);
+                    inmtx.RotateY(customHeadAY);
+                }
 
                 if (bn.parent)
                     bn.matrix.EqMultiply(inmtx, CMatrix(bn.parent->matrix));
@@ -357,9 +342,12 @@ void AnimationImp::BuildAnimationMatrices()
                 if (j == 0)
                     inmtx.Pos() = bn.pos[f] + ki * (bn.pos[f + 1] - bn.pos[f]);
 
-                // Procedural head look: the head turns about its joint, which stays where the parent puts it
+                // Procedural head look
                 if (j == headBoneIndex && isControllableHead)
-                    inmtx = TurnAboutJoint(inmtx, customHeadAX, customHeadAY);
+                {
+                    inmtx.RotateX(customHeadAX);
+                    inmtx.RotateY(customHeadAY);
+                }
 
                 if (bn.parent)
                     bn.matrix.EqMultiply(inmtx, CMatrix(bn.parent->matrix));
@@ -392,9 +380,12 @@ void AnimationImp::BuildAnimationMatrices()
                 if (j == 0)
                     inmtx.Pos() = bn.pos[f] + ki * (bn.pos[f + 1] - bn.pos[f]);
 
-                // Procedural head look: the head turns about its joint, which stays where the parent puts it
+                // Procedural head look
                 if (j == headBoneIndex && isControllableHead)
-                    inmtx = TurnAboutJoint(inmtx, customHeadAX, customHeadAY);
+                {
+                    inmtx.RotateX(customHeadAX);
+                    inmtx.RotateY(customHeadAY);
+                }
 
                 if (bn.parent)
                     bn.matrix.EqMultiply(inmtx, CMatrix(bn.parent->matrix));
