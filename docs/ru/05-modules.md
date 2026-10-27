@@ -83,4 +83,4 @@
 
 Для своей игры достаточно `core`, `renderer`, `xinterface`, `sound_service`, `pcs_controls` (это подтверждает `tools/menu-demo`). Морские и сухопутные модули подключаются, только если скрипт создаёт их сущности.
 
-Моргание глаз (`location`, `Character::UpdateEyeBlink`, `character.cpp`): сдвиг UV век на текстуре `hero_head.tga` через `GEOS::LockObjectVertices`, без новых текстур; устройство и подводные камни — 07 §7.7.
+Моргание глаз (`location`, `Character::UpdateEyeBlink`, `character.cpp`): сдвиг UV век на текстурах голов из `resource/ini/eyes.ini` (04 §4.18) через `GEOS::LockObjectVertices`, без новых текстур; устройство и подводные камни — 07 §7.7.

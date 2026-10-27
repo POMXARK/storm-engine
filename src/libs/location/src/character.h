@@ -705,7 +705,9 @@ class Character : public Entity
     float eyeBlinkTimer = 0.0f;    // seconds until the next blink
     float eyeBlinkTime = -1.0f;    // seconds since the blink started, < 0 while the eyes are open
     float eyeBlinkWeight = 0.0f;   // closure written to the vertices last time
-    std::vector<float> eyeBlinkSide; // +1 / -1: which half of the face the vertex is on
+    std::vector<float> eyeBlinkSide; // +1 / -1: which way the vertex darts for a gaze to the right
+    std::vector<int8_t> eyeBlinkWin; // eye window of the vertex, -1 if it is not in one
+    std::vector<float> eyeBlinkRect; // x0, x1, y0, y1, skin of every window of the head texture
     float eyeGazeX = 0.0f, eyeGazeY = 0.0f;         // darting of the eyes, texels of the head texture
     float eyeGazeToX = 0.0f, eyeGazeToY = 0.0f;     // where they are going
     float eyeGazeDrawnX = 0.0f, eyeGazeDrawnY = 0.0f; // written to the vertices last time

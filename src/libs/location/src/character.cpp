@@ -31,6 +31,8 @@
 #include <fmt/format.h>
 
 #include <algorithm>
+#include <map>
+#include <string>
 #include <set>
 
 //============================================================================================
@@ -2670,21 +2672,59 @@ void Character::Update(float dltTime)
 
 namespace
 {
-// Eye window of hero_head.tga in texels, v counted from the top: the eye is 129..143, skin below it from 143
-constexpr float kEyeTexSize = 256.0f;
-constexpr float kEyeX0 = 40.0f;
-constexpr float kEyeX1 = 80.0f;
-constexpr float kEyeY0 = 129.0f;
-constexpr float kEyeY1 = 143.0f;
+constexpr float kEyeTexSize = 256.0f; // UV is counted in texels of a texture taken as 256x256, v from the top
 constexpr float kEyeRamp = 3.0f;
-constexpr float kEyeMid = 0.5f * (kEyeY0 + kEyeY1); // the lids meet on this row
-constexpr float kEyeSkin = 145.0f;                  // what the lids show: a skin row under the eye
 constexpr float kBlinkClose = 0.08f;
 constexpr float kBlinkHold = 0.04f;
 constexpr float kBlinkOpen = 0.10f;
 constexpr float kGazeX = 2.0f;     // the largest dart of the eyes in texels, to the sides
 constexpr float kGazeY = 1.0f;     // and up or down
 constexpr float kGazeSnap = 0.04f; // seconds a dart takes: eyes jump, they do not glide
+
+// Window of an eye on the head texture (RESOURCE\\Ini\\eyes.ini): the lids meet on the middle row of it
+// and show the skin row below it
+struct EyeWindow
+{
+    float x0, x1, y0, y1, skin;
+    float Mid() const
+    {
+        return 0.5f * (y0 + y1);
+    }
+};
+
+struct EyeTable
+{
+    bool mirror = false; // one eye on the atlas for both: the two halves of the face dart to opposite sides
+    std::vector<EyeWindow> windows;
+};
+
+// Windows of the head texture of this name ("hero_head.tga"), empty when eyes.ini has none; read once per texture
+const EyeTable &FindEyeTable(const char *textureName)
+{
+    static std::map<std::string, EyeTable> tables;
+    std::string section = textureName;
+    section = section.substr(0, section.find('.'));
+    std::replace(section.begin(), section.end(), ' ', '_');
+    std::transform(section.begin(), section.end(), section.begin(), [](unsigned char c) { return std::tolower(c); });
+    const auto it = tables.find(section);
+    if (it != tables.end())
+        return it->second;
+    EyeTable &table = tables[section];
+    auto ini = fio->OpenIniFile("RESOURCE\\Ini\\eyes.ini");
+    if (!ini)
+        return table;
+    table.mirror = ini->GetInt(section.c_str(), "mirror", 0) != 0;
+    char line[256];
+    bool found = ini->ReadString(section.c_str(), "eye", line, sizeof(line), "");
+    while (found)
+    {
+        EyeWindow w{};
+        if (sscanf(line, "%f , %f , %f , %f , %f", &w.x0, &w.x1, &w.y0, &w.y1, &w.skin) == 5)
+            table.windows.push_back(w);
+        found = ini->ReadStringNext(section.c_str(), "eye", line, sizeof(line));
+    }
+    return table;
+}
 
 // 1 inside [a, b], falls linearly to 0 over r outside of it
 float BlinkRamp(float x, float a, float b, float r)
@@ -2695,18 +2735,18 @@ float BlinkRamp(float x, float a, float b, float r)
     return t > 1.0f ? 1.0f : t;
 }
 
-// Texel row an eye vertex of row y samples at the given closure: the open part of the eye shrinks towards kEyeMid
-// and the lids, which come from above and from below, show skin; the eye is closed from the edges, not moved
-float BlinkRow(float y, float closure)
+// Texel row an eye vertex of row y samples at the given closure: the open part of the eye shrinks towards the middle
+// row and the lids, which come from above and from below, show skin; the eye is closed from the edges, not moved
+float BlinkRow(const EyeWindow &w, float y, float closure)
 {
-    if (y < kEyeY0 || y > kEyeY1)
+    if (y < w.y0 || y > w.y1)
         return y;
-    const float s = kEyeMid + (y - kEyeMid) / std::max(1.0f - closure, 0.001f);
-    return s < kEyeY0 || s > kEyeY1 ? kEyeSkin : s;
+    const float s = w.Mid() + (y - w.Mid()) / std::max(1.0f - closure, 0.001f);
+    return s < w.y0 || s > w.y1 ? w.skin : s;
 }
 
-// Index of the object textured with the hero head, -1 if the model has none
-int32_t FindEyeBlinkObject(GEOS *geo)
+// Index of the object textured with a head that has eye windows, -1 if the model has none; the windows go to table
+int32_t FindEyeBlinkObject(GEOS *geo, const EyeTable *&table)
 {
     GEOS::INFO info;
     geo->GetInfo(info);
@@ -2718,8 +2758,14 @@ int32_t FindEyeBlinkObject(GEOS *geo)
         geo->GetMaterial(ob.material, mt);
         for (int32_t t = 0; t < info.ntextures; t++)
         {
-            if (geo->GetTexture(t) == mt.texture[0] && storm::iEquals(geo->GetTextureName(t), "hero_head.tga"))
+            if (geo->GetTexture(t) != mt.texture[0])
+                continue;
+            const auto &found = FindEyeTable(geo->GetTextureName(t));
+            if (!found.windows.empty())
+            {
+                table = &found;
                 return o;
+            }
         }
     }
     return -1;
@@ -2732,7 +2778,8 @@ void Character::UpdateEyeBlink(MODEL *m, float dltTime)
     if (eyeBlinkModel != m)
     {
         eyeBlinkModel = m;
-        eyeBlinkObj = node && node->geo ? FindEyeBlinkObject(node->geo) : -1;
+        const EyeTable *table = nullptr;
+        eyeBlinkObj = node && node->geo ? FindEyeBlinkObject(node->geo, table) : -1;
         eyeBlinkTimer = 1.0f + rand() * (4.0f / RAND_MAX);
         eyeBlinkTime = -1.0f;
         eyeBlinkWeight = 0.0f;
@@ -2750,13 +2797,29 @@ void Character::UpdateEyeBlink(MODEL *m, float dltTime)
         auto *verts = static_cast<uint8_t *>(geo->LockObjectVertices(eyeBlinkObj, stride, uvOffset));
         eyeBlinkUV.resize(ob.num_vertices * 2);
         eyeBlinkSide.resize(ob.num_vertices);
+        eyeBlinkWin.assign(ob.num_vertices, -1);
+        eyeBlinkRect.clear();
+        for (const auto &w : table->windows)
+            eyeBlinkRect.insert(eyeBlinkRect.end(), {w.x0, w.x1, w.y0, w.y1, w.skin});
         for (int32_t i = 0; i < ob.num_vertices; i++)
         {
-            // both eyes share the texture window, so a gaze to one side moves the two mirrored halves oppositely
-            eyeBlinkSide[i] = *reinterpret_cast<const float *>(verts + i * stride) > 0.0f ? 1.0f : -1.0f;
+            // one eye on the atlas for both: a gaze to one side moves the two mirrored halves oppositely
+            const bool right = *reinterpret_cast<const float *>(verts + i * stride) > 0.0f;
+            eyeBlinkSide[i] = table->mirror && !right ? -1.0f : 1.0f;
             const auto *uv = reinterpret_cast<const float *>(verts + i * stride + uvOffset);
             eyeBlinkUV[i * 2] = uv[0];
             eyeBlinkUV[i * 2 + 1] = uv[1];
+            // the window the vertex lies in (with the ramp), -1 if none
+            for (size_t k = 0; k < table->windows.size(); k++)
+            {
+                const auto &w = table->windows[k];
+                if (BlinkRamp(uv[0] * kEyeTexSize, w.x0, w.x1, kEyeRamp) > 0.0f &&
+                    uv[1] * kEyeTexSize >= w.y0 - kEyeRamp && uv[1] * kEyeTexSize <= w.y1 + kEyeRamp)
+                {
+                    eyeBlinkWin[i] = static_cast<int8_t>(k);
+                    break;
+                }
+            }
         }
         geo->UnlockObjectVertices(eyeBlinkObj);
     }
@@ -2822,12 +2885,20 @@ void Character::UpdateEyeBlink(MODEL *m, float dltTime)
         auto *uv = reinterpret_cast<float *>(verts + i * stride + uvOffset);
         const float u0 = eyeBlinkUV[i * 2];
         const float v0 = eyeBlinkUV[i * 2 + 1];
+        if (eyeBlinkWin[i] < 0)
+        {
+            uv[0] = u0;
+            uv[1] = v0;
+            continue;
+        }
+        const float *r = &eyeBlinkRect[eyeBlinkWin[i] * 5];
+        const EyeWindow win{r[0], r[1], r[2], r[3], r[4]};
         // the eye rows sample the shrunken eye and the skin of the lids, the rest of the face is not moved
         const float y = v0 * kEyeTexSize;
-        const float w = BlinkRamp(u0 * kEyeTexSize, kEyeX0, kEyeX1, kEyeRamp);
-        const float wGaze = w * BlinkRamp(y, kEyeY0, kEyeY1, kEyeRamp);
+        const float w = BlinkRamp(u0 * kEyeTexSize, win.x0, win.x1, kEyeRamp);
+        const float wGaze = w * BlinkRamp(y, win.y0, win.y1, kEyeRamp);
         uv[0] = u0 + wGaze * eyeBlinkSide[i] * eyeGazeX / kEyeTexSize;
-        uv[1] = v0 + (w * (BlinkRow(y, closure) - y) + wGaze * eyeGazeY) / kEyeTexSize;
+        uv[1] = v0 + (w * (BlinkRow(win, y, closure) - y) + wGaze * eyeGazeY) / kEyeTexSize;
     }
     geo->UnlockObjectVertices(eyeBlinkObj);
 }

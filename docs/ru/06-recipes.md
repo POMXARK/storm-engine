@@ -748,3 +748,9 @@ SCENE=town TOWN=City_HighRock TOWN_AUTO=40 pdm-game/shots.sh build/Debug/engine 
 
 Кадры глаз: `ffmpeg -ss 3 -i town.mp4 -t 8.5 -vf "fps=10,crop=190:60:550:165,tile=10x9" -frames:v 1 eyes.png`; кадры с морганием — `select='between(n,22,27)'` и `scale=570:180:flags=neighbor`.
 
+## 6.28 Моргание нового NPC (генератор `tools/pdm_eyes.py`)
+
+1. Найти центр радужки на текстуре головы (сеточный лист, координаты в текселях 256×256) и добавить `"<имя_текстуры>": [[x, y]]` в `tools/eyes_marks.json` (по метке на каждый размеченный глаз).
+2. `python tools/make_eyes.py <resource>` — уточняет эллипс и пишет `tools/eyes.json`.
+3. `python tools/pdm_character.py "<PDM>" <out> all` — режет голову сеткой и пишет `<out>/ini/eyes.ini`; скопировать модель и `eyes.ini` в `resource`.
+4. Проверить: `TOWN_AUTO=41 … pdm-game/shots.sh`, кадры глаз через `ffmpeg … tile`; в закрытом глазе не должно быть штрихов. Подводные камни — 07 §7.8.
