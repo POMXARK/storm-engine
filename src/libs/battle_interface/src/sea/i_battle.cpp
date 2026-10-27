@@ -347,6 +347,22 @@ uint64_t BATTLE_INTERFACE::ProcessMessage(MESSAGE &message)
             if (m_pShipIcon)
                 m_pShipIcon->ExecuteCommand(BIShipIcon::Command_cancel);
         }
+        // ours: the same script-side steps that battle_land.cpp gives the land hub, so an
+        // autotest can press a sea command through the bottom bar itself, without keys
+        else if (storm::iEquals(param, "activate"))
+        {
+            if (m_bShowCommandMenu && m_pShipIcon)
+                m_pShipIcon->SetActive(true);
+        }
+        else if (m_pShipIcon && m_pShipIcon->IsActive())
+        {
+            if (storm::iEquals(param, "left"))
+                m_pShipIcon->ExecuteCommand(BIShipIcon::Command_left);
+            else if (storm::iEquals(param, "right"))
+                m_pShipIcon->ExecuteCommand(BIShipIcon::Command_right);
+            else if (storm::iEquals(param, "confirm"))
+                m_pShipIcon->ExecuteCommand(BIShipIcon::Command_confirm);
+        }
     }
     break;
     }
