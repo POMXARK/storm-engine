@@ -99,5 +99,8 @@ class GEOM : public GEOS
 
     virtual int32_t GetVertexBuffer(int32_t vb) const;
 
+    virtual void *LockObjectVertices(int32_t o, int32_t &stride, int32_t &uvOffset);
+    virtual void UnlockObjectVertices(int32_t o);
+
     virtual int32_t GetIndexBuffer() const;
 };

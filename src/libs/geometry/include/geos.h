@@ -266,6 +266,10 @@ class GEOS
     // GetVertexBuffer
     virtual int32_t GetVertexBuffer(int32_t vb) const = 0;
 
+    // Lock vertices of object o for CPU writes; uvOffset is the byte offset of tu0 inside a vertex
+    virtual void *LockObjectVertices(int32_t o, int32_t &stride, int32_t &uvOffset) = 0;
+    virtual void UnlockObjectVertices(int32_t o) = 0;
+
     // GetIndexBuffer
     virtual int32_t GetIndexBuffer() const = 0;
 

@@ -735,3 +735,16 @@ Checks: выбор мяня узела — `Event("ievnt_command","ss",cmd,node)
 - Navigation команды сам `downstep`/`upstep` шлёт `ievnt_command`, поэтому check selection обяз stands прямо step `activate` после it.
 - Highlight мяня узela узел с фокусом по: `XINTERFACE::DrawNode` pass `nod == m_pCurNode` (xinterface.cpp:1979, 1984) и `CXI_TEXTBUTTON::Draw` switcheth `bSelected` мяня узela (xi_text_button.cpp:39, `fontColorSelected` line 253); frame мяня step `storm-capture-crop` обяз show highlight мяня узela (правила 10).
 
+## 6.27 Крупный план лица гг из скрипта (автотест `town-face`)
+
+Проверка моргания (07 §7.7) и любого другого эффекта на лице: гг поворачивается к точке, камера встаёт в неё и смотрит на него. Ничего не нажимается.
+
+```bash
+pdm-game/autotests.sh build/Debug/engine town-face     # маркер "PDM face: autotest done", error.log пуст
+SCENE=town TOWN=City_HighRock TOWN_AUTO=40 pdm-game/shots.sh build/Debug/engine out 12 3 9   # видео и кадры
+```
+
+`pdm-game/program/autotest/town_face.c`: точка камеры — `hero + (0, 1.8, 0.9)`; `MSG_CHARACTER_TURNBYPOINT "lfff"` поворачивает гг к ней (`atan2(dx, dz)`, взгляд гг — `(sin ay, 0, cos ay)`); через 1,5 с (поворот анимирован) `MSG_CAMERA_SETTARGET "li"` и `MSG_CAMERA_TOPOS "lfffl"` с последним аргументом 1 (без плавного перехода); через 10 с `ExitProgram()`. Все сообщения гг и камеры, форматы и ловушки харнесса — в скилле `corsairs-remake/.claude/skills/storm-land-scenario-control`.
+
+Кадры глаз: `ffmpeg -ss 3 -i town.mp4 -t 8.5 -vf "fps=10,crop=190:60:550:165,tile=10x9" -frames:v 1 eyes.png`; кадры с морганием — `select='between(n,22,27)'` и `scale=570:180:flags=neighbor`.
+

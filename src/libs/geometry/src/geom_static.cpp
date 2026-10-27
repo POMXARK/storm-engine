@@ -410,6 +410,22 @@ int32_t GEOM::GetVertexBuffer(int32_t vb) const
     return vbuff[vb].dev_buff;
 }
 
+void *GEOM::LockObjectVertices(int32_t o, int32_t &stride, int32_t &uvOffset)
+{
+    const auto &ob = object[o];
+    const auto &vb = vbuff[ob.vertex_buff];
+    stride = vb.stride;
+    // RDF_VERTEX0 keeps tu0 at 28; RDF_AVERTEX0 (type >> 2 == 1) adds weight and boneid before the normal
+    uvOffset = 28 + (vb.type >> 2) * 8;
+    auto *base = static_cast<uint8_t *>(srv.LockVertexBuffer(vb.dev_buff));
+    return base + ob.start_vertex * stride;
+}
+
+void GEOM::UnlockObjectVertices(int32_t o)
+{
+    srv.UnlockVertexBuffer(vbuff[object[o].vertex_buff].dev_buff);
+}
+
 int32_t GEOM::GetIndexBuffer() const
 {
     return idx_buff;

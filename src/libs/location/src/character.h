@@ -12,6 +12,7 @@
 
 #include <string>
 #include <chrono>
+#include <vector>
 
 #include "animation.h"
 #include "matrix.h"
@@ -696,6 +697,15 @@ class Character : public Entity
     CVECTOR headLookPointTarget;
     float curHeadAX;
     float curHeadAY;
+
+    // Eye blink: squeezes the eyelid window in the head texture UV
+    MODEL *eyeBlinkModel = nullptr;
+    int32_t eyeBlinkObj = -1;
+    std::vector<float> eyeBlinkUV; // original tu, tv of the head object vertices
+    float eyeBlinkTimer = 0.0f;    // seconds until the next blink
+    float eyeBlinkTime = -1.0f;    // seconds since the blink started, < 0 while the eyes are open
+    float eyeBlinkWeight = 0.0f;   // closure written to the vertices last time
+    void UpdateEyeBlink(MODEL *m, float dltTime);
 
     [[nodiscard]] bool CheckShotOnlyEnemyTest() const;
 

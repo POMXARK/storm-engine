@@ -30,6 +30,7 @@
 
 #include <fmt/format.h>
 
+#include <algorithm>
 #include <set>
 
 //============================================================================================
@@ -2663,6 +2664,144 @@ void Character::Update(float dltTime)
         else if (!isControllableHead)
             ani->HeadControl(true);
     }
+
+    UpdateEyeBlink(m, dltTime);
+}
+
+namespace
+{
+// Eye window of hero_head.tga in texels, v counted from the top: the eye is 129..143, skin below it from 143
+constexpr float kEyeTexSize = 256.0f;
+constexpr float kEyeX0 = 40.0f;
+constexpr float kEyeX1 = 80.0f;
+constexpr float kEyeY0 = 129.0f;
+constexpr float kEyeY1 = 143.0f;
+constexpr float kEyeRamp = 3.0f;
+constexpr float kEyeMid = 0.5f * (kEyeY0 + kEyeY1); // the lids meet on this row
+constexpr float kEyeSkin = 145.0f;                  // what the lids show: a skin row under the eye
+constexpr float kBlinkClose = 0.08f;
+constexpr float kBlinkHold = 0.04f;
+constexpr float kBlinkOpen = 0.10f;
+
+// 1 inside [a, b], falls linearly to 0 over r outside of it
+float BlinkRamp(float x, float a, float b, float r)
+{
+    float t = std::min((x - a + r) / r, (b + r - x) / r);
+    if (t < 0.0f)
+        return 0.0f;
+    return t > 1.0f ? 1.0f : t;
+}
+
+// Texel row an eye vertex of row y samples at the given closure: the open part of the eye shrinks towards kEyeMid
+// and the lids, which come from above and from below, show skin; the eye is closed from the edges, not moved
+float BlinkRow(float y, float closure)
+{
+    if (y < kEyeY0 || y > kEyeY1)
+        return y;
+    const float s = kEyeMid + (y - kEyeMid) / std::max(1.0f - closure, 0.001f);
+    return s < kEyeY0 || s > kEyeY1 ? kEyeSkin : s;
+}
+
+// Index of the object textured with the hero head, -1 if the model has none
+int32_t FindEyeBlinkObject(GEOS *geo)
+{
+    GEOS::INFO info;
+    geo->GetInfo(info);
+    for (int32_t o = 0; o < info.nobjects; o++)
+    {
+        GEOS::OBJECT ob;
+        geo->GetObj(o, ob);
+        GEOS::MATERIAL mt;
+        geo->GetMaterial(ob.material, mt);
+        for (int32_t t = 0; t < info.ntextures; t++)
+        {
+            if (geo->GetTexture(t) == mt.texture[0] && storm::iEquals(geo->GetTextureName(t), "hero_head.tga"))
+                return o;
+        }
+    }
+    return -1;
+}
+} // namespace
+
+void Character::UpdateEyeBlink(MODEL *m, float dltTime)
+{
+    auto *node = m->GetNode(0);
+    if (eyeBlinkModel != m)
+    {
+        eyeBlinkModel = m;
+        eyeBlinkObj = node && node->geo ? FindEyeBlinkObject(node->geo) : -1;
+        eyeBlinkTimer = 1.0f + rand() * (4.0f / RAND_MAX);
+        eyeBlinkTime = -1.0f;
+        eyeBlinkWeight = 0.0f;
+        if (eyeBlinkObj < 0)
+            return;
+
+        // keep the original UV, the blink is always computed from them
+        GEOS *geo = node->geo;
+        GEOS::OBJECT ob;
+        geo->GetObj(eyeBlinkObj, ob);
+        int32_t stride = 0;
+        int32_t uvOffset = 0;
+        auto *verts = static_cast<uint8_t *>(geo->LockObjectVertices(eyeBlinkObj, stride, uvOffset));
+        eyeBlinkUV.resize(ob.num_vertices * 2);
+        for (int32_t i = 0; i < ob.num_vertices; i++)
+        {
+            const auto *uv = reinterpret_cast<const float *>(verts + i * stride + uvOffset);
+            eyeBlinkUV[i * 2] = uv[0];
+            eyeBlinkUV[i * 2 + 1] = uv[1];
+        }
+        geo->UnlockObjectVertices(eyeBlinkObj);
+    }
+    if (eyeBlinkObj < 0)
+        return;
+
+    if (eyeBlinkTime < 0.0f)
+    {
+        eyeBlinkTimer -= dltTime;
+        if (eyeBlinkTimer <= 0.0f)
+            eyeBlinkTime = 0.0f;
+    }
+    else
+    {
+        eyeBlinkTime += dltTime;
+        if (eyeBlinkTime >= kBlinkClose + kBlinkHold + kBlinkOpen)
+        {
+            eyeBlinkTime = -1.0f;
+            eyeBlinkTimer = 2.5f + rand() * (3.0f / RAND_MAX);
+        }
+    }
+
+    float closure = 0.0f;
+    if (eyeBlinkTime >= 0.0f)
+    {
+        if (eyeBlinkTime < kBlinkClose)
+            closure = eyeBlinkTime / kBlinkClose;
+        else if (eyeBlinkTime < kBlinkClose + kBlinkHold)
+            closure = 1.0f;
+        else
+            closure = 1.0f - (eyeBlinkTime - kBlinkClose - kBlinkHold) / kBlinkOpen;
+    }
+    if (closure == eyeBlinkWeight)
+        return;
+    eyeBlinkWeight = closure;
+
+    GEOS *geo = node->geo;
+    int32_t stride = 0;
+    int32_t uvOffset = 0;
+    auto *verts = static_cast<uint8_t *>(geo->LockObjectVertices(eyeBlinkObj, stride, uvOffset));
+    const auto vertCount = static_cast<int32_t>(eyeBlinkUV.size() / 2);
+    for (int32_t i = 0; i < vertCount; i++)
+    {
+        auto *uv = reinterpret_cast<float *>(verts + i * stride + uvOffset);
+        const float u0 = eyeBlinkUV[i * 2];
+        const float v0 = eyeBlinkUV[i * 2 + 1];
+        // the eye rows sample the shrunken eye and the skin of the lids, the rest of the face is not moved
+        const float y = v0 * kEyeTexSize;
+        const float w = BlinkRamp(u0 * kEyeTexSize, kEyeX0, kEyeX1, kEyeRamp);
+        uv[0] = u0;
+        uv[1] = v0 + w * (BlinkRow(y, closure) - y) / kEyeTexSize;
+    }
+    geo->UnlockObjectVertices(eyeBlinkObj);
 }
 
 // Action animation end event
