@@ -14,8 +14,9 @@ technique Fader
         ColorArg2[0] = texture;
         ColorOp[0] = modulate;
         ColorOp[1] = disable;
-        AlphaArg1[0] = diffuse;
-        AlphaOp[0] = SelectArg1;
+        AlphaArg1[0] = texture;
+        AlphaArg2[0] = diffuse;
+        AlphaOp[0] = modulate;
         AlphaOp[1] = disable;
     }
 }

@@ -50,6 +50,22 @@ void FREE_CAMERA::Execute(uint32_t real_delta)
         SetPerspective(AttributesPointer->GetAttributeAsFloat("Perspective"));
     }
 
+    // the camera of a movie: the script sets position and angle (x pitch, y yaw, z roll) every frame
+    if (AttributesPointer->GetAttributeAsFloat("Scripted", 0.f) > 0.f)
+    {
+        const auto *position_attr = AttributesPointer->GetAttributeClass("position");
+        const auto *angle_attr = AttributesPointer->GetAttributeClass("angle");
+        if (position_attr != nullptr && angle_attr != nullptr)
+        {
+            position_ = {position_attr->GetAttributeAsFloat("x", 0), position_attr->GetAttributeAsFloat("y", 0),
+                         position_attr->GetAttributeAsFloat("z", 0)};
+            angle_ = {angle_attr->GetAttributeAsFloat("x", 0), angle_attr->GetAttributeAsFloat("y", 0),
+                      angle_attr->GetAttributeAsFloat("z", 0)};
+            GetRenderer().SetCamera(position_, angle_, GetPerspective());
+        }
+        return;
+    }
+
     float perspective{};
     if (!cameraOverride_)
     {

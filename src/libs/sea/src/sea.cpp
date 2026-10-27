@@ -8,6 +8,7 @@
 #include "math3d.h"
 #include "math_inlines.h"
 #include "shared/sea_ai/script_defines.h"
+#include "shared/messages.h"
 #include "sse.h"
 #include "tga.h"
 #include "file_service.h"
@@ -1805,6 +1806,21 @@ float SEA::Cannon_Trace(int32_t iBallOwner, const CVECTOR &vSrc, const CVECTOR &
     }
 
     return fRes;
+}
+
+uint64_t SEA::ProcessMessage(MESSAGE &message)
+{
+    if (message.Long() != MSG_SEA_GET_HEIGHT)
+        return 0;
+    const float x = message.Float();
+    const float z = message.Float();
+    CVECTOR vNormal;
+    const float y = WaveXZ(x, z, &vNormal);
+    auto *probe = AttributesPointer->CreateSubAClass(AttributesPointer, "Probe");
+    probe->SetAttributeUseFloat("Y", y);
+    probe->SetAttributeUseFloat("NX", vNormal.x);
+    probe->SetAttributeUseFloat("NZ", vNormal.z);
+    return 1;
 }
 
 uint32_t SEA::AttributeChanged(ATTRIBUTES *pAttribute)

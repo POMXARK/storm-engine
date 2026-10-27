@@ -209,6 +209,8 @@ class SEA final : public SEA_BASE
 
     uint32_t AttributeChanged(ATTRIBUTES *pAttribute) override;
 
+    uint64_t ProcessMessage(MESSAGE &message) override;
+
     void ProcessStage(Stage stage, uint32_t delta) override
     {
         switch (stage)

@@ -55,6 +55,7 @@
 //============================================================================================
 #define MSG_SEA_REFLECTION_DRAW 50200 // "ls", island name
 #define MSG_SEA_SUNROAD_DRAW 50201    // "ls", island name
+#define MSG_SEA_GET_HEIGHT 50202      // "lff", x, z: the answer goes to Sea.Probe.{Y,NX,NZ}
 
 //============================================================================================
 // Ship Messages

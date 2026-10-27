@@ -421,6 +421,26 @@ void SKY::Realize(uint32_t Delta_Time)
                         pRS->DrawBuffer(iSkyVertsID, sizeof(SKYVERTEX), iSkyIndexID, 0, 40, 30 + i * 6, 2);
                 }
             } while (pRS->TechniqueExecuteNext());
+
+        // the sun and the moon of a single sky: the blended sky above draws them in its own branch
+        if (Delta_Time != 0)
+        {
+            entid_t eid;
+
+            if (!pAstronomy)
+                if (eid = core.GetEntityId("Astronomy"))
+                    pAstronomy = static_cast<Entity *>(core.GetEntityPointer(eid));
+
+            if (!pSunGlow)
+                if (eid = core.GetEntityId("SUNGLOW"))
+                    pSunGlow = static_cast<Entity *>(core.GetEntityPointer(eid));
+
+            if (pAstronomy)
+                pAstronomy->ProcessStage(Stage::realize, Delta_Time);
+            if (pSunGlow)
+                static_cast<SUNGLOW *>(pSunGlow)->DrawSunMoon();
+            pRS->SetTransform(D3DTS_WORLD, pMatWorld);
+        }
     }
 
     pMatWorld.SetIdentity();

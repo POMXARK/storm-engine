@@ -461,28 +461,34 @@ def quat_rotate(q, v):
     return tuple(v[0] * m[0][k] + v[1] * m[1][k] + v[2] * m[2][k] for k in range(3))
 
 
-def write_an(path, fps, parents, joints, root_positions, rotations):
+def write_an(path, fps, parents, joints, root_positions, rotations, moving=False):
     """Writes an .an file (animation/src/an_file.h, AnimationServiceImp::LoadAN).
 
     parents[i]        parent bone of bone i (bone 0 is the root, its entry is ignored)
     joints[i]         joint position relative to the parent's joint, in the bind pose
     root_positions[f] position of the root joint in frame f
+    moving            root_positions[i][f] is the position of every bone i (nJoints | MOVING_JOINTS in the
+                      header): rigid objects that travel, such as the parts of a cut-scene
     rotations[i][f]   rotation of bone i relative to its parent in frame f
 
     Frame 0 is the bind pose the mesh is modelled in (the engine builds the inverse bind matrices
     from it), so the mesh must match frame 0. Like the meshes, everything is stored mirrored in x
     for the skinning's x negation: positions get -x, quaternions (x, -y, -z, w).
     """
-    frames = len(root_positions)
+    if moving:
+        frames = len(root_positions[0])
+        assert len(root_positions) == len(parents)
+    else:
+        frames = len(root_positions)
     assert all(len(r) == frames for r in rotations)
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "wb") as out:
-        out.write(struct.pack("<iif", frames, len(parents), fps))
+        out.write(struct.pack("<iif", frames, len(parents) | (0x40000000 if moving else 0), fps))
         out.write(struct.pack(f"<{len(parents)}i", *[-1] + list(parents[1:])))
         for joint in joints:
             out.write(struct.pack("<3f", *mirror_x(joint)))
-        for pos in root_positions:
+        for pos in (p for bone in root_positions for p in bone) if moving else root_positions:
             out.write(struct.pack("<3f", *mirror_x(pos)))
         for bone in rotations:
             for x, y, z, w in bone:

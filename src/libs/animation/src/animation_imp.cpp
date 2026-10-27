@@ -353,7 +353,7 @@ void AnimationImp::BuildAnimationMatrices()
                 qt.GetMatrix(tmpMtx);
                 inmtx = tmpMtx;
                 inmtx.Pos() = bn.pos0;
-                if (j == 0)
+                if (bn.pos)
                 {
                     auto p0 = bn.pos[f0] + ki0 * (bn.pos[f0 + 1] - bn.pos[f0]);
                     auto p1 = bn.pos[f1] + ki1 * (bn.pos[f1 + 1] - bn.pos[f1]);
@@ -399,7 +399,7 @@ void AnimationImp::BuildAnimationMatrices()
                 qt.GetMatrix(tmpMtx);
                 inmtx = tmpMtx;
                 inmtx.Pos() = bn.pos0;
-                if (j == 0)
+                if (bn.pos)
                     inmtx.Pos() = bn.pos[f] + ki * (bn.pos[f + 1] - bn.pos[f]);
 
                 // Procedural head look
@@ -441,7 +441,7 @@ void AnimationImp::BuildAnimationMatrices()
                 qt.GetMatrix(tmpMtx);
                 inmtx = tmpMtx;
                 inmtx.Pos() = bn.pos0;
-                if (j == 0)
+                if (bn.pos)
                     inmtx.Pos() = bn.pos[f] + ki * (bn.pos[f + 1] - bn.pos[f]);
 
                 // Procedural head look

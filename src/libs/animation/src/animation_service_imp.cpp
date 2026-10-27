@@ -515,7 +515,16 @@ bool AnimationServiceImp::LoadAN(const char *fname, AnimationInfo *info)
         }
         // Reading the file header
         ANFILE::HEADER header;
-        if (!fio->_ReadFile(fileS, &header, sizeof(ANFILE::HEADER)) || header.nFrames <= 0 || header.nJoints <= 0 ||
+        if (!fio->_ReadFile(fileS, &header, sizeof(ANFILE::HEADER)))
+        {
+            core.Trace("Incorrect file header in animation file: %s", fname);
+            fio->_CloseFile(fileS);
+            return false;
+        }
+        // The flag in nJoints: every bone has the positions of the frames, not only the root
+        const bool movingJoints = (header.nJoints & ANFILE::MOVING_JOINTS) != 0;
+        header.nJoints &= ~ANFILE::MOVING_JOINTS;
+        if (header.nFrames <= 0 || header.nJoints <= 0 ||
             header.framesPerSec < 0.0f || header.framesPerSec > 1000.0f)
         {
             core.Trace("Incorrect file header in animation file: %s", fname);
@@ -555,20 +564,23 @@ bool AnimationServiceImp::LoadAN(const char *fname, AnimationInfo *info)
         }
         for (int32_t i = 0; i < header.nJoints; i++)
         {
-            info->GetBone(i).SetNumFrames(header.nFrames, vrt[i], i == 0);
+            info->GetBone(i).SetNumFrames(header.nFrames, vrt[i], i == 0 || movingJoints);
         }
         delete[] vrt;
 
-        // Root bone positions
+        // Root bone positions (with the flag, the positions of every bone)
         vrt = new CVECTOR[header.nFrames];
-        if (!fio->_ReadFile(fileS, vrt, header.nFrames * sizeof(CVECTOR)))
+        for (int32_t i = 0; i < (movingJoints ? header.nJoints : 1); i++)
         {
-            core.Trace("Incorrect root joint position block block in animation file: %s", fname);
-            delete[] vrt;
-            fio->_CloseFile(fileS);
-            return false;
+            if (!fio->_ReadFile(fileS, vrt, header.nFrames * sizeof(CVECTOR)))
+            {
+                core.Trace("Incorrect root joint position block block in animation file: %s", fname);
+                delete[] vrt;
+                fio->_CloseFile(fileS);
+                return false;
+            }
+            info->GetBone(i).SetPositions(vrt, header.nFrames);
         }
-        info->GetBone(0).SetPositions(vrt, header.nFrames);
         delete[] vrt;
 
         // Angles

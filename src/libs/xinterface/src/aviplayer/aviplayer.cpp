@@ -153,7 +153,7 @@ void CAviPlayer::Realize(uint32_t delta_time)
         m_bContinue = false;
     }
 #else
-    m_bContinue = false;
+    RealizeFfmpeg();
 #endif
 }
 
@@ -307,7 +307,7 @@ bool CAviPlayer::PlayMedia(const char *fileName)
 
     return true;
 #else
-    return false;
+    return PlayMediaFfmpeg(fileName);
 #endif
 }
 
@@ -362,7 +362,7 @@ bool CAviPlayer::GetInterfaces()
 
     return true;
 #else
-    return false;
+    return true;
 #endif
 }
 
@@ -386,6 +386,8 @@ void CAviPlayer::CleanupInterfaces()
 
     if (m_bMakeUninitializeDD)
         CoUninitialize();
+#else
+    CloseFfmpeg();
 #endif
     m_bMakeUninitializeDD = false;
 }
