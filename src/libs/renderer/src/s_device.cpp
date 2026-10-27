@@ -28,6 +28,7 @@
 #ifdef _WIN32
 #include <DxErr.h>
 #include <corecrt_io.h>
+#include <fcntl.h>
 #else
 #include <unistd.h>
 #endif
@@ -3547,6 +3548,57 @@ using TGA_H = struct tagTGA_H
 
 // WORD Temp[1600*4];
 
+#ifdef _WIN32
+namespace
+{
+// cmd /c <command line> without a console window (_popen and system open one over the game). With pipe the
+// standard input of the process is a pipe, written through *pipe; the handle of the process is returned
+HANDLE StartHidden(const std::string &commandLine, FILE **pipe)
+{
+    SECURITY_ATTRIBUTES security{sizeof(SECURITY_ATTRIBUTES), nullptr, TRUE};
+    STARTUPINFOA startup{};
+    startup.cb = sizeof(startup);
+    HANDLE read = nullptr, write = nullptr;
+    if (pipe != nullptr)
+    {
+        if (!CreatePipe(&read, &write, &security, 0))
+            return nullptr;
+        SetHandleInformation(write, HANDLE_FLAG_INHERIT, 0);
+        startup.dwFlags = STARTF_USESTDHANDLES;
+        startup.hStdInput = read;
+        startup.hStdOutput = GetStdHandle(STD_OUTPUT_HANDLE);
+        startup.hStdError = GetStdHandle(STD_ERROR_HANDLE);
+    }
+    std::string line = "cmd.exe /c " + commandLine;
+    PROCESS_INFORMATION process{};
+    const BOOL ok = CreateProcessA(nullptr, line.data(), nullptr, nullptr, pipe != nullptr, CREATE_NO_WINDOW, nullptr,
+                                   nullptr, &startup, &process);
+    if (read != nullptr)
+        CloseHandle(read);
+    if (!ok)
+    {
+        if (write != nullptr)
+            CloseHandle(write);
+        return nullptr;
+    }
+    CloseHandle(process.hThread);
+    if (pipe != nullptr)
+        *pipe = _fdopen(_open_osfhandle(reinterpret_cast<intptr_t>(write), _O_WRONLY | _O_BINARY), "wb");
+    return process.hProcess;
+}
+
+// the exit code of the process, which is closed
+int WaitHidden(HANDLE process, DWORD ms)
+{
+    DWORD code = 1;
+    if (WaitForSingleObject(process, ms) == WAIT_OBJECT_0)
+        GetExitCodeProcess(process, &code);
+    CloseHandle(process);
+    return static_cast<int>(code);
+}
+} // namespace
+#endif
+
 void DX9RENDER::StopRecording()
 {
     if (recorder == nullptr)
@@ -3555,7 +3607,10 @@ void DX9RENDER::StopRecording()
     fputs("q\n", recorder);
     fflush(recorder);
 #ifdef _WIN32
-    _pclose(recorder);
+    fclose(recorder);
+    if (recorderProcess != nullptr)
+        WaitHidden(static_cast<HANDLE>(recorderProcess), 15000);
+    recorderProcess = nullptr;
 #else
     pclose(recorder);
 #endif
@@ -3573,7 +3628,8 @@ void DX9RENDER::StopRecording()
             recordMux.join();
         recordMux = std::thread([command, part = recordVideoPart, pcm = recordPcm, name = recordName] {
 #ifdef _WIN32
-            const int code = std::system(("\"" + command + "\"").c_str());
+            HANDLE process = StartHidden("\"" + command + "\"", nullptr);
+            const int code = process != nullptr ? WaitHidden(process, INFINITE) : 1;
 #else
             const int code = std::system(command.c_str());
 #endif
@@ -3640,7 +3696,9 @@ void DX9RENDER::ToggleRecording()
 #ifdef _WIN32
     // cmd /c drops the outer quotes of a command that begins and ends with a quote
     command = "\"" + command + " 2> \"" + log.string() + "\"\"";
-    recorder = _popen(command.c_str(), "w");
+    recorderProcess = StartHidden(command, &recorder);
+    if (recorderProcess == nullptr)
+        recorder = nullptr;
 #else
     command += " 2> \"" + log.string() + "\"";
     recorder = popen(command.c_str(), "w");

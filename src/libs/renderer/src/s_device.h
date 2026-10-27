@@ -608,6 +608,7 @@ private:
     std::string ffmpegPath = "ffmpeg";
     std::string recordAudioInput;
     FILE *recorder = nullptr;
+    void *recorderProcess = nullptr; // Windows: the handle of the process of ffmpeg, which runs without a window
     std::string recordName;
     // Windows: the sound of the game from the WASAPI loopback, put to the video with ffmpeg when the recording ends
     bool recordLoopback = false;
