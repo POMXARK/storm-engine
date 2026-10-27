@@ -2682,6 +2682,11 @@ constexpr float kEyeSkin = 145.0f;                  // what the lids show: a ski
 constexpr float kBlinkClose = 0.08f;
 constexpr float kBlinkHold = 0.04f;
 constexpr float kBlinkOpen = 0.10f;
+constexpr float kGazeX0 = 36.0f;   // vertices of the whole eye, from the inner corner to the outer one, take the dart
+constexpr float kGazeX1 = 90.0f;   // together, so the eye texture slides as one piece
+constexpr float kGazeX = 3.5f;     // the largest dart of the eyes in texels, to the sides
+constexpr float kGazeY = 1.2f;     // and up or down
+constexpr float kGazeSnap = 0.04f; // seconds a dart takes: eyes jump, they do not glide
 
 // 1 inside [a, b], falls linearly to 0 over r outside of it
 float BlinkRamp(float x, float a, float b, float r)
@@ -2733,6 +2738,8 @@ void Character::UpdateEyeBlink(MODEL *m, float dltTime)
         eyeBlinkTimer = 1.0f + rand() * (4.0f / RAND_MAX);
         eyeBlinkTime = -1.0f;
         eyeBlinkWeight = 0.0f;
+        eyeGazeX = eyeGazeY = eyeGazeToX = eyeGazeToY = 0.0f;
+        eyeGazeTimer = 0.3f + rand() * (1.5f / RAND_MAX);
         if (eyeBlinkObj < 0)
             return;
 
@@ -2744,8 +2751,11 @@ void Character::UpdateEyeBlink(MODEL *m, float dltTime)
         int32_t uvOffset = 0;
         auto *verts = static_cast<uint8_t *>(geo->LockObjectVertices(eyeBlinkObj, stride, uvOffset));
         eyeBlinkUV.resize(ob.num_vertices * 2);
+        eyeBlinkSide.resize(ob.num_vertices);
         for (int32_t i = 0; i < ob.num_vertices; i++)
         {
+            // both eyes share the texture window, so a gaze to one side moves the two mirrored halves oppositely
+            eyeBlinkSide[i] = *reinterpret_cast<const float *>(verts + i * stride) > 0.0f ? 1.0f : -1.0f;
             const auto *uv = reinterpret_cast<const float *>(verts + i * stride + uvOffset);
             eyeBlinkUV[i * 2] = uv[0];
             eyeBlinkUV[i * 2 + 1] = uv[1];
@@ -2771,6 +2781,19 @@ void Character::UpdateEyeBlink(MODEL *m, float dltTime)
         }
     }
 
+    // saccades: from time to time the eyes jump to another point, often back to the centre
+    eyeGazeTimer -= dltTime;
+    if (eyeGazeTimer <= 0.0f)
+    {
+        const bool centre = rand() < RAND_MAX * 0.35f;
+        eyeGazeToX = centre ? 0.0f : (rand() * (2.0f / RAND_MAX) - 1.0f) * kGazeX;
+        eyeGazeToY = centre ? 0.0f : (rand() * (2.0f / RAND_MAX) - 1.0f) * kGazeY;
+        eyeGazeTimer = 0.4f + rand() * (2.1f / RAND_MAX);
+    }
+    const float snap = std::min(dltTime / kGazeSnap, 1.0f);
+    eyeGazeX += (eyeGazeToX - eyeGazeX) * snap;
+    eyeGazeY += (eyeGazeToY - eyeGazeY) * snap;
+
     float closure = 0.0f;
     if (eyeBlinkTime >= 0.0f)
     {
@@ -2781,9 +2804,12 @@ void Character::UpdateEyeBlink(MODEL *m, float dltTime)
         else
             closure = 1.0f - (eyeBlinkTime - kBlinkClose - kBlinkHold) / kBlinkOpen;
     }
-    if (closure == eyeBlinkWeight)
+    if (closure == eyeBlinkWeight && std::abs(eyeGazeX - eyeGazeDrawnX) < 0.01f &&
+        std::abs(eyeGazeY - eyeGazeDrawnY) < 0.01f)
         return;
     eyeBlinkWeight = closure;
+    eyeGazeDrawnX = eyeGazeX;
+    eyeGazeDrawnY = eyeGazeY;
 
     GEOS *geo = node->geo;
     int32_t stride = 0;
@@ -2798,8 +2824,9 @@ void Character::UpdateEyeBlink(MODEL *m, float dltTime)
         // the eye rows sample the shrunken eye and the skin of the lids, the rest of the face is not moved
         const float y = v0 * kEyeTexSize;
         const float w = BlinkRamp(u0 * kEyeTexSize, kEyeX0, kEyeX1, kEyeRamp);
-        uv[0] = u0;
-        uv[1] = v0 + w * (BlinkRow(y, closure) - y) / kEyeTexSize;
+        const float wGaze = BlinkRamp(u0 * kEyeTexSize, kGazeX0, kGazeX1, kEyeRamp) * BlinkRamp(y, kEyeY0, kEyeY1, kEyeRamp);
+        uv[0] = u0 + wGaze * eyeBlinkSide[i] * eyeGazeX / kEyeTexSize;
+        uv[1] = v0 + (w * (BlinkRow(y, closure) - y) + wGaze * eyeGazeY) / kEyeTexSize;
     }
     geo->UnlockObjectVertices(eyeBlinkObj);
 }

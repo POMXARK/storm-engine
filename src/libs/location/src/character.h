@@ -705,6 +705,11 @@ class Character : public Entity
     float eyeBlinkTimer = 0.0f;    // seconds until the next blink
     float eyeBlinkTime = -1.0f;    // seconds since the blink started, < 0 while the eyes are open
     float eyeBlinkWeight = 0.0f;   // closure written to the vertices last time
+    std::vector<float> eyeBlinkSide; // +1 / -1: which half of the face the vertex is on
+    float eyeGazeX = 0.0f, eyeGazeY = 0.0f;         // darting of the eyes, texels of the head texture
+    float eyeGazeToX = 0.0f, eyeGazeToY = 0.0f;     // where they are going
+    float eyeGazeDrawnX = 0.0f, eyeGazeDrawnY = 0.0f; // written to the vertices last time
+    float eyeGazeTimer = 0.0f;                      // seconds until the next dart
     void UpdateEyeBlink(MODEL *m, float dltTime);
 
     [[nodiscard]] bool CheckShotOnlyEnemyTest() const;
