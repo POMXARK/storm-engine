@@ -2673,7 +2673,6 @@ void Character::Update(float dltTime)
 namespace
 {
 constexpr float kEyeTexSize = 256.0f; // UV is counted in texels of a texture taken as 256x256, v from the top
-constexpr float kEyeRamp = 3.0f;
 constexpr float kBlinkClose = 0.08f;
 constexpr float kBlinkHold = 0.04f;
 constexpr float kBlinkOpen = 0.10f;
@@ -2694,6 +2693,7 @@ struct EyeWindow
 
 struct EyeTable
 {
+    float ramp = 3.0f;   // texels over which the window fades out: the cells of it show the rows between lid and skin
     bool mirror = false; // one eye on the atlas for both: the two halves of the face dart to opposite sides
     std::vector<EyeWindow> windows;
 };
@@ -2714,6 +2714,7 @@ const EyeTable &FindEyeTable(const char *textureName)
     if (!ini)
         return table;
     table.mirror = ini->GetInt(section.c_str(), "mirror", 0) != 0;
+    table.ramp = static_cast<float>(ini->GetDouble(section.c_str(), "ramp", 3.0));
     char line[256];
     bool found = ini->ReadString(section.c_str(), "eye", line, sizeof(line), "");
     while (found)
@@ -2799,6 +2800,7 @@ void Character::UpdateEyeBlink(MODEL *m, float dltTime)
         eyeBlinkSide.resize(ob.num_vertices);
         eyeBlinkWin.assign(ob.num_vertices, -1);
         eyeBlinkRect.clear();
+        eyeBlinkRamp = table->ramp;
         for (const auto &w : table->windows)
             eyeBlinkRect.insert(eyeBlinkRect.end(), {w.x0, w.x1, w.y0, w.y1, w.skin});
         for (int32_t i = 0; i < ob.num_vertices; i++)
@@ -2813,8 +2815,8 @@ void Character::UpdateEyeBlink(MODEL *m, float dltTime)
             for (size_t k = 0; k < table->windows.size(); k++)
             {
                 const auto &w = table->windows[k];
-                if (BlinkRamp(uv[0] * kEyeTexSize, w.x0, w.x1, kEyeRamp) > 0.0f &&
-                    uv[1] * kEyeTexSize >= w.y0 - kEyeRamp && uv[1] * kEyeTexSize <= w.y1 + kEyeRamp)
+                if (BlinkRamp(uv[0] * kEyeTexSize, w.x0, w.x1, eyeBlinkRamp) > 0.0f &&
+                    uv[1] * kEyeTexSize >= w.y0 - eyeBlinkRamp && uv[1] * kEyeTexSize <= w.y1 + eyeBlinkRamp)
                 {
                     eyeBlinkWin[i] = static_cast<int8_t>(k);
                     break;
@@ -2895,8 +2897,8 @@ void Character::UpdateEyeBlink(MODEL *m, float dltTime)
         const EyeWindow win{r[0], r[1], r[2], r[3], r[4]};
         // the eye rows sample the shrunken eye and the skin of the lids, the rest of the face is not moved
         const float y = v0 * kEyeTexSize;
-        const float w = BlinkRamp(u0 * kEyeTexSize, win.x0, win.x1, kEyeRamp);
-        const float wGaze = w * BlinkRamp(y, win.y0, win.y1, kEyeRamp);
+        const float w = BlinkRamp(u0 * kEyeTexSize, win.x0, win.x1, eyeBlinkRamp);
+        const float wGaze = w * BlinkRamp(y, win.y0, win.y1, eyeBlinkRamp);
         uv[0] = u0 + wGaze * eyeBlinkSide[i] * eyeGazeX / kEyeTexSize;
         uv[1] = v0 + (w * (BlinkRow(win, y, closure) - y) + wGaze * eyeGazeY) / kEyeTexSize;
     }
