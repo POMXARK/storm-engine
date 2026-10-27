@@ -13,10 +13,66 @@
 #include "core.h"
 #include "debug-trap.h"
 
+#include <algorithm>
+#include <cmath>
+
 //============================================================================================
 
 // Animation Service Pointer
 AnimationServiceImp *AnimationImp::aniService = nullptr;
+
+// Measurement of the head look: roll is the angle of the head's x axis above the horizontal plane (degrees).
+// A horizontal turn keeps it at the rest value, a sideways tilt changes it.
+static float HeadRollDeg(const CMatrix &m)
+{
+    return std::asin(std::clamp(m.Vx().y, -1.0f, 1.0f)) * 57.2957795f;
+}
+
+static void TraceHeadLook(const CMatrix &rest, const CMatrix &turned, float ax, float ay)
+{
+    static int32_t frames = 0;
+    if (++frames % 120 != 0)
+        return;
+    core.Trace("PDM head look: ax=%.3f ay=%.3f roll rest=%.2f turned=%.2f", ax, ay, HeadRollDeg(rest),
+               HeadRollDeg(turned));
+}
+
+// Rotation by ang about the unit axis n, the same convention as BuildRotateX/Y (row vectors)
+static CMatrix RotateAbout(const CVECTOR &n, float ang)
+{
+    CMatrix r;
+    r.SetIdentity();
+    const float c = cosf(ang);
+    const float s = sinf(ang);
+    const float t = 1.0f - c;
+    const float a[3] = {n.x, n.y, n.z};
+    for (int i = 0; i < 3; i++)
+    {
+        for (int j = 0; j < 3; j++)
+        {
+            float v = t * a[i] * a[j];
+            if (i == j)
+                v += c;
+            else
+            {
+                const int k = 3 - i - j;
+                const float sign = (j - i + 3) % 3 == 1 ? 1.0f : -1.0f;
+                v += s * sign * a[k];
+            }
+            r.m[i][j] = v;
+        }
+    }
+    return r;
+}
+
+// Procedural head look: yaw about the world vertical, pitch about the world horizontal, both in the parent's frame.
+// The world axes seen from the parent are the columns of the parent matrix (its rows are its axes).
+static void TurnHead(CMatrix &head, const CMatrix &parent, float ax, float ay)
+{
+    const CVECTOR right(parent.Vx().x, parent.Vy().x, parent.Vz().x);
+    const CVECTOR up(parent.Vx().y, parent.Vy().y, parent.Vz().y);
+    head = head * RotateAbout(right, ax) * RotateAbout(up, ay);
+}
 
 // ============================================================================================
 // Construction, destruction
@@ -307,8 +363,12 @@ void AnimationImp::BuildAnimationMatrices()
                 // Procedural head look
                 if (j == headBoneIndex && isControllableHead)
                 {
-                    inmtx.RotateX(customHeadAX);
-                    inmtx.RotateY(customHeadAY);
+                    const CMatrix rest = inmtx;
+                    if (bn.parent)
+                        TurnHead(inmtx, bn.parent->matrix, customHeadAX, customHeadAY);
+                    if (bn.parent)
+                        TraceHeadLook(rest * CMatrix(bn.parent->matrix), inmtx * CMatrix(bn.parent->matrix),
+                                      customHeadAX, customHeadAY);
                 }
 
                 if (bn.parent)
@@ -345,8 +405,12 @@ void AnimationImp::BuildAnimationMatrices()
                 // Procedural head look
                 if (j == headBoneIndex && isControllableHead)
                 {
-                    inmtx.RotateX(customHeadAX);
-                    inmtx.RotateY(customHeadAY);
+                    const CMatrix rest = inmtx;
+                    if (bn.parent)
+                        TurnHead(inmtx, bn.parent->matrix, customHeadAX, customHeadAY);
+                    if (bn.parent)
+                        TraceHeadLook(rest * CMatrix(bn.parent->matrix), inmtx * CMatrix(bn.parent->matrix),
+                                      customHeadAX, customHeadAY);
                 }
 
                 if (bn.parent)
@@ -383,8 +447,12 @@ void AnimationImp::BuildAnimationMatrices()
                 // Procedural head look
                 if (j == headBoneIndex && isControllableHead)
                 {
-                    inmtx.RotateX(customHeadAX);
-                    inmtx.RotateY(customHeadAY);
+                    const CMatrix rest = inmtx;
+                    if (bn.parent)
+                        TurnHead(inmtx, bn.parent->matrix, customHeadAX, customHeadAY);
+                    if (bn.parent)
+                        TraceHeadLook(rest * CMatrix(bn.parent->matrix), inmtx * CMatrix(bn.parent->matrix),
+                                      customHeadAX, customHeadAY);
                 }
 
                 if (bn.parent)
