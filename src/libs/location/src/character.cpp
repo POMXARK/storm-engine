@@ -646,6 +646,8 @@ Character::~Character()
         }
     }
 
+    ReleaseEyeTexture(m);
+
     auto *const location = GetLocation();
     // remove the source in hand
     if (m_nHandLightID >= 0 && location && !isDeleted)
@@ -2682,10 +2684,17 @@ constexpr float kEyeSkin = 145.0f;                  // what the lids show: a ski
 constexpr float kBlinkClose = 0.08f;
 constexpr float kBlinkHold = 0.04f;
 constexpr float kBlinkOpen = 0.10f;
-constexpr float kGazeX0 = 36.0f;   // vertices of the whole eye, from the inner corner to the outer one, take the dart
-constexpr float kGazeX1 = 90.0f;   // together, so the eye texture slides as one piece
-constexpr float kGazeX = 3.5f;     // the largest dart of the eyes in texels, to the sides
-constexpr float kGazeY = 1.2f;     // and up or down
+// Opening of the eye on the texture (the lids and the skin around it stay as they are): an ellipse in texels
+constexpr float kOpenCX = 60.5f;
+constexpr float kOpenCY = 137.5f;
+constexpr float kOpenRX = 10.5f;
+constexpr float kOpenRY = 3.0f;
+constexpr int kPatchX0 = 47; // rectangle of the texture the dart rewrites, texels
+constexpr int kPatchY0 = 133;
+constexpr int kPatchW = 28;
+constexpr int kPatchH = 10;
+constexpr float kGazeX = 3.0f;     // the largest dart of the iris in texels, to the sides
+constexpr float kGazeY = 1.0f;     // and up or down
 constexpr float kGazeSnap = 0.04f; // seconds a dart takes: eyes jump, they do not glide
 
 // 1 inside [a, b], falls linearly to 0 over r outside of it
@@ -2751,16 +2760,14 @@ void Character::UpdateEyeBlink(MODEL *m, float dltTime)
         int32_t uvOffset = 0;
         auto *verts = static_cast<uint8_t *>(geo->LockObjectVertices(eyeBlinkObj, stride, uvOffset));
         eyeBlinkUV.resize(ob.num_vertices * 2);
-        eyeBlinkSide.resize(ob.num_vertices);
         for (int32_t i = 0; i < ob.num_vertices; i++)
         {
-            // both eyes share the texture window, so a gaze to one side moves the two mirrored halves oppositely
-            eyeBlinkSide[i] = *reinterpret_cast<const float *>(verts + i * stride) > 0.0f ? 1.0f : -1.0f;
             const auto *uv = reinterpret_cast<const float *>(verts + i * stride + uvOffset);
             eyeBlinkUV[i * 2] = uv[0];
             eyeBlinkUV[i * 2 + 1] = uv[1];
         }
         geo->UnlockObjectVertices(eyeBlinkObj);
+        SetupEyeTexture(geo);
     }
     if (eyeBlinkObj < 0)
         return;
@@ -2804,12 +2811,15 @@ void Character::UpdateEyeBlink(MODEL *m, float dltTime)
         else
             closure = 1.0f - (eyeBlinkTime - kBlinkClose - kBlinkHold) / kBlinkOpen;
     }
-    if (closure == eyeBlinkWeight && std::abs(eyeGazeX - eyeGazeDrawnX) < 0.01f &&
-        std::abs(eyeGazeY - eyeGazeDrawnY) < 0.01f)
+    if (std::abs(eyeGazeX - eyeGazeDrawnX) >= 0.01f || std::abs(eyeGazeY - eyeGazeDrawnY) >= 0.01f)
+    {
+        eyeGazeDrawnX = eyeGazeX;
+        eyeGazeDrawnY = eyeGazeY;
+        WriteEyeGaze(eyeGazeX, eyeGazeY);
+    }
+    if (closure == eyeBlinkWeight)
         return;
     eyeBlinkWeight = closure;
-    eyeGazeDrawnX = eyeGazeX;
-    eyeGazeDrawnY = eyeGazeY;
 
     GEOS *geo = node->geo;
     int32_t stride = 0;
@@ -2824,11 +2834,138 @@ void Character::UpdateEyeBlink(MODEL *m, float dltTime)
         // the eye rows sample the shrunken eye and the skin of the lids, the rest of the face is not moved
         const float y = v0 * kEyeTexSize;
         const float w = BlinkRamp(u0 * kEyeTexSize, kEyeX0, kEyeX1, kEyeRamp);
-        const float wGaze = BlinkRamp(u0 * kEyeTexSize, kGazeX0, kGazeX1, kEyeRamp) * BlinkRamp(y, kEyeY0, kEyeY1, kEyeRamp);
-        uv[0] = u0 + wGaze * eyeBlinkSide[i] * eyeGazeX / kEyeTexSize;
-        uv[1] = v0 + (w * (BlinkRow(y, closure) - y) + wGaze * eyeGazeY) / kEyeTexSize;
+        uv[0] = u0;
+        uv[1] = v0 + w * (BlinkRow(y, closure) - y) / kEyeTexSize;
     }
     geo->UnlockObjectVertices(eyeBlinkObj);
+}
+
+// The eyes get their own copy of the head texture: the dart rewrites the opening of the eye there, so only the iris
+// and the pupil move and the lids stay. The shared texture of the other characters is not touched.
+void Character::SetupEyeTexture(GEOS *geo)
+{
+    ReleaseEyeTexture(nullptr);
+    auto *location = GetLocation();
+    if (!location)
+        return;
+    VDX9RENDER *rs = location->GetRS();
+    GEOS::OBJECT ob;
+    geo->GetObj(eyeBlinkObj, ob);
+    GEOS::MATERIAL mt;
+    geo->GetMaterial(ob.material, mt);
+    auto *src = static_cast<IDirect3DTexture9 *>(rs->GetTextureFromID(mt.texture[0]));
+    D3DSURFACE_DESC desc;
+    if (!src || FAILED(src->GetLevelDesc(0, &desc)) || (desc.Format != D3DFMT_A8R8G8B8 && desc.Format != D3DFMT_X8R8G8B8))
+        return;
+    const UINT levels = src->GetLevelCount();
+    const int32_t id = rs->TextureCreate(desc.Width, desc.Height, levels, 0, desc.Format, D3DPOOL_MANAGED);
+    if (id < 0)
+        return;
+    auto *dst = static_cast<IDirect3DTexture9 *>(rs->GetTextureFromID(id));
+    for (UINT l = 0; l < levels; l++)
+    {
+        D3DSURFACE_DESC ld;
+        D3DLOCKED_RECT from, to;
+        if (FAILED(src->GetLevelDesc(l, &ld)) || FAILED(src->LockRect(l, &from, nullptr, D3DLOCK_READONLY)))
+            continue;
+        if (SUCCEEDED(dst->LockRect(l, &to, nullptr, 0)))
+        {
+            for (UINT y = 0; y < ld.Height; y++)
+                memcpy(static_cast<uint8_t *>(to.pBits) + y * to.Pitch,
+                       static_cast<uint8_t *>(from.pBits) + y * from.Pitch, ld.Width * 4);
+            dst->UnlockRect(l);
+        }
+        src->UnlockRect(l);
+    }
+    // the patch of the original pixels the dart is always computed from
+    D3DLOCKED_RECT lr;
+    if (desc.Width != 256 || desc.Height != 256 || FAILED(dst->LockRect(0, &lr, nullptr, D3DLOCK_READONLY)))
+    {
+        rs->TextureRelease(id);
+        return;
+    }
+    eyeTexPatch.resize(kPatchW * kPatchH);
+    for (int y = 0; y < kPatchH; y++)
+        memcpy(&eyeTexPatch[y * kPatchW],
+               static_cast<uint8_t *>(lr.pBits) + (kPatchY0 + y) * lr.Pitch + kPatchX0 * 4, kPatchW * 4);
+    dst->UnlockRect(0);
+
+    eyeTexOrig = mt.texture[0];
+    eyeTexClone = id;
+    eyeMaterial = ob.material;
+    mt.texture[0] = id;
+    geo->SetMaterial(ob.material, mt);
+}
+
+// Puts the original texture back on the model (nullptr: the model is gone) and frees the copy
+void Character::ReleaseEyeTexture(MODEL *m)
+{
+    if (eyeTexClone < 0)
+        return;
+    if (m && m->GetNode(0) && m->GetNode(0)->geo)
+    {
+        GEOS::MATERIAL mt;
+        m->GetNode(0)->geo->GetMaterial(eyeMaterial, mt);
+        mt.texture[0] = eyeTexOrig;
+        m->GetNode(0)->geo->SetMaterial(eyeMaterial, mt);
+    }
+    if (auto *location = GetLocation())
+        location->GetRS()->TextureRelease(eyeTexClone);
+    eyeTexClone = -1;
+}
+
+// The content of the eye opening slides by (dx, dy) texels; its edge pixels are repeated, the lids are not moved
+void Character::WriteEyeGaze(float dx, float dy)
+{
+    auto *location = GetLocation();
+    if (eyeTexClone < 0 || !location)
+        return;
+    auto *tex = static_cast<IDirect3DTexture9 *>(location->GetRS()->GetTextureFromID(eyeTexClone));
+    RECT rc = {kPatchX0, kPatchY0, kPatchX0 + kPatchW, kPatchY0 + kPatchH};
+    D3DLOCKED_RECT lr;
+    if (!tex || FAILED(tex->LockRect(0, &lr, &rc, 0)))
+        return;
+    const auto texel = [&](int x, int y) {
+        x = std::clamp(x, 0, kPatchW - 1);
+        y = std::clamp(y, 0, kPatchH - 1);
+        return eyeTexPatch[y * kPatchW + x];
+    };
+    for (int y = 0; y < kPatchH; y++)
+    {
+        auto *row = reinterpret_cast<uint32_t *>(static_cast<uint8_t *>(lr.pBits) + y * lr.Pitch);
+        for (int x = 0; x < kPatchW; x++)
+        {
+            const float tx = kPatchX0 + x + 0.5f;
+            const float ty = kPatchY0 + y + 0.5f;
+            const float ey = (ty - kOpenCY) / kOpenRY;
+            if ((tx - kOpenCX) * (tx - kOpenCX) / (kOpenRX * kOpenRX) + ey * ey > 1.0f)
+            {
+                row[x] = eyeTexPatch[y * kPatchW + x];
+                continue;
+            }
+            // where the pixel comes from: shifted back by the dart and kept inside the opening
+            const float sy = std::clamp(ty - dy, kOpenCY - kOpenRY, kOpenCY + kOpenRY);
+            const float ry = (sy - kOpenCY) / kOpenRY;
+            const float ex = kOpenRX * std::sqrt(std::max(0.0f, 1.0f - ry * ry));
+            const float sx = std::clamp(tx - dx, kOpenCX - ex, kOpenCX + ex);
+            const float fx = sx - 0.5f - kPatchX0;
+            const float fy = sy - 0.5f - kPatchY0;
+            const int ix = static_cast<int>(std::floor(fx));
+            const int iy = static_cast<int>(std::floor(fy));
+            const float ax = fx - ix;
+            const float ay = fy - iy;
+            uint32_t out = 0;
+            for (int shift = 0; shift < 32; shift += 8)
+            {
+                const auto c = [&](int px, int py) { return static_cast<float>((texel(px, py) >> shift) & 0xFF); };
+                const float v = (c(ix, iy) * (1 - ax) + c(ix + 1, iy) * ax) * (1 - ay) +
+                                (c(ix, iy + 1) * (1 - ax) + c(ix + 1, iy + 1) * ax) * ay;
+                out |= static_cast<uint32_t>(v + 0.5f) << shift;
+            }
+            row[x] = out;
+        }
+    }
+    tex->UnlockRect(0);
 }
 
 // Action animation end event

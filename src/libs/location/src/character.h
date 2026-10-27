@@ -705,7 +705,13 @@ class Character : public Entity
     float eyeBlinkTimer = 0.0f;    // seconds until the next blink
     float eyeBlinkTime = -1.0f;    // seconds since the blink started, < 0 while the eyes are open
     float eyeBlinkWeight = 0.0f;   // closure written to the vertices last time
-    std::vector<float> eyeBlinkSide; // +1 / -1: which half of the face the vertex is on
+    std::vector<uint32_t> eyeTexPatch; // original pixels of the eye of the head texture
+    int32_t eyeTexClone = -1;          // the copy of the head texture of this character, -1: none
+    int32_t eyeTexOrig = -1;
+    int32_t eyeMaterial = -1;
+    void SetupEyeTexture(GEOS *geo);
+    void ReleaseEyeTexture(MODEL *m);
+    void WriteEyeGaze(float dx, float dy);
     float eyeGazeX = 0.0f, eyeGazeY = 0.0f;         // darting of the eyes, texels of the head texture
     float eyeGazeToX = 0.0f, eyeGazeToY = 0.0f;     // where they are going
     float eyeGazeDrawnX = 0.0f, eyeGazeDrawnY = 0.0f; // written to the vertices last time
