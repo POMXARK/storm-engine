@@ -2743,7 +2743,7 @@ float BlinkRamp(float x, float a, float b, float r)
 float BlinkRow(const EyeWindow &w, float y, float closure)
 {
     if (y < w.y0 || y > w.y1)
-        return y;
+        return w.skin;
     const float s = w.Mid() + (y - w.Mid()) / std::max(1.0f - closure, 0.001f);
     return s < w.y0 || s > w.y1 ? w.skin : s;
 }
@@ -2903,7 +2903,9 @@ void Character::UpdateEyeBlink(MODEL *m, float dltTime)
         const float w = BlinkRamp(u0 * kEyeTexSize, win.x0, win.x1, eyeBlinkRamp);
         const float wGaze = w * BlinkRamp(y, win.y0, win.y1, eyeBlinkRamp);
         uv[0] = u0 + wGaze * eyeBlinkSide[i] * eyeGazeX / kEyeTexSize;
-        uv[1] = v0 + (w * (BlinkRow(win, y, closure) - y) + wGaze * eyeGazeY) / kEyeTexSize;
+        // the row of a vertex slides to the open/skin row over the ramp in y too, so the edge of the window is soft
+        const float wy = BlinkRamp(y, win.y0, win.y1, eyeBlinkRamp);
+        uv[1] = v0 + (w * wy * (BlinkRow(win, y, closure) - y) + wGaze * eyeGazeY) / kEyeTexSize;
     }
     geo->UnlockObjectVertices(eyeBlinkObj);
 }
