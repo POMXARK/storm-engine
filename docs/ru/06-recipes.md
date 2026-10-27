@@ -752,5 +752,5 @@ SCENE=town TOWN=City_HighRock TOWN_AUTO=40 pdm-game/shots.sh build/Debug/engine 
 
 1. Найти центр радужки на текстуре головы (сеточный лист, координаты в текселях 256×256) и добавить `"<имя_текстуры>": [[x, y]]` в `tools/eyes_marks.json` (по метке на каждый размеченный глаз).
 2. `python tools/make_eyes.py <resource>` — уточняет эллипс и пишет `tools/eyes.json`.
-3. `python tools/pdm_character.py "<PDM>" <out> all` — режет голову сеткой и пишет `<out>/ini/eyes.ini`; скопировать модель и `eyes.ini` в `resource`.
-4. Проверить: `TOWN_AUTO=41 … pdm-game/shots.sh`, кадры глаз через `ffmpeg … tile`; в закрытом глазе не должно быть штрихов. Подводные камни — 07 §7.8.
+3. `python tools/pdm_character.py "<PDM>" <out> all` — делит рёбра над глазом (плотная сетка, и у гг) и пишет `<out>/ini/eyes.ini` и маркер `eyes.hero`; скопировать модель и `eyes.ini` в `resource`.
+4. Проверить: `SCENE=town TOWN_AUTO=40` (гг) / `41` (NPC) через `record.sh`, кадры глаз через `ffmpeg … tile`; глаз должен смыкаться полностью, не дёргаться. Подводные камни — 07 §7.8.
