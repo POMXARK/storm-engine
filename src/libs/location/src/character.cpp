@@ -2694,6 +2694,7 @@ struct EyeWindow
 struct EyeTable
 {
     float ramp = 3.0f;   // texels over which the window fades out: the cells of it show the rows between lid and skin
+    float gaze = 0.0f;   // darting of the eyes, 0..1 of kGazeX/kGazeY: off unless eyes.ini asks for it (gaze = 1)
     bool mirror = false; // one eye on the atlas for both: the two halves of the face dart to opposite sides
     std::vector<EyeWindow> windows;
 };
@@ -2715,6 +2716,7 @@ const EyeTable &FindEyeTable(const char *textureName)
         return table;
     table.mirror = ini->GetInt(section.c_str(), "mirror", 0) != 0;
     table.ramp = static_cast<float>(ini->GetDouble(section.c_str(), "ramp", 3.0));
+    table.gaze = static_cast<float>(ini->GetDouble(section.c_str(), "gaze", 0.0));
     char line[256];
     bool found = ini->ReadString(section.c_str(), "eye", line, sizeof(line), "");
     while (found)
@@ -2801,6 +2803,7 @@ void Character::UpdateEyeBlink(MODEL *m, float dltTime)
         eyeBlinkWin.assign(ob.num_vertices, -1);
         eyeBlinkRect.clear();
         eyeBlinkRamp = table->ramp;
+        eyeBlinkGaze = table->gaze;
         for (const auto &w : table->windows)
             eyeBlinkRect.insert(eyeBlinkRect.end(), {w.x0, w.x1, w.y0, w.y1, w.skin});
         for (int32_t i = 0; i < ob.num_vertices; i++)
@@ -2852,8 +2855,8 @@ void Character::UpdateEyeBlink(MODEL *m, float dltTime)
         // a random direction and a random length: left, right, up, down or between
         const float angle = rand() * (6.2831853f / RAND_MAX);
         const float length = 0.5f + rand() * (0.5f / RAND_MAX);
-        eyeGazeToX = centre ? 0.0f : std::cos(angle) * length * kGazeX;
-        eyeGazeToY = centre ? 0.0f : std::sin(angle) * length * kGazeY;
+        eyeGazeToX = centre ? 0.0f : std::cos(angle) * length * kGazeX * eyeBlinkGaze;
+        eyeGazeToY = centre ? 0.0f : std::sin(angle) * length * kGazeY * eyeBlinkGaze;
         eyeGazeTimer = 0.4f + rand() * (2.1f / RAND_MAX);
     }
     const float snap = std::min(dltTime / kGazeSnap, 1.0f);
