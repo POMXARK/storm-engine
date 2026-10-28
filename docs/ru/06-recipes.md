@@ -754,3 +754,30 @@ SCENE=town TOWN=City_HighRock TOWN_AUTO=40 pdm-game/shots.sh build/Debug/engine 
 2. `python tools/make_eyes.py <resource>` — уточняет эллипс и пишет `tools/eyes.json`.
 3. `python tools/pdm_character.py "<PDM>" <out> all` — делит рёбра над глазом (плотная сетка, и у гг) и пишет `<out>/ini/eyes.ini` и маркер `eyes.hero`; скопировать модель и `eyes.ini` в `resource`.
 4. Проверить: `SCENE=town TOWN_AUTO=40` (гг) / `41` (NPC) через `record.sh`, кадры глаз через `ffmpeg … tile`; глаз должен смыкаться полностью, не дёргаться. Подводные камни — 07 §7.8.
+
+## 6.29 Больше деталей в текстурах: апскейл и генеративная доработка
+
+Оригинальные текстуры — 64..256 px. UV меша от размера не зависит, поэтому новая текстура становится на место старой с тем же именем, `.gm` не трогается (окна глаз `eyes.ini` тоже в текселях 256×256, от размера не зависят). Общий порядок: оригинал → ×2/×4 апскейл → (по желанию) диффузионная доработка с низким denoise → проверка цвета и шва → в `resource`.
+
+**Шаг 0: бэкап.** `tools/pdm_tex_upscale.py` при первом запуске копирует оригиналы в `<game>/data/ai_models/tex_orig`, дальше всегда стартует от них; `--restore` возвращает.
+
+**Способ A: Real-ESRGAN (быстро, верно оригиналу).** `python tools/pdm_tex_upscale.py <game> <model> [--all] --scale 4 --max 1024 --method esrgan`. ComfyUI должен быть запущен (`--comfy http://127.0.0.1:8188`), модель `RealESRGAN_x4plus.pth`. Деталей почти не выдумывает: подходит как первый проход и для массовых мелких текстур.
+
+**Способ B: SD/SDXL img2img + Tile ControlNet (тайлы: стены, земля, брусчатка).**
+1. Поставить в ComfyUI: `ComfyUI_UltimateSDUpscale`, ControlNet Tile для SDXL (xinsir `controlnet-tile-sdxl` или union) и SDXL-чекпойнт (Juggernaut XL).
+2. Граф: Load Image → Upscale (Real-ESRGAN ×2) → **Ultimate SD Upscale** (tile 512, перекрытие 64, `denoise` 0,25–0,40, ControlNet Tile `strength` 0,8–1,0, steps 20–25, cfg 4–6) → Save Image. Промпт: «seamless cobblestone texture, high detail, photo, same colours» + негатив «text, watermark, lighting, shadows».
+3. Бесшовность: включить seamless/tiling (`ComfyUI-seamless-tiling`) или после прогона сдвинуть картинку на половину (`np.roll`) и прогнать ещё раз по шву.
+4. Чем выше `denoise`, тем больше выдумки и тем сильнее уезжает цвет: начинать с 0,25.
+
+**Способ C: SUPIR (много деталей, лица, ткань).** Нода `ComfyUI-SUPIR` (kijai), чекпойнт `SUPIR-v0Q` + SDXL-база; работает на ~12 ГБ видеопамяти с tiled VAE. Параметры: `restoration_scale` ~4, `s_churn` 5, `cfg` 4, steps 40, текст «high quality, detailed». Для лиц ставить низкий denoise и сверять черты с оригиналом.
+
+**Способ D: Qwen Image Edit (лица, одежда, гг).** Тот же `tools/pdm_comfy_refine_graph.py` / `comfy_view_refine.py` (шаблон «Qwen Image 2.1 image edit»), но вход — не вид модели, а сама текстура ×2. Промпт: «the same texture, add fine details of skin/fabric, keep the layout, colours and every shape in place». Шов у Qwen не гарантирован, для тайлов берите способ B.
+
+**Проверка (обязательно).**
+- Цвет: средние R,G,B новой текстуры (после уменьшения до размера оригинала) отличаются от оригинала не более чем на 3–5 %; при расхождении — выровнять по гистограмме (`skimage.exposure.match_histograms`).
+- Шов: `np.roll(img, (h//2, w//2), (0, 1))` и посмотреть крест по центру.
+- Раскладка: черты и швы лица не должны сместиться (UV-острова, окна глаз 40..80 × 129..143 у `hero_head`).
+- Альфа (волосы, листва, паруса) апскейлить Lanczos отдельно, генеративной модели её не давать.
+- В игре: `SCENE=town TOWN_AUTO=40` (лицо гг), кадры через `ffmpeg`; `error.log` пуст.
+
+**Нормали и PBR.** Движок использует обычные текстуры; рельеф из них не получить автоматически. Если нужен: Marigold (альбедо и шероховатость) + Lotus (глубина и нормали) в ComfyUI, но подключение нормалей — отдельная работа в шейдерах (см. `videos/normals`).
