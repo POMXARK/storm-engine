@@ -5,6 +5,7 @@
 #include "storm/errors/InvalidMessageFormatError.hpp"
 
 #include <execution>
+#include <fstream>
 
 #define INVALID_FA "Invalid function argument"
 #define BAD_FA "Bad function argument"
@@ -115,6 +116,7 @@ enum FUNCTION_CODE
     FUNC_CHECKFUNCTION,
     FUNC_GETENGINEVERSION,
     FUNC_SORT,
+    FUNC_WRITETEXTFILE,
 };
 
 INTFUNCDESC IntFuncTable[] = {
@@ -147,7 +149,7 @@ INTFUNCDESC IntFuncTable[] = {
     VAR_INTEGER, 1, "FindEntityNext", VAR_INTEGER, 2, "GetSymbol", VAR_STRING, 2, "IsDigit", VAR_INTEGER, 2,
     "SaveVariable", VAR_INTEGER, 2, "LoadVariable", VAR_INTEGER, 2, "SetControlTreshold", TVOID, 2, "LockControl",
     TVOID, 1, "TestRef", VAR_INTEGER, 1, "SetTimeScale", TVOID, 1, "CheckFunction", VAR_INTEGER, 0, "GetEngineVersion",
-    VAR_INTEGER, 1, "sort", TVOID};
+    VAR_INTEGER, 1, "sort", TVOID, 2, "WriteTextFile", TVOID};
 
 /*
 char * FuncNameTable[]=
@@ -2593,6 +2595,33 @@ DATA *COMPILER::BC_CallIntFunction(uint32_t func_code, DATA *&pVResult, uint32_t
         });
 
         break;
+    case FUNC_WRITETEXTFILE: {
+        // WriteTextFile(path, text): the settings of the game (the scripts have no other way to keep them)
+        pV2 = SStack.Pop(); // text
+        if (!pV2)
+        {
+            SetError(INVALID_FA);
+            break;
+        }
+        pV = SStack.Pop(); // path
+        if (!pV)
+        {
+            SetError(INVALID_FA);
+            break;
+        }
+        pV2->RefConvert();
+        pV2->Convert(VAR_STRING);
+        pV2->Get(pChar);
+        pV->RefConvert();
+        pV->Convert(VAR_STRING);
+        pV->Get(pChar2);
+        // the scripts have no escapes: the two characters \n are a line break, as in the texts of the interface
+        std::string text = pChar;
+        for (size_t at = text.find("\\n"); at != std::string::npos; at = text.find("\\n", at + 1))
+            text.replace(at, 2, "\n");
+        std::ofstream(pChar2, std::ios::binary | std::ios::trunc) << text;
+        break;
+    }
     }
     return nullptr;
 }

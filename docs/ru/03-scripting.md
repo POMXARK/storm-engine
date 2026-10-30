@@ -40,7 +40,7 @@
 | Математика | `Rand`, `frnd`, `abs`, `sqrt`, `sqr`, `sin`, `cos`, `tan`, `atan`, `atan2`, `asin`, `acos`, `Pow`, `shl`, `shr`, `and`, `or` |
 | Строки/типы | `sti`, `stf`, `fts`, `MakeInt`, `MakeFloat`, `strcut`, `findSubStr`, `strlen`, `GetSymbol`, `IsDigit`, `argb`, `Vartype`, `sort` |
 | Массивы/ссылки | `SetArraySize`, `GetArraySize`, `ClearRef`, `TestRef` |
-| Прочее | `Trace`, `Breakpoint`, `Stop`, `ExitProgram`, `GetDeltaTime`, `SetTimeScale`, `CheckFunction`, `GetTargetPlatform`, `GetEngineVersion` |
+| Прочее | `Trace`, `Breakpoint`, `Stop`, `ExitProgram`, `GetDeltaTime`, `SetTimeScale`, `CheckFunction`, `WriteTextFile(путь, текст)` (пишет файл, `\n` в тексте — перевод строки; так игра сохраняет настройки), `GetTargetPlatform`, `GetEngineVersion` |
 | Конфиги (config_library.cpp) | `LoadConfig`, `FindConfig`, `ListFiles` |
 
 ## 3.3 Сообщения: `SendMessage(&entity, "fmt", ...)`
