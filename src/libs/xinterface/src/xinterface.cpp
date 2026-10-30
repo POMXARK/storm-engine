@@ -888,6 +888,37 @@ uint64_t XINTERFACE::ProcessMessage(MESSAGE &message)
         }
     }
     break;
+    case MSG_INTERFACE_LOADPICTUREFROMSAVE: {
+        // the screenshot (128x128 A8R8G8B8) stored in a save file -> texture of a PICTURE node
+        const std::string &saveName = message.String();
+        const std::string &nodeName = message.String();
+        auto *pNod = m_pNodes ? m_pNodes->FindNode(nodeName.c_str()) : nullptr;
+        int32_t allDatSize = 0;
+        auto pdat = static_cast<char *>(core.GetSaveData(saveName.c_str(), allDatSize));
+        if (pdat == nullptr)
+            break;
+        const auto *head = reinterpret_cast<SAVE_DATA_HANDLE *>(pdat);
+        const int32_t side = 128;
+        const char *pixels = pdat + sizeof(SAVE_DATA_HANDLE) + head->StringDataSize;
+        if (pNod && pNod->m_nNodeType == NODETYPE_PICTURE && head->SurfaceDataSize >= side * side * 4 &&
+            allDatSize >= static_cast<int32_t>(sizeof(SAVE_DATA_HANDLE)) + head->StringDataSize + side * side * 4)
+        {
+            const int32_t texId = pRenderService->TextureCreate(side, side, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED);
+            auto *tex = static_cast<IDirect3DTexture9 *>(pRenderService->GetTextureFromID(texId));
+            D3DLOCKED_RECT lr;
+            if (tex && tex->LockRect(0, &lr, nullptr, 0) == D3D_OK)
+            {
+                const int32_t pitch = head->SurfaceDataSize / side;
+                for (int32_t y = 0; y < side; y++)
+                    memcpy(static_cast<char *>(lr.pBits) + lr.Pitch * y, pixels + pitch * y, side * 4);
+                tex->UnlockRect(0);
+                static_cast<CXI_PICTURE *>(pNod)->SetNewPictureByPointer(texId);
+            }
+            pRenderService->TextureRelease(texId);
+        }
+        delete pdat;
+    }
+    break;
     case MSG_INTERFACE_SAVE_FILE_FIND: {
         char param[256];
         int32_t saveNum = message.Long();
