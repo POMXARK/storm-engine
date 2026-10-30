@@ -278,6 +278,8 @@ int CXI_FORMATEDTEXT::CommandExecute(int wActCode)
             case ACTION_MOUSECLICK:
             case ACTION_MOUSERCLICK:
                 if (!m_bFrized)
+                    SelectGroupAt(ptrOwner->GetMousePoint().x, ptrOwner->GetMousePoint().y);
+                if (!m_bFrized)
                     core.Event("FormatedTextActivate", "sl", m_nodeName, m_nCurGroupNum);
                 break;
             case ACTION_ACTIVATE:
@@ -1324,7 +1326,12 @@ void CXI_FORMATEDTEXT::SetVertexToNewGroup(bool bUpDirect, int32_t upIdx, int32_
 
 void CXI_FORMATEDTEXT::MouseThis(float fX, float fY)
 {
-    return;
+    // the cursor over a row does not move the list; a click does (SelectGroupAt)
+}
+
+// the row under the mouse becomes the current one of a list with a cursor
+void CXI_FORMATEDTEXT::SelectGroupAt(float fX, float fY)
+{
     if (!m_bSelectableCursor)
         return;
     int32_t nNum = static_cast<int32_t>((fY - m_rect.top) / m_vertOffset + .1f);

@@ -42,6 +42,7 @@ class CXI_FORMATEDTEXT : public CINODE
     int CommandExecute(int wActCode) override;
     bool IsClick(int buttonID, int32_t xPos, int32_t yPos) override;
     void MouseThis(float fX, float fY) override;
+    void SelectGroupAt(float fX, float fY);
     void ChangePosition(XYRECT &rNewPos) override;
     void SaveParametersToIni() override;
     uint32_t MessageProc(int32_t msgcode, MESSAGE &message) override;
