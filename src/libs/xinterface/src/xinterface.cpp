@@ -2,7 +2,11 @@
 
 #include <SDL2/SDL.h>
 
+#include <chrono>
+#include <cstring>
+
 #include "xinterface.h"
+
 #include "back_scene/back_scene.h"
 #include "help_chooser/help_chooser.h"
 #include "info_handler.h"
@@ -128,6 +132,8 @@ XINTERFACE::XINTERFACE()
     m_dwGameTimeHour = 0;
 
     m_nInterfaceMode = DEFAULT_IMODE;
+    m_nMouseFrames = 1;
+    m_nMouseFrameMs = 100;
     m_idTex = -1; // the texture of the mouse cursor, made in LoadIni and released in ~XINTERFACE
     m_idHelpTexture = -1;
     m_dwContHelpColor = ARGB(255, 128, 128, 128);
@@ -458,6 +464,15 @@ void XINTERFACE::Realize(uint32_t)
     // Mouse pointer show
     if (m_bShowMouse)
     {
+        if (m_nMouseFrames > 1)
+        {
+            const auto now = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                 std::chrono::steady_clock::now().time_since_epoch())
+                                 .count();
+            const auto frame = static_cast<int32_t>((now / m_nMouseFrameMs) % m_nMouseFrames);
+            vMouse[0].tu = vMouse[1].tu = static_cast<float>(frame) / m_nMouseFrames;
+            vMouse[2].tu = vMouse[3].tu = static_cast<float>(frame + 1) / m_nMouseFrames;
+        }
         pRenderService->TextureSet(0, m_idTex);
         pRenderService->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, XI_ONLYONETEX_FVF, 2, vMouse, sizeof(XI_ONLYONETEX_VERTEX),
                                         "iMouseCurShow");
@@ -1218,6 +1233,18 @@ void XINTERFACE::LoadIni()
     char param2[256];
     sscanf(param, "%[^,],%d,size:(%d,%d),pos:(%d,%d)", param2, &m_lMouseSensitive, &MouseSize.x, &MouseSize.y,
            &m_lXMouse, &m_lYMouse);
+    // an animated cursor is a strip of equal frames side by side: ",frames:(count,ms)" after the size and pos
+    m_nMouseFrames = 1;
+    if (const char *frames = strstr(param, "frames:"))
+    {
+        int32_t count = 1;
+        int32_t ms = 100;
+        if (sscanf(frames, "frames:(%d,%d)", &count, &ms) >= 1 && count > 1)
+        {
+            m_nMouseFrames = count;
+            m_nMouseFrameMs = ms > 0 ? ms : 100;
+        }
+    }
     // the cursor texture follows the layout of the window LoadIni is making: the handle of the previous
     // one is released, so the refcount of DX9RENDER::TextureCreate (s_device.cpp:1417, 1433) stays
     // balanced and a remake does not leak a reference that nothing ever frees

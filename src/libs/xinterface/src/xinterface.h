@@ -63,6 +63,8 @@ class XINTERFACE : public XINTERFACE_BASE
     int32_t m_lXMouse, m_lYMouse; // mouse pointer corrector for calculate active point
     POINT MouseSize;
     int32_t m_idTex;
+    int32_t m_nMouseFrames; // frames of the cursor in a strip of the texture (1: a still picture)
+    int32_t m_nMouseFrameMs; // how long a frame of the cursor shows
     XI_ONLYONETEX_VERTEX vMouse[4];
     int32_t m_lMouseSensitive;
     bool m_bMouseClick;
