@@ -154,9 +154,30 @@ CINODE *CINODE::DoAction(int wActCode, bool &bBreakPress, bool bFirstPress)
     // return other or self node
     if (m_nCurrentCommandNumber == -1)
     {
+        CINODE *pRet = nullptr;
         if (n < COMMAND_QUANTITY)
-            return ptrOwner->FindNode(m_pCommands[n].sRetControl, nullptr);
-        return ptrOwner->FindNode(m_pCommands[i].sRetControl, nullptr);
+            pRet = ptrOwner->FindNode(m_pCommands[n].sRetControl, nullptr);
+        else
+            pRet = ptrOwner->FindNode(m_pCommands[i].sRetControl, nullptr);
+        // the arrows step over the buttons that are not selectable, or the cursor would stop at one of them
+        const auto step = pCommandsList[n < COMMAND_QUANTITY ? n : i].code;
+        if (step == ACTION_UPSTEP || step == ACTION_DOWNSTEP)
+        {
+            for (int hops = 0; hops < 32 && pRet != nullptr && pRet != this && pRet->m_nNodeType == NODETYPE_TEXTBUTTON &&
+                               !pRet->m_bSelected;
+                 hops++)
+            {
+                int k = 0;
+                while (k < COMMAND_QUANTITY && pCommandsList[k].code != step)
+                    k++;
+                if (k == COMMAND_QUANTITY || !pRet->m_pCommands[k].bUse)
+                    return this;
+                pRet = ptrOwner->FindNode(pRet->m_pCommands[k].sRetControl, nullptr);
+            }
+            if (pRet != nullptr && pRet->m_nNodeType == NODETYPE_TEXTBUTTON && !pRet->m_bSelected)
+                return this;
+        }
+        return pRet;
     }
     return nullptr;
 }
