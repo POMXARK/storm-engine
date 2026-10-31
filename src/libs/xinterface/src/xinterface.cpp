@@ -1128,6 +1128,13 @@ uint64_t XINTERFACE::ProcessMessage(MESSAGE &message)
     }
     break;
 
+    case MSG_INTERFACE_SET_MOUSE_POINTER: { // "s": a MousePointer line of interfaces.ini
+        const char *pcPointer = message.StringPointer();
+        if (pcPointer != nullptr && pcPointer[0] != '\0' && m_idTex != -1)
+            SetMousePointer(pcPointer, true);
+    }
+    break;
+
     case MSG_INTERFACE_MENU_ACTION: { // "lss": the name of a command of xutil.cpp, then the name of a node ("" = current)
         const char *pcAction = message.StringPointer();
         const char *pcNodeName = message.StringPointer();
@@ -1154,6 +1161,35 @@ uint64_t XINTERFACE::ProcessMessage(MESSAGE &message)
 }
 
 static const char *RESOURCE_FILENAME = "resource\\ini\\interfaces\\interfaces.ini";
+
+// the mouse cursor from "texture,sensitive,size:(w,h),pos:(x,y)[,frames:(count,ms)]": the line of MousePointer of
+// interfaces.ini, or the one a script gives with MSG_INTERFACE_SET_MOUSE_POINTER (a screen with a cursor of its own)
+void XINTERFACE::SetMousePointer(const char *param, bool bRelease)
+{
+    char param2[256];
+    sscanf(param, "%[^,],%d,size:(%d,%d),pos:(%d,%d)", param2, &m_lMouseSensitive, &MouseSize.x, &MouseSize.y,
+           &m_lXMouse, &m_lYMouse);
+    // an animated cursor is a strip of equal frames side by side: ",frames:(count,ms)" after the size and pos
+    m_nMouseFrames = 1;
+    if (const char *frames = strstr(param, "frames:"))
+    {
+        int32_t count = 1;
+        int32_t ms = 100;
+        if (sscanf(frames, "frames:(%d,%d)", &count, &ms) >= 1 && count > 1)
+        {
+            m_nMouseFrames = count;
+            m_nMouseFrameMs = ms > 0 ? ms : 100;
+        }
+    }
+    vMouse[0].tu = vMouse[1].tu = 0.f;
+    vMouse[2].tu = vMouse[3].tu = 1.f;
+    // the cursor texture follows the layout of the window LoadIni is making: the handle of the previous
+    // one is released, so the refcount of DX9RENDER::TextureCreate (s_device.cpp:1417, 1433) stays
+    // balanced and a remake does not leak a reference that nothing ever frees
+    if (bRelease)
+        pRenderService->TextureRelease(m_idTex);
+    m_idTex = pRenderService->TextureCreate(param2);
+}
 
 void XINTERFACE::LoadIni()
 {
@@ -1261,27 +1297,7 @@ void XINTERFACE::LoadIni()
     // set mouse cursor
     char param[256];
     ini->ReadString(section, "MousePointer", param, sizeof(param) - 1, "");
-    char param2[256];
-    sscanf(param, "%[^,],%d,size:(%d,%d),pos:(%d,%d)", param2, &m_lMouseSensitive, &MouseSize.x, &MouseSize.y,
-           &m_lXMouse, &m_lYMouse);
-    // an animated cursor is a strip of equal frames side by side: ",frames:(count,ms)" after the size and pos
-    m_nMouseFrames = 1;
-    if (const char *frames = strstr(param, "frames:"))
-    {
-        int32_t count = 1;
-        int32_t ms = 100;
-        if (sscanf(frames, "frames:(%d,%d)", &count, &ms) >= 1 && count > 1)
-        {
-            m_nMouseFrames = count;
-            m_nMouseFrameMs = ms > 0 ? ms : 100;
-        }
-    }
-    // the cursor texture follows the layout of the window LoadIni is making: the handle of the previous
-    // one is released, so the refcount of DX9RENDER::TextureCreate (s_device.cpp:1417, 1433) stays
-    // balanced and a remake does not leak a reference that nothing ever frees
-    if (bReloaded)
-        pRenderService->TextureRelease(m_idTex);
-    m_idTex = pRenderService->TextureCreate(param2);
+    SetMousePointer(param, bReloaded);
 
     if (auto *editor = core.GetEditor(); editor == nullptr || !editor->IsFocused())
     {

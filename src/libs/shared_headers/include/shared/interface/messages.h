@@ -49,6 +49,7 @@
 #define MSG_INTERFACE_LOADPICTUREFROMSAVE 45059
 #define MSG_INTERFACE_GETPICTUREFROMPICTURE 45060
 #define MSG_INTERFACE_SET_TOOLTIP 45061
+#define MSG_INTERFACE_SET_MOUSE_POINTER 45063 // "s" a MousePointer line of interfaces.ini: the cursor of this screen
 #define MSG_INTERFACE_MENU_ACTION 45062 // "lss" name of a command of xutil.cpp, name of a node ("" = the current node)
 
 #define MSG_STRSERVICE_OPEN_FILE 45100

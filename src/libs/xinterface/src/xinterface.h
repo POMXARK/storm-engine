@@ -246,6 +246,7 @@ class XINTERFACE : public XINTERFACE_BASE
     void ShowPrevTexture();
     // initialisation function
     void LoadIni();
+    void SetMousePointer(const char *param, bool bRelease);
     void LoadDialog(const char *sFileName);
     // control function
     CINODE *GetActivingNode(CINODE *findRoot);
