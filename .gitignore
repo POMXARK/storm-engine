@@ -4,3 +4,8 @@
 .vs
 .idea
 *.user
+
+# written by the demos while they run
+imgui.ini
+__pycache__/
+scene-test_*.log
